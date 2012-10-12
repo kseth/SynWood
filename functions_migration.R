@@ -13,7 +13,20 @@ varioTest <- variog(coords = maps[,c("X","Y")], data = maps$infest1, breaks = ge
 # Generating probability matrix
 #======================
 
-generate_prob_mat <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, threshold, sp, dist_mat, SB, cumul=FALSE){
+generate_prob_mat <- function(halfDistJ, 
+			      halfDistH, 
+			      # rateMove, 
+			      useDelta, 
+			      delta, 
+			      rateHopInMove, 
+			      rateSkipInMove, 
+			      rateJumpInMove, 
+			      threshold, 
+			      sp, 
+			      dist_mat,
+			      SB,
+			      cumul=FALSE # out cumulative proba for C
+){
 
 	### Generating hop, skip, jump matrices
 
@@ -73,8 +86,20 @@ generate_prob_mat <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMo
 	return(probMat)
 }
 # fast function keeping varibles for skip/hop/jumps but not as fix rates
-fast_prob_mat <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, threshold, sp, dist_mat, SB, cumul=FALSE){
-
+fast_prob_mat <- function(halfDistJ, 
+			      halfDistH, 
+			      # rateMove, 
+			      useDelta, 
+			      delta, 
+			      rateHopInMove, 
+			      rateSkipInMove, 
+			      rateJumpInMove, 
+			      threshold, 
+			      sp, 
+			      dist_mat,
+			      SB,
+			      cumul=FALSE # out cumulative proba for C
+){
 
 	### Generating hop, skip, jump matrices
 
@@ -137,6 +162,21 @@ fast_prob_mat <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, 
 # Migration functions
 #=============================
 ##  define the migration functions
+
+basicMigration<-function(infestH, probMat){
+  newInfestHouse <- infestH
+
+  for(houseInit in infestH)
+  {
+
+    prob <- probMat[houseInit, ]
+    rand <- runif(dim(probMat)[1])
+    newInfestHouse <- union(newInfestHouse, which(prob>rand))
+  }
+
+  return(newInfestHouse)
+
+}
 
 # semi-gillespie: draw the next time of event for each house
 #                 not nearly as fast as the gillespie but may 
@@ -327,7 +367,7 @@ if(class(importOk)!="try-error"){
 	}
 
 	# make distance classes taking into account streets	
-	makeDistClassesWithStreets<-function(X,Y, breaks, blockIndex){
+	makeDistClassesWithStreets<-function(X,Y,breaks, blockIndex){
 	
 	  	# checks to avoid segfault
 	  if(length(X)!=length(Y) || length(X) != length(blockIndex))
@@ -385,8 +425,133 @@ if(class(importOk)!="try-error"){
 	}
 		
 	
-	# pass cumulProbMat and dist_out to make this method faster	
-	multiGilStat<-function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, halfDistJ = -1, halfDistH = -1, useDelta = -1, delta = -1, rateHopInMove = -1, rateSkipInMove = -1, rateJumpInMove = -1, breaksStreetVar = breaksGenVar, dist_out = NULL){
+	multiGilStat<- function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE){
+		
+		# seed <- runif(1, 1, 2^31-1)
+		#for random seeding of stochastic simulation	
+
+	  	L<-dim(cumulProbMat)[1]
+		indexInfest <- rep(-1, L)
+		timeI <- rep(-1, L)
+		infested <- rep(0, L)
+		indexInfest[1:length(infestH)] <- infestH - 1
+		timeI[1:length(timeH)] <- timeH
+		infested[infestH] <- 1
+		infestedDens<-rep(0,length(infested))
+
+		start <- Sys.time()
+		dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+		# dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
+		end <- Sys.time()
+		# cat("makeDistClass time:",end-start,"\n")
+
+		dist_mat <- dist_out$dists
+		dist_indices <- dist_out$CClassIndex
+		cbin <- dist_out$classSize
+		cbinas <- dist_out$classSizeAS
+		cbinsb <- dist_out$classSizeSB
+	
+		# stats selection
+		# used to be 2*length(dist_out$classSize)
+		# now 7 (same block, across streets, general) semivariance and stdev and (same block - across streets)
+		sizeVvar<-7*length(dist_out$classSize)
+		nbStats<-sizeVvar+1
+		statsTable<-mat.or.vec(nbStats,Nrep)
+
+		out<- .C("multiGilStat",
+			 # simulation parameters
+			 probMat = as.numeric(cumulProbMat),
+			 distMat = as.numeric(dist_mat),
+			 blockIndex = as.integer(blockIndex),
+			 simul = as.integer(simul),
+			 infested = as.integer(infested),
+			 infestedDens = as.numeric(infestedDens),
+			 endIndex = as.integer(length(infestH) - 1),
+			 L = as.integer(L),
+			 endTime = as.numeric(endTime),
+			 indexInfest = as.integer(indexInfest),
+			 timeI = as.numeric(timeI),
+			 rateMove = as.numeric(rateMove),
+			 sizeRateMove = as.integer(length(rateMove)),
+			 seed = as.integer(seed),
+			 Nrep = as.integer(Nrep),
+			 # stats
+			 getStats=as.integer(getStats),
+			 nbins = as.integer(length(breaksGenVar)),
+			 cbin = as.integer(cbin),
+			 cbinas = as.integer(cbinas),
+			 cbinsb = as.integer(cbinsb),
+			 indices = as.integer(dist_indices),
+			 sizeVvar = as.integer(sizeVvar),
+			 statsTable = as.numeric(statsTable),
+			 nbStats = as.integer(nbStats)
+			 )
+
+		out$infestedDens<-out$infestedDens/(Nrep*length(rateMove));
+		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
+		good <- which(!is.nan(out$statsTable[, 1]))
+		out$statsTable <- out$statsTable[good, ]
+		#statsTable now includes 7 stats
+		#LDsynLikSpat doesn't account for this, make statsTable only include first two stats for backward compatibility
+		#out$statsTable<-out$statsTable[1:(2*(length(genIntervals)-1)), ]
+		infestH <- out$indexInfest
+		infestH <- infestH[which(infestH != -1)] + 1
+		out$indexInfest <- infestH
+		timeH <- out$timeI
+		timeH <- timeH[which(infestH != -1)]
+		out$timeI <- timeH
+
+		return(out)
+		# return(list(infestH, timeI))
+	}
+	
+	getPosteriorMapsLD<-function(Fit,Data,repByTheta=1){
+		Data$Nrep<-repByTheta
+		meanMap<-0*rep(0,dim(Data$maps)[1])
+		thetas<-as.matrix(Fit$Posterior2)
+		nbThetas<-dim(thetas)[1]
+		for(numTheta in 1:nbThetas){
+			theta<-thetas[numTheta,]
+			ModelOutBest<-Model(theta,Data,postDraw=TRUE)
+			meanMap<-meanMap+ModelOutBest$yhat
+		}
+		
+		meanMap<-meanMap/nbThetas
+		attributes(meanMap)$nbThetas<-nbThetas
+		attributes(meanMap)$repByTheta<-repByTheta
+
+		return(meanMap)
+	}
+	generate_prob_mat_C <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, dist_mat, blockIndex, L=sqrt(length(dist_mat)), cumul=FALSE )
+	{
+		prob_mat <- mat.or.vec(L, L)
+		out <- .C("generateProbMat",
+			 halfDistJ = as.numeric(halfDistJ),
+			 halfDistH = as.numeric(halfDistH), 
+			 useDelta = as.integer(useDelta), 
+			 delta = as.numeric(delta), 
+			 rateHopInMove = as.numeric(rateHopInMove), 
+			 rateSkipInMove = as.numeric(rateSkipInMove), 
+			 rateJumpInMove = as.numeric(rateJumpInMove), 
+			 dist_mat = as.numeric(dist_mat),
+			 prob_mat = as.numeric(prob_mat),
+			 blockIndex = as.integer(blockIndex),
+			 cumul = as.integer(cumul),
+			 L = as.integer(L))
+		if(cumul){
+			byrow<-FALSE
+		}else{
+			byrow<-TRUE
+		}
+
+		return(matrix(out$prob_mat, L, L, byrow = byrow))
+	}
+
+
+
+	# call multiple Gillespie functions at onces in C
+	# this function allows for computation of the probMat directly in C when passed set of parameters
+	multiGilStat_C_ProbMat<- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed = 1, simul=TRUE){
 		
 		# seed <- runif(1, 1, 2^31-1)
 		#for random seeding of stochastic simulation	
@@ -399,54 +564,31 @@ if(class(importOk)!="try-error"){
 		infested[infestH] <- 1
 		infestedDens<-rep(0,length(infested))
 
-		if(is.null(dist_out))	
-			dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-			
+		start <- Sys.time()
+		dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+		end <- Sys.time()
+		# cat("makeDistClass time:",end-start,"\n")
+
 		dist_mat <- dist_out$dists
 		dist_indices <- dist_out$CClassIndex
 		cbin <- dist_out$classSize
 		cbinas <- dist_out$classSizeAS
 		cbinsb <- dist_out$classSizeSB
-		
-		useProbMat <- TRUE		
 
-		# if cumulProbMat is not passed, create blank cumulProbMat for C computation
-		# set useProbMat to FALSE	
-		if(is.null(cumulProbMat)){
-			cumulProbMat <- mat.or.vec(L, L)
-			useProbMat <- FALSE
-		}else{ # else pass dummy dist_mat so as not to take up memory space	
-			dist_mat <- -1
-		}
-	
+		prob_mat <- mat.or.vec(L, L)
+		
 		# stats selection
-		# need to implement system where we can add and remove stats
-		###===================================
-		## CURRENT STATS:
-		## General Semivariance
-		## General Semivariance Std. Dev.
-		## Interblock Semivariance
-		## Interblock Semivariance Std. Dev.
-		## Intrablock Semivariance
-		## Intrablock Semivariance Std. Dev.
-		## By block Semivariance
-		## By block Semivariance Std. Dev.
-		##	= 8 * length(cbin)
-		## Number Infested Houses
-		## Number Infested Blocks
-		## (Infested Houses)/(Infested Blocks)
-		##	= 8 * length(cbin) + 3
-		###===================================
-		nbStats<- 8*length(cbin) + 3
+		# used to be 2*length(dist_out$classSize)
+		# now 6 (same streets, across streets, general) semivariance and stdev
+		sizeVvar<-6*length(dist_out$classSize)
+		nbStats<-sizeVvar+1
 		statsTable<-mat.or.vec(nbStats,Nrep)
 
-
-		out<- .C("multiGilStat",
+		out<- .C("multiGilStat_C_ProbMat",
 			 # simulation parameters
-			 probMat = as.numeric(cumulProbMat),
-			 useProbMat = as.integer(useProbMat),
-			 distMat = as.numeric(dist_mat), 
-		         halfDistJ = as.numeric(halfDistJ),
+			 dist_mat = as.numeric(dist_mat),
+			 prob_mat = as.numeric(prob_mat),
+			 halfDistJ = as.numeric(halfDistJ),
 			 halfDistH = as.numeric(halfDistH), 
 			 useDelta = as.integer(useDelta), 
 			 delta = as.numeric(delta), 
@@ -466,26 +608,18 @@ if(class(importOk)!="try-error"){
 			 seed = as.integer(seed),
 			 Nrep = as.integer(Nrep),
 			 # stats
-			 getStats=as.integer(getStats),
 			 nbins = as.integer(length(breaksGenVar)),
 			 cbin = as.integer(cbin),
 			 cbinas = as.integer(cbinas),
 			 cbinsb = as.integer(cbinsb),
+			 sizeVvar = as.integer(sizeVvar),
 			 indices = as.integer(dist_indices),
 			 statsTable = as.numeric(statsTable),
 			 nbStats = as.integer(nbStats)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
-	
-		# make matrix out of statsTable and clean away NANs introduced in C
 		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
-		
-		# remove interblock and intrablock stats, they're causing problems
-		out$statsTable<-out$statsTable[c(1:11, 12:22, 67:77, 78:88, 89, 90, 91), ]	
-		keep <- which(!is.nan(out$statsTable[, 1]))
-		out$statsTable<-out$statsTable[keep, ]
-
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1
 		out$indexInfest <- infestH
@@ -494,46 +628,11 @@ if(class(importOk)!="try-error"){
 		out$timeI <- timeH
 
 		return(out)
+		# return(list(infestH, timeI))
 	}
-
-	getPosteriorMaps<-function(Fit,Data,repByTheta=1){
-		Data$Nrep<-repByTheta
-		meanMap<-0*rep(0,dim(Data$maps)[1])
-		thetas<-as.matrix(Fit$Posterior2)
-		nbThetas<-dim(thetas)[1]
-		for(numTheta in 1:nbThetas){
-			theta<-thetas[numTheta,]
-			ModelOutBest<-Model(theta,Data,postDraw=TRUE)
-			meanMap<-meanMap+ModelOutBest$yhat
-		}
-		
-		meanMap<-meanMap/nbThetas
-		attributes(meanMap)$nbThetas<-nbThetas
-		attributes(meanMap)$repByTheta<-repByTheta
-
-		return(meanMap)
-	}
-
-	generate_prob_mat_C <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, dist_mat, blockIndex, L, cumul=FALSE )
-	{
-		prob_mat <- mat.or.vec(L, L)
-		out <- .C("generateProbMat",
-			 halfDistJ = as.numeric(halfDistJ),
-			 halfDistH = as.numeric(halfDistH), 
-			 useDelta = as.integer(useDelta), 
-			 delta = as.numeric(delta), 
-			 rateHopInMove = as.numeric(rateHopInMove), 
-			 rateSkipInMove = as.numeric(rateSkipInMove), 
-			 rateJumpInMove = as.numeric(rateJumpInMove), 
-			 dist_mat = as.numeric(dist_mat),
-			 prob_mat = as.numeric(prob_mat),
-			 blockIndex = as.integer(blockIndex),
-			 cumul = as.integer(cumul),
-			 L = as.integer(L))
-
-		return(matrix(out$prob_mat, L, L, byrow = TRUE))
-	}
-
+	
+	
+	
 }
 
 
@@ -584,12 +683,109 @@ updatePredict<-function(Fit,Data,infestHints,repByTheta=1000){
       return(meanMap)
     }
 
-getBestPredict<-function(maps,cumulProbMat,init,nbit=52*2,Nrep=1000){
-  infestH<-which(init==1)
-  outBase <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex=maps$blockIndex, infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove, Nrep, coords = maps[, c("X", "Y")], breaks = genIntervals, simul=TRUE,getStats=FALSE)
-  return(postMap)
+simulObserved<-function(infested,openRate,detectRate){
+  # initial state
+  observed<-infested
+  nbHouses<-length(infested)
+  cat("Total:", nbHouses,"; Infested:",sum(infested));
+
+  # only openRate of houses observed 
+  nbHousesNonObserved<-rpois(n=1,lambda=nbHouses*(1-openRate))
+  observed[sample(1:nbHouses,nbHousesNonObserved)]<-0
+  cat("; Openned Inf:", sum(observed));
+
+  # only XX% of infested are observed infested
+  nbNonDetected<-rpois(n=1,lambda=sum(observed)*(1-detectRate))
+  nonDetected<-sample(which(observed==1),nbNonDetected)
+  observed[nonDetected]<-0
+  cat("; Obs Inf:", sum(observed),"\n");
+
+  return(observed)
 }
 
+getBestPredict<-function(maps,cumulProbMat,init,nbit=52*2,Nrep=10000){
+  infestH<-which(init==1)
+  outBase <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex=maps$blockIndex, infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove, Nrep, coords = maps[, c("X", "Y")], breaks = genIntervals, simul=TRUE,getStats=FALSE)
+  return(outBase$infestedDens)
+}
+
+getPosteriorMaps<-function(maps,thetas,cumulProbMat=NULL,initInf,nbit,repByTheta=10){
+
+  thetas<-as.matrix(thetas)
+  nbThetas<-dim(thetas)[1]
+
+
+  infestH<-which(initInf==1)
+  infestedDens <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex=maps$blockIndex, infestH, timeH=rep(-1,length(infestH)), endTime = nbit, thetas, repByTheta, coords = maps[, c("X", "Y")], breaks = genIntervals, simul=TRUE,getStats=FALSE)$infestedDens
+
+  # infestedDens<-rep(0,length(initInf))
+  # for(numTheta in 1:nbThetas){
+  #         if(is.null(cumulProbMat)){
+  #     # todo get cumulProbMat, hopefully integrated in multiGilStat
+  #   }
+  #   rateMove<-thetas[numTheta]
+  #   cat("rateMove:",rateMove);
+
+  #   # simulations
+  #   outBase <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex=maps$blockIndex, infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove, repByTheta, coords = maps[, c("X", "Y")], breaks = genIntervals, simul=TRUE,getStats=FALSE)
+  #   infestedDens<-outBase$infestedDens+infestedDens
+  # }
+  # infestedDens<-infestedDens/nbThetas
+
+  return(infestedDens)
+}
+
+
+#===========================
+# simple model: regression principles
+#===========================
+
+# use times 1 year and 2 years to 
+# - set beta of the link 
+# (distance to nearest infested at t)-> (infestation  at t+1 years)
+# (- beta for number of streets)
+# - make a prediction for 3 years 
+
+# in addition of the problems to extrapolates this thing at different years
+# we expect to show that this is not a good predictor of the possible 
+# => set != seeds at t=3years, and evaluate the quality of prediction of the possibles
+#    then do the same for the wood approach and hopefully will be better
+#    the problem is the criterium, so look at: mean quality, sd quality
+
+
+#============================
+# simplest model: glm with closest infested neighbor at t-1
+#============================
+# get the nearest neighbor of coordsOrig in coordsNeigh
+getNearestNeighDist<-function(coordsOrig,coordsNeigh=coordsOrig,tr=NULL){
+	if(is.null(tr)){ # set tr to the maximum possible distance
+		xrange<-range(c(coordsOrig$X,coordsNeigh$X))
+		yrange<-range(c(coordsOrig$Y,coordsNeigh$Y))
+		xextent<-xrange[2]-xrange[1]
+		yextent<-yrange[2]-yrange[1]
+		tr<-sqrt(xextent^2+yextent^2)
+	}
+	distToInf<-nearest.dist(coordsOrig,coordsNeigh,delta=tr)
+	distToInf<-as.matrix(distToInf)
+	nearestNeigh<-apply(distToInf,1,min)
+	return(nearestNeigh)
+}
+
+# get the basic model
+getBasicModel<-function(maps,infest1Name,infest2Name){
+  maps$nearestInf<-getNearestNeighDist(maps[,c("X","Y")],maps[which(maps[,infest1Name]==1),c("X","Y")])
+
+  basicModel<-glm(maps[,infest2Name]~nearestInf,data=maps,family=binomial())
+}
+# make prediction with basic model
+predictBasicModel<-function(maps,infestInitName,model=basicModel,timePredictOverTimeTraining=1){
+  maps$nearestInf<-getNearestNeighDist(maps[,c("X","Y")],maps[which(maps[,infestInitName]==1),c("X","Y")])/timePredictOverTimeTraining
+  predicted<-predict(model,newdata=maps,type="response")
+  return(predicted)
+}
+
+
+
 # Tests
-test_file("test-functions_migration.R")
+# test_file("test-functions_migration.R")
 
