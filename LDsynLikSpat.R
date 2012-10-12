@@ -15,7 +15,7 @@ source("functions_migration.R")
 #==================
 #  Params, if modifying stats: look for multiGilStat
 #==================
-Nrep=500;
+Nrep=300;
 n.mc=30000
 set.seed(1)
 genIntervals <- seq(0, 250, 30) # distance classes for the general variogram
