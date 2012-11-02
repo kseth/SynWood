@@ -2,15 +2,10 @@
 source("param.r")
 
 test_that("stats computations",{
-	DistClasses<-makeDistClasses(maps$X,maps$Y,genIntervals)
-	DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, blockIndex)
-	nbpairs<-(length(maps$X)^2-length(maps$X))/2
-	nbDistOk<-count(DistClasses$dists<max(genIntervals) & DistClasses$dists>0)
-	nbpairs<-(length(maps$X)^2-length(maps$X))/2
-	nbDistOk<-count(DistClasses$dists<max(genIntervals) & DistClasses$dists>0)
-	expect_true(nbDistOk<nbpairs)
-	expect_equal(sum(DistClasses$classSize),nbDistOk) # all dist ok are in bins
-	expect_equal(count(DistClasses$dists>=max(genIntervals)), count(DistClasses$CClassIndex== -1)) # the -1 correspond to pairs out of dist range
+	  varioTest <- variog(coords = maps[,c("X","Y")], data = maps$infest1, breaks = genIntervals)
+
+	  DistClasses<-makeDistClasses(maps$X,maps$Y,genIntervals)
+	  DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, blockIndex)
 	expect_true(all.equal(DistClasses$classSize,varioTest$n))
 	expect_true(all.equal(DistClasses$classSize, DistClasses$classSizeSB + DistClasses$classSizeAS))
 
@@ -36,6 +31,29 @@ test_that("probmatR and probmatC equivalent",{
 	expect_true(all.equal(cumulProbMatR, cumulProbMatC))
 	expect_true(all.equal(probMatR, probMatC))
 })
+test_that("test probMat for Grant Matrix",{
+	  X<-seq(0,100,20)
+Y<-seq(0,100,20)
+blockIndex<-c(1,1,2,2,3,3)
+DistClasses<-makeDistClassesWithStreets(X,Y,genIntervals, blockIndex)
+probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=FALSE)
+testNotCumul<-matrix(c(
+0.000,1.000,0.001,0.001,0.001,0.001,
+1.000,0.000,0.100,0.001,0.001,0.001,
+0.001,0.100,0.000,1.000,0.001,0.001,
+0.001,0.001,1.000,0.000,0.100,0.001,
+0.001,0.001,0.001,0.100,0.000,1.000,
+0.001,0.001,0.001,0.001,1.000,0.000),nrow=6)
+expect_true(all.equal(testNotCumul,probMat))
+probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=TRUE)
+testCumul<-apply(testNotCumul,2,cumsum)
+expect_true(all.equal(testCumul,probMat))
+
+})
+DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, blockIndex)
+start<-Sys.time()
+probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=TRUE)
+cat(Sys.time()-start)
 
 test_that("getPosteriorMaps (and multiGilStats behind the scene)",{
 	source("param.r")

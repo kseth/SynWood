@@ -119,74 +119,6 @@ int findIndex(double distance, int nbins, double* breaks, double maxdist){
 	return (lo-1);
 }
 
-
-void binit(int *n, 	   // number of points
-		double *xc,  // coordinates
-		double *yc, 
-		double *sim, // the input data (values for each point) 
-	   int *nbins, // nb breaks 
-	   double *lims, 	   // breaks vector
-	   double *maxdist,  // threshold of considered distances (usually max(lims))
-	   // results
-	   int *cbin,   // number of house pairs per distance class   
-	   double *vbin,	// total semivariance per distance class
-			    // sum of square diffs
-	   double *sdbin // total standard deviation per distance class      
-	   ){
-  
-  int i, j, ind=0;
-  double v=0.0;
-  double dist=0.0, dx=0.0, dy=0.0;
- 
-  // this loop covers only unique i,j pairs
-  for (j=0; j < *n; j++){  // loop on all points
-      for (i=j+1; i<*n; i++){ //loop on half of the points
-	  // euclidian dist
-	  dx = xc[i] - xc[j];
-	  dy = yc[i] - yc[j];
-	  dist = hypot(dx, dy);
-	  
-	  // if distance i,j < max allowed distance
-	  // value (v) = (data at i - data at j)^2/2:
-	  if(dist <= *maxdist){
-	      v = sim[i] - sim[j];
-		v = (v*v)/2.0;
-		
-	//start at first index
-	      ind = 0;
-	//loop through indices
-	      while (dist >= lims[ind] && ind <= *nbins ) ind++ ;
-	//find the minimum distance class where dist is acceptable
-	//should be: ind < *nbins (and remove following if)
-   
-		//printf("index: %i dist: %.2f \n", ind, lims[ind]);	
-
-		// vbin: the semi-variance (sum of the square diffs)
-		// cbin: count by distance classes 
-		// sdbin: will become the standard dev of dist class	
-		if (dist < lims[ind])
-		{
-		  vbin[(ind-1)]+= v; 
-		  cbin[(ind-1)]++;
-		  sdbin[(ind-1)] += v*v;
-		}
-	     }
-	}
-    }
-  
-  // for each dist class  finalize the computation of semi-variance
-  for (j=0; j < *nbins; j++){
-      if (cbin[j]){
-	sdbin[j] = sqrt((sdbin[j] - ((vbin[j] * vbin[j])/cbin[j]))/(cbin[j] - 1));
-	vbin[j] = vbin[j]/cbin[j];
-      }
-    }
-
-  // for(int i=0; i<*nbins; i++)
-  //    printf("dist: %.2f pairs in bin: %i semivar: %.2f stdev: %.2f \n", lims[i], cbin[i], vbin[i], sdbin[i]);	
-
-}
-
 // initial determination of the distances 
 // and class indices for each pair
 void makeDistClasses(double *xc // x of objects
@@ -242,11 +174,10 @@ void makeDistClassesWithStreets(double *xc // x of objects
 			distance = hypot(xc[i] - xc[j], yc[i] - yc[j]);
 			index = findIndex(distance, *nbbreaks, breaks, *maxdist);
 			*(dists + i* *L+j) = distance;
-			// *(dists + j* *L+i) = distance;
-			*(indices + i* *L+j) = index;			
+			*(dists + j* *L+i) = distance;
+			*(indices + i* *L+j) = index;
 
-			if(index != -1)
-			{	
+			if(index != -1){
 				cbin[index]++;
 				if(*(blockIndex + i) == *(blockIndex + j))	
 					cbinsb[index]++;
@@ -257,7 +188,68 @@ void makeDistClassesWithStreets(double *xc // x of objects
 		} 
 	}
 }
+// compute only cumulative matrix
+// not normalized: will need to draw between 0 and max when drawing
+void generateProbMatGrant(
+			double* limitHopSkips, 
+			// double* weightHop, // the ref, is 1
+			double* weightSkip, 
+			double* weightJump, 
+			double* dist_mat,
+			double* prob_mat,
+			int* blockIndex,
+			int* L,
+			int* cumul
+			){
 
+	// Generating hop, skip, jump matrices
+	double weight = 0.0;
+	double baseWeight = 0.0;
+	double distance = 0.0;
+	
+	// decreasing spatial link hop/skip
+	
+	for(int i=0; i<*L; i++){
+		// set self cell to proba=0
+		if(i>0 && *cumul){
+			*(prob_mat + i* *L+i) = *(prob_mat + i* *L+i-1);
+		}else{
+			*(prob_mat + i* *L+i) = 0;
+		}
+
+		// set other cells
+		for(int j=i+1; j<*L; j++){	
+			
+			distance = *(dist_mat + i* *L+j);
+
+			// baseWeight=exp(distance/ *limitHopSkips);
+			baseWeight=1;
+			if(distance<*limitHopSkips){
+				if(*(blockIndex+i) == *(blockIndex + j)){
+					weight = baseWeight;
+				}else{
+					weight = baseWeight* *weightSkip;
+				}
+			}else{
+				weight = baseWeight * *weightJump;
+			}
+			if(*cumul){
+				*(prob_mat + i* *L+j) = weight+*(prob_mat + i* *L+j-1); // current line is directly filled up
+				if(i>0){
+					// transpose of current Line can be 
+					// summed to left column only if 
+					// not first column
+					*(prob_mat + j* *L+i) = weight+*(prob_mat + j* *L+i-1); 
+				}else{
+					*(prob_mat + j* *L+i) = weight;
+				}
+			}else{
+				*(prob_mat + j* *L+i) = weight;
+				*(prob_mat + i* *L+j) = weight;
+			}
+		}
+	}
+}
 // return prob_mat based on euclideant distances given in dist_mat
 // cumul == 1, make cumulative probability matrix
 // useDelta == 1, use the delta variable
@@ -276,7 +268,6 @@ void generateProbMat(double* halfDistJ,
 			int* L){
 
 	// Generating hop, skip, jump matrices
-	
 	double whop[*L];
 	double wskip[*L];
 	double wjump[*L];
@@ -288,25 +279,17 @@ void generateProbMat(double* halfDistJ,
 	double sumHop = 0.0;
 	double sumSkip = 0.0;
 	double sumJump = 0.0;
-	int sameblock = 0;
-
 	
 	// decreasing spatial link hop/skip
-	for(int i=0; i<*L; i++)
-	{
-		for(int j=0; j<*L; j++)
-		{	
-			//insects can't go from house to same house
-			if(i==j)
-			{
-				if(*cumul != 1)
-				{
+	for(int i=0; i<*L; i++){
+		for(int j=0; j<*L; j++){	
+			if(i==j){ // reaching end for this house
+				//insects can't go from house to same house
+				if(*cumul != 1){
 					*(whop + j) = 0.0;
 					*(wskip + j) = 0.0;
 					*(wjump + j) = 0.0;
-				}
-				else
-				{
+				}else{
 					*(whop + j) = sumHop;
 					*(wskip + j) = sumSkip;
 					*(wjump + j) = sumJump;
@@ -316,31 +299,20 @@ void generateProbMat(double* halfDistJ,
 			}
 			
 			distance = *(dist_mat + i* *L+j);
-			
-			if(distance == 0)
-				distance = *(dist_mat + j* *L+i);
-	
-			sameblock = 0;
-			if(*(blockIndex+i) == *(blockIndex + j))
-				sameblock = 1;
-			
-			if(sameblock == 1)
-			{
+
+			if(*(blockIndex+i) == *(blockIndex + j)){
 				weightHop = exp(-distance/ *halfDistH);
 				weightSkip = 0.0;
-			}
-			else
-			{
+			}else{
 				weightSkip = exp(-distance/ *halfDistH);
-				weightHop = 0.0;
+				// in fact 
+				if(*useDelta == 1){
+					weightHop = weightSkip * *delta;
+				}else{
+					weightHop = 0.0;
+				}
 			}
-			
-			//if we want to use delta, than weighthop+=weightSkip * delta
-			if(*useDelta == 1)
-			{
-				weightHop += weightSkip * *delta;
-			}	
-			
+
 			weightJump = exp(-distance/ *halfDistJ);
 			
 			sumHop += weightHop;
@@ -349,14 +321,11 @@ void generateProbMat(double* halfDistJ,
 		
 			// if not cumulative weight, each is just individual weight
 			// if computing cumulative weight, each is sum weights	
-			if(*cumul != 1)
-			{
+			if(*cumul != 1){
 				*(whop + j) = weightHop;
 				*(wskip + j) = weightSkip;
 				*(wjump + j) = weightJump;
-			}
-			else
-			{
+			}else{
 				*(whop + j) = sumHop;
 				*(wskip + j) = sumSkip;
 				*(wjump + j) = sumJump;
@@ -365,8 +334,7 @@ void generateProbMat(double* halfDistJ,
 		
 		//normalize each of the weights
 		//add together to give overall prob_mat
-		for(int j=0; j<*L; j++)
-		{
+		for(int j=0; j<*L; j++){
 			weightHop = *(whop + j) / sumHop;
 			weightSkip = *(wskip + j) / sumSkip;
 			weightJump = *(wjump + j) / sumJump;
@@ -379,8 +347,6 @@ void generateProbMat(double* halfDistJ,
 		sumSkip = 0.0;
 		sumJump = 0.0;
 	}
-
-
 }
 
 void modBinIt(int* n, int* dist_index, double* inf_data, int* cbin, double* stats, int* nbins){  
@@ -389,9 +355,6 @@ void modBinIt(int* n, int* dist_index, double* inf_data, int* cbin, double* stat
 	double v=0.;
   	double *vbin = stats;
   	double *sdbin = stats+ *nbins -1;
-
-	// printf("vbin: %p, sdbin %p\n",vbin,sdbin);
-	// printf("vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
 
 	// this loop covers only unique i,j pairs
 	for (int i=0; i< *n; i++){  // loop on all points
@@ -408,7 +371,6 @@ void modBinIt(int* n, int* dist_index, double* inf_data, int* cbin, double* stat
 			}
 		}
 	}
-	// printf("2 vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
 
 	// for each dist class finalize the computation of semi-variance
 	for (int class=0; class < (*nbins-1); class++) 
@@ -424,7 +386,6 @@ void modBinIt(int* n, int* dist_index, double* inf_data, int* cbin, double* stat
 			vbin[class]=NAN;
 		}
 	}
-	// printf("3 vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
 
 	// // display results by class there are (*nbins-1) class
 	// for(int i=0; i<(*nbins-1); i++){
@@ -444,9 +405,7 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, int* cbin, i
 	double *vbinas = sdbinsb + *nbins - 1; // accross streets semi
 	double *sdbinas = vbinas + *nbins - 1; // sd a s
 	double *vbin_s_d = sdbinas + *nbins - 1; // diff semi-var inter/intra block
-
-	// printf("vbin: %p, sdbin %p\n",vbin,sdbin);
-	// printf("vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
+	double *sdbin_s_d = vbin_s_d + *nbins - 1;
 
 	// this loop covers only unique i,j pairs
 	for (int i=0; i< *n; i++){  // loop on all points
@@ -477,7 +436,6 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, int* cbin, i
 			}
 		}
 	}
-	// printf("2 vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
 
 	// for each dist class finalize the computation of semi-variance
 	for (int class=0; class < (*nbins-1); class++) 
@@ -493,44 +451,29 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, int* cbin, i
 			sdbin[class]=NAN;
 			vbin[class]=NAN;
 		}
-	
-		if (cbinas[class]>0)
+
+	    // if as or sb pairs doesn't exist for a distance class
+        // set the diff to 0	
+		if(cbinas[class] > 0 && cbinsb[class] > 0)
 		{
 			sdbinas[class] = sqrt((sdbinas[class] - ((vbinas[class] * vbinas[class])/cbinas[class]))/(4*(cbinas[class] - 1)));
 			vbinas[class] = vbinas[class]/(2*cbinas[class]);
-			
-		}
-		else
-		{
-			sdbinas[class]=NAN;
-			vbinas[class]=NAN;
-		}
 
-		if (cbinsb[class]>0)
-		{
 			sdbinsb[class] = sqrt((sdbinsb[class] - ((vbinsb[class] * vbinsb[class])/cbinsb[class]))/(4*(cbinsb[class] - 1)));
 			vbinsb[class] = vbinsb[class]/(2*cbinsb[class]);
-			
-		}
-		else
-		{
+
+
+			vbin_s_d[class] = vbinsb[class] - vbinas[class];
+			sdbin_s_d[class] = sqrt(sdbinsb[class]*sdbinsb[class] + sdbinas[class]*sdbinas[class]);
+		}else{
+			sdbinas[class]=NAN;
+			vbinas[class]=NAN;
 			sdbinsb[class]=NAN;
 			vbinsb[class]=NAN;
-		}
-		
-		if(cbinas[class] > 0 && cbinsb[class] > 0)
-			vbin_s_d[class] = vbinsb[class] - vbinas[class];
-		else
 			vbin_s_d[class] = NAN;
-	
+			sdbin_s_d[class] = NAN;
+		}
 	}
-
-	// printf("3 vbin[0]: %f, sdbin[0] %f\n",vbin[0],sdbin[0]);
-
-	// // display results by class there are (*nbins-1) class
-	// for(int i=0; i<(*nbins-1); i++){
-	// 	printf("index: %i pairs in bin: %i semivar: %.4f stdev: %.4f \n", i, cbin[i], vbin[i], sdbin[i]);	
-	// }
 }
 
 void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *endTime, int *indexInfest, double *age, double *movePerTunit, int *seed){
@@ -591,22 +534,115 @@ void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedIni
 	
 	// cast infestedInit from integer to double
   	double semivarianceData[*L];
-	double nbInfestedHouses=0;
 	for(int h=0;h<*L;h++){
 		semivarianceData[h] = infestedInit[h];   		
-		nbInfestedHouses += infestedInit[h];
 	}
 
 	// calculate semi-variance stats
 	int startGVar=*rep* *nbStats;
-	// modBinIt(L, dist_index, semivarianceData, cbin, (stats+startGVar), nbins);
 	modBinItWithStreets(L, dist_index, semivarianceData, cbin, cbinsb, cbinas, (stats+startGVar), nbins, blockIndex); 
 
-	// add the number of houses infested
-	*(stats+startGVar+*sizeVvar)=nbInfestedHouses;
+	// move position over by that many stats	
+	startGVar += *sizeVvar;
+
+	//now calculate 3 more stats:
+	//number infested houses, number infested blocks, number infested houses/number infested blocks
+	
+	int infCount = 0;
+	int currentBlock = 0;
+	int maxBlock = -1;
+	int minBlock = *L + 1;
+
+    	int infBlockCount = 0;
+	for(int spot = 0; spot < *L; spot++){
+		if(infestedInit[spot] == 1){
+			infCount++; // infested houses
+            
+            // to count the infested blocks
+            // find the maximum number of infested blocks
+			currentBlock = blockIndex[spot];
+			if(currentBlock > maxBlock)
+				maxBlock = currentBlock;
+			if(currentBlock < minBlock)
+				minBlock = currentBlock;
+		}
+    }
+
+	int length = (maxBlock - minBlock) + 1;
+	int infBlocks[length];
+	
+    // initialize infestation of blocks
+	for(int spot = 0; spot < length; spot++)
+		infBlocks[spot] = 0;
+	
+    // detect infestation for each block
+	for(int spot = 0; spot < *L; spot++)
+		if(infestedInit[spot] == 1)
+			infBlocks[blockIndex[spot] - minBlock]++;
+	
+    // count number of infested blocks
+	for(int spot = 0; spot < length; spot++)
+		if(infBlocks[spot] > 0)
+			infBlockCount++;
+
+    // save the corresponding stats
+	*(stats + startGVar) = (double)infCount;
+	*(stats + startGVar + 1) = (double)infBlockCount;
+	*(stats + startGVar + 2) = ((double)infCount)/((double)infBlockCount);
 }
 
-void multiGilStat(double* probMat,double* distMat, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int* sizeScale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices,int* sizeVvar, double* stats, int *nbStats){
+void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats,int *sizeVvar){
+
+	// if not useProbMat, then generate probMat
+	if(*useProbMat != 1){
+		int cumul = 1;
+		if(*distMat==-1 || *halfDistJ==-1 || *halfDistH ==-1 || *useDelta==-1 || *delta==-1 ||  *rateHopInMove==-1 || *rateSkipInMove==-1 ||  *rateJumpInMove==-1){
+			printf("ERROR IN THETA VARIABLES, not all values provided, multiGilStat not executed\n");
+			return;
+		}
+  
+		generateProbMat(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, distMat, probMat, blockIndex, &cumul, L);
+	}
+	
+	int valEndIndex = *endIndex;	
+
+	int infestedInit[*L];
+  	int indexInfestInit[*L];
+ 
+	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
+		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
+
+	 	// initialisation simul
+	 	for(int h=0;h<*L;h++){
+	 		infestedInit[h]=*(infested+h);
+	 		indexInfestInit[h]=*(indexInfest+h);	
+	 	}
+	 	
+	 	*endIndex=valEndIndex; 
+
+	 	if(*simul==1){ // simulation normal 
+	 		
+	 		gillespie(infestedInit,endIndex,L,probMat,endTime,indexInfestInit,age,scale,seed);
+
+	 		for(int h=0;h<*L;h++){
+	 			infestedDens[h]+=infestedInit[h];
+	 		}
+	 		
+	 	}
+
+	 	if(*getStats==1){
+	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex);
+	 	}
+
+	 	if(*simul==0){ // no simulations, just stats 
+	 		break; // to exit loop even if Nrep!=1
+	 	}
+
+	}
+	
+}
+
+void multiThetaMultiGilStat(double* probMat,double* distMat, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int* sizeScale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices,int* sizeVvar, double* stats, int *nbStats){
 
 	int valEndIndex = *endIndex;	
 
@@ -654,60 +690,6 @@ void multiGilStat(double* probMat,double* distMat, int* blockIndex, int *simul, 
 
 		}
 		scale++;
-	}
-	
-}
-
-
-void multiGilStat_C_ProbMat(double* dist_mat, double* probMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int *nbins, int *cbin, int* cbinas, int* cbinsb,int* sizeVvar, int* indices, double* stats,int *nbStats){
-
-	int valEndIndex = *endIndex;	
-
-	int infestedInit[*L];
-  	int indexInfestInit[*L];
- 
-  	double vbinInit[*nbins];
-  	double sdbinInit[*nbins];
-
-	int cumul = 1;
-	generateProbMat(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, dist_mat, probMat, blockIndex, &cumul, L);
-
-	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
-		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
-
-		// initialisation simul
-		for(int h=0;h<*L;h++)
-		{
-			infestedInit[h]=*(infested+h);
-			indexInfestInit[h]=*(indexInfest+h);	
-		}
-		
-		*endIndex=valEndIndex; 
-
-		// printf("Init simul(%i)\n",*simul);
-		if(*simul==1)
-		{ // simulation normal 
-			
-			gillespie(infestedInit,endIndex,L,probMat,endTime,indexInfestInit,age,scale,seed);
-
-			for(int h=0;h<*L;h++)
-			{
-				infestedDens[h]+=infestedInit[h];
-			}
-			// printf("rep: %i endIndex:%i seed:%i \n",rep,*endIndex,*seed);
-		}
-		else
-		{ // do stats on initial data
-		}
-		// printf("simul OK\n");
-
-		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex);
-
-		if(*simul==0)
-		{ // simulation normal 
-			break; // to exit loop even if Nrep!=1
-		}
-
 	}
 	
 }
