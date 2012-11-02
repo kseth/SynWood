@@ -140,7 +140,7 @@ void makeDistClasses(double *xc // x of objects
 			distance = hypot(xc[i] - xc[j], yc[i] - yc[j]);
 			index = findIndex(distance, *nbbreaks, breaks, *maxdist);
 			*(dists + i* *L+j) = distance;
-			// *(dists + j* *L+i) = distance;
+			*(dists + j* *L+i) = distance;
 			*(indices + i* *L+j) = index;
 			
 			if(index != -1)
