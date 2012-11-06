@@ -4,7 +4,8 @@ library(testthat)
 library(verification)
 source("RanalysisFunctions.R")
 source("logLik.r") # override some sl functions and add synLik
-
+source("functions_sampling.R")
+source("convergence_test.r")
 source("param.r")
 
 ## load data 
@@ -15,7 +16,7 @@ source("functions_migration.R")
 #==================
 #  Params, if modifying stats: look for multiGilStat
 #==================
-Nrep=300;
+Nrep=300
 n.mc=30000
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
@@ -66,26 +67,34 @@ infestH <- which(maps$infest2 > 0)
 timeH <- maps$ages[infestH]
 
 ### Priors (also the place to change the parameters)
-priorMeans<-log(c(0.03, 0.04, 0.35))
-realMeans<-log(c(rateMove, rateJumpInMove, delta))
-names(priorMeans)<-c("rateMove", "rateJumpInMove", "delta")
+priorMeans<-c(0.03, 0.04, 0.35, 7, 40)
+priorSdlog <- c(1, 1, 1, 1, 1)
+realMeans<-c(rateMove, rateJumpInMove, delta, halfDistH, halfDistJ)
+sampling <- c("lnorm", "lnorm", "lnorm", "lnorm", "lnorm")
+names(priorMeans)<-c("rateMove", "rateJumpInMove", "delta", "halfDistH", "halfDistJ")
+names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
+names(priorSdlog)<-names(priorMeans)
 
 ### Intervals of definition for the parameters
-paramInf<-c(0.002,0.0001,0.0001)
-paramSup<-c(0.24,0.25,0.5)
+paramInf<-c(0.002,0.0001,0.0001, 0.5, 25)
+paramSup<-c(0.30,0.30,0.7, 20, 100)
 names(paramInf)<-names(priorMeans)
 names(paramSup)<-names(priorMeans)
 
 ### LD formalism for Data (no setting should be made past this declaration)
 PGF<-function(Data){ # parameters generating functions (for init etc...)
+	
 	priorMeans<-Data$priorMeans
-  values<-rnorm(length(priorMeans),mean=priorMeans,sd=0.15)
-  return(values)
+	priorSdlog<-Data$priorSdlog
+	
+	values<-rlnorm(length(priorMeans),mean=log(priorMeans), sd=priorSdlog)
+	
+	return(values)
 }
 
-### If cumulProbMat set to NULL multigistatwill use theta to compute it
-### Must calculate probMat each time
+### If cumulProbMat set to NULL multiGilStat will use theta to compute it
+### Must calculate cumulProbMat in C each time
 MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
 	     cumulProbMat=NULL,
@@ -98,13 +107,15 @@ MyDataFullSample <- list(y=statsData,
 	     nbit=nbit,
 	     Nrep=Nrep,
 	     priorMeans=priorMeans,
+	     priorSdlog=priorSdlog,
 	     genIntervals=genIntervals,
 	     paramInf=paramInf,
 	     paramSup=paramSup,
 	     PGF=PGF,
-	     mon.names=c("ll","lp"), # monitored variables (like in Model)
-	     parm.names=names(priorMeans)# parameters names (like in Model and Initial.Values)
-	     )
+	     mon.names=c("ll","lp", names(priorMeans)), # monitored variables (like in Model)
+	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+	     sampling=sampling # method of sampling parameters
+		)
 
 rm(cumulProbMat,dist_mat)
 
@@ -116,7 +127,7 @@ minLLever=-10e6
 #==================================
 Model <- function(theta,Data,postDraw=FALSE){
 	# coerce theta, a priori all positive
-	theta<-exp(theta)
+	theta<-theta
 	names(theta)<-Data$parm.names
 	
 	# set intervals for the variables
@@ -124,7 +135,7 @@ Model <- function(theta,Data,postDraw=FALSE){
         theta[param]<-interval(theta[param],a=Data$paramInf[param],b=Data$paramSup[param])
     }
 	
-	cat("theta:",theta, "\n")
+	# cat("theta:",theta, "\n")
 
 	seed<-runif(1,min=0,(2^16-1)) # NB: for repeatability, R seed 
 					#     Should be set
@@ -173,7 +184,7 @@ Model <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	cat("t multiGil:",end-start,"\n")
+	# cat("t multiGil:",end-start,"\n")
 
 	if(postDraw){
 		yhat<-out$infestedDens
@@ -198,20 +209,22 @@ Model <- function(theta,Data,postDraw=FALSE){
 
 		# get likelihood with priors
 		LL<-ll
-		attributes(LL)<-NULL
-		LP<-LL+sum(dnorm(log(theta),mean=Data$priorMeans,sd=1))
-		# LP<-LL+sum(dlnorm(theta,meanlog=log(Data$priorMeans),sdlog=1))
-		cat("LL:",LL,"LP:",LP,"\n")
+		attributes(LL)<-NULL	
+		LP<-LL+sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
+		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
+		# cat("LL:",LL,"LP:",LP,"\n")
 	}
 
 	# return
 	Modelout <- list(LP=LP, # joint posterior
 			 Dev=-2*LL, # deviance, probably not to be changed
-			 Monitor=c(LL,LP), # to be monitored/ploted
+			 Monitor=c(LL,LP, theta), # to be monitored/ploted
 			 yhat=yhat, # data generated for that set of parameter
-			 # will be used for posterior check
-			 parm=log(theta) # the parameters, possibly constrained by the model
+			 	    # will be used for posterior check
+			 parm=theta # the parameters, possibly constrained by the model
 			 )
+
+	return(Modelout)
 }
 
  
@@ -224,48 +237,51 @@ cat(Sys.time()-start)
 ModelOutBest<-Model(realMeans,MyDataFullSample)
 expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
-theta<-realMeans
-theta["rateMove"]<-log(0.5)
-ModelOutBest<-Model(theta,MyDataFullSample)
+# theta<-realMeans
+# theta["rateMove"]<-log(0.5)
+# ModelOutBest<-Model(theta,MyDataFullSample)
 
-testRateMove<-seq(0.025,0.05,0.0005)
-testLL<-0*testRateMove
-for(i in 1:length(testRateMove)){
-	rM<-testRateMove[i]
-	cat("RateMove:",rM," ")
-	theta["rateMove"]<-log(rM)
-	ModelOutGood<-Model(theta=theta["rateMove"],MyDataFullSample)
-	testLL[i]<-ModelOutGood$LP
-}
+# testRateMove<-seq(0.025,0.05,0.0005)
+# testLL<-0*testRateMove
+# for(i in 1:length(testRateMove)){
+#	rM<-testRateMove[i]
+#	cat("RateMove:",rM," ")
+#	theta["rateMove"]<-log(rM)
+#	ModelOutGood<-Model(theta=theta["rateMove"],MyDataFullSample)
+#	testLL[i]<-ModelOutGood$LP
+# }
+
 signedLog<-function(signedBigNums){
 	signNum<-sign(signedBigNums)
 	signedLog<-log(abs(signedBigNums))*signNum
 	return(signedLog)
 }
-stop()
 
-par(mfrow=c(1,2))
-plot(log(testRateMove),signedLog(testLL),type="l",ylab="Log(Log(likelihood))",xlab="Log(rateMove)",main="Synthetic likelihood profile for rateMove \n blue is true");
-abline(v=log(rateMove),col="blue")
-int<-0.5
+# stop()
+
+# par(mfrow=c(1,2))
+# plot(log(testRateMove),signedLog(testLL),type="l",ylab="Log(Log(likelihood))",xlab="Log(rateMove)",main="Synthetic likelihood profile for rateMove \n blue is true");
+# abline(v=log(rateMove),col="blue")
+# int<-0.5
 # sel<-which(log(testRateMove) > log(rateMove)-int & log(testRateMove) < log(rateMove)+int)
-sel<-which(testLL > -0)
-plot(testRateMove[sel],exp(testLL[sel]),type="l",ylab="Log(likelihood)",xlab="Log(rateMove)",main="Synthetic likelihood profile for rateMove \n blue is true (Zoom)");
-abline(v=rateMove,col="blue")
+# sel<-which(testLL > -0)
+# plot(testRateMove[sel],exp(testLL[sel]),type="l",ylab="Log(likelihood)",xlab="Log(rateMove)",main="Synthetic likelihood profile for rateMove \n blue is true (Zoom)");
+# abline(v=rateMove,col="blue")
 # dev.print(device=pdf,"SynLikProfileRateMove.pdf")
 # save.image("profilSynLLH_rateMove.img")
 
 
 
 # weibull order plotting to check if stats are normal
-for(i in 1:dim(outBase$statsTable)[1])
-{
- 
- order <- order(outBase$statsTable[i, ])
- plot((1:dim(outBase$statsTable)[2])/(dim(outBase$statsTable)[2]+1), outBase$statsTable[i, order], main = i)
- Sys.sleep(0.5)
- 
-}
+# for(i in 1:dim(outBase$statsTable)[1])
+# {
+#  
+# order <- order(outBase$statsTable[i, ])
+# plot((1:dim(outBase$statsTable)[2])/(dim(outBase$statsTable)[2]+1), outBase$statsTable[i, order], main = i)
+# Sys.sleep(0.5)
+# 
+# }
+
 stop()
 
 #===========================
@@ -273,7 +289,142 @@ stop()
 #===========================
 
 # Initial.Values <- GIV(Model, MyData, PGF=TRUE,n=100) #GIV: generate initial values
+
 Initial.Values <- priorMeans
+theta <- Initial.Values
+nparams <-length(theta)
+
+nbsimul <- 100000 #starting simulation size
+
+upFreq <- 1 #update frequency
+saveFreq <- 1000 #save frequency
+
+sdprop <- rep(0.4, nparams)
+names(sdprop) <- MyDataFullSample$parm.names
+adaptOK <- FALSE
+checkAdapt <- 20
+beginEstimate <- -1
+lowAcceptRate <- 0.15
+highAcceptRate <- 0.4
+
+useAutoStop <- TRUE
+checkAutoStop <- 100 #initial length of time after which to check the autostop
+
+# init of theta attributes and saving scheme
+outModel<-Model(theta,MyDataFullSample)
+Monitor<-mat.or.vec(nbsimul+1,length(MyDataFullSample$mon.names))
+Monitor[1,]<-outModel$Monitor
+attributes(theta)$outModel<-outModel
+
+accepts<-as.data.frame(matrix(rep(0,nparams*nbsimul),ncol=nparams))
+names(accepts)<-MyDataFullSample$parm.names
+
+
+#============================
+# Launch sampler from functions sampling
+#============================
+
+	Rprof()
+	
+	numit <- 1
+
+	while(numit < nbsimul){
+		
+		## display at every update frequency
+		if(upFreq!=0 && numit%%upFreq==0){
+			  cat("it:",numit,"of", nbsimul, "current theta:", theta,"\n");
+		}
+
+		##save at every save frequency
+		if(saveFreq!=0 && numit%%saveFreq==0){
+			write.table(Monitor, "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(accepts, "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+		}
+	
+		## adapt the sampling variance	
+		if(!adaptOK && numit%%checkAdapt==0){
+			adaptOK <- TRUE
+			for(paramName in MyDataFullSample$parm.names){
+	      			adaptsdprop <- adaptSDProp(sdprop[paramName], tail(accepts[, paramName], checkAdapt), lowAcceptRate, highAcceptRate)
+				if(adaptsdprop != sdprop[paramName]){
+					adaptOK <- FALSE
+					sdprop[paramName] <- adaptsdprop
+				}
+	    	 	}
+			
+			if(adaptOK){
+
+				cat("adaption of sampling variance complete: beginning final run from numit: ", numit, "\n")
+				beginEstimate <- numit
+				nbsimul <- beginEstimate + nbsimul
+			}
+
+			## if the variances haven't yet been adapted and running out of simulations
+			## double the simulation size and resize
+			if(!adaptOK && numit+checkAdapt > nbsimul)
+			{
+				
+				cat("sampling variance adaptation not complete: numit: ", numit, "doubling number simulations\n")
+				nbsimul <- nbsimul * 2
+				Monitor<-resized(Monitor,nr=nbsimul+1)
+				accepts<-resized(accepts,nr=nbsimul)
+
+			}
+		}
+		
+		## sample the variables
+		for(paramName in MyDataFullSample$parm.names){
+	      		theta<-omniSample(Model,MyDataFullSample,theta,paramName,sdprop[paramName])
+	      		accepts[numit,paramName]<-as.numeric(attributes(theta)$new)
+	    	 }
+
+	    	Monitor[numit+1,]<-attributes(theta)$outModel$Monitor
+
+		## auto stopping
+		if(useAutoStop && adaptOK && numit == beginEstimate + checkAutoStop){
+
+			cb<-cb.diag(Monitor[(1+beginEstimate):numit, ],logfile="convergence_tests.txt")
+			checkAutoStop<-min(cb$newNbIt,numit*3)
+			
+			if(!cb$ok){
+					cat("checking auto stop: numit: ", numit, "next check: ", numit + checkAutoStop)
+					nbsimul <- beginEstimate + checkAutoStop
+					Monitor<-resized(Monitor,nr=nbsimul+1)
+					accepts<-resized(accepts,nr=nbsimul)
+			}
+		}	
+	
+		# increase the iteration count
+		numit <- numit + 1
+	}
+
+	write.table(Monitor, "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+	write.table(accepts, "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+	
+	Rprof(NULL)
+
+#===========================
+## Calculate estimates from MCMC
+#===========================
+
+# post treatment
+
+Monitor<-as.data.frame(Monitor)
+names(Monitor)<-MyDataFullSample$mon.names
+burn.in<-ceiling(n.mc/5)
+
+estMeans <- apply(Monitor[-(1:burn.in), -(1:2)], 2, mean)
+names(estMeans) <- MyDataFullSample$parm.names
+yMean<-mean(MyDataFullSample$y)
+ySd<-sd(MyDataFullSample$y)
+
+
+stop()
+
+#===========================
+# Below is older LD framework for MCMC
+#	No longer used
+#===========================
 
 #===========================
 ## launch LD
