@@ -16,8 +16,7 @@ source("functions_migration.R")
 #==================
 #  Params, if modifying stats: look for multiGilStat
 #==================
-Nrep=300
-n.mc=30000
+Nrep=100
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
 
@@ -294,7 +293,7 @@ Initial.Values <- priorMeans
 theta <- Initial.Values
 nparams <-length(theta)
 
-nbsimul <- 100000 #starting simulation size
+nbsimul <- 20000 #starting simulation size
 
 upFreq <- 1 #update frequency
 saveFreq <- 1000 #save frequency
@@ -337,19 +336,19 @@ names(accepts)<-MyDataFullSample$parm.names
 
 		##save at every save frequency
 		if(saveFreq!=0 && numit%%saveFreq==0){
-			write.table(Monitor, "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-			write.table(accepts, "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-		}
+			write.table(Monitor[(numit-saveFreq):numit, ], "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(accepts[numit-saveFreq):numit, ], "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n", file = "mcmc_values.txt", append = TRUE)
+		
+}
 	
 		## adapt the sampling variance	
 		if(!adaptOK && numit%%checkAdapt==0){
 			adaptOK <- TRUE
 			for(paramName in MyDataFullSample$parm.names){
-	      			adaptsdprop <- adaptSDProp(sdprop[paramName], tail(accepts[, paramName], checkAdapt), lowAcceptRate, highAcceptRate)
-				if(adaptsdprop != sdprop[paramName]){
-					adaptOK <- FALSE
-					sdprop[paramName] <- adaptsdprop
-				}
+	      			logSDprop <- adaptSDProp(sdprop[paramName], accepts[1:numit, paramName], lowAcceptRate, highAcceptRate, tailLength = 20)
+				adaptOK <- adaptOK && attributes(logSDprop)$noupdate
+				sdprop[paramName] <- logSDprop
 	    	 	}
 			
 			if(adaptOK){

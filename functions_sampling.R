@@ -109,20 +109,27 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 }
 
 # adapt the standard deviation of the proposal
-adaptSDProp <- function(sdprop, accepts, lowAcceptRate, highAcceptRate){
+adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,tailLength=20){
+  # according to Gelman1996
+  # adapt the sampling deviation so that acceptance rate fall within:
+  # 0.15 and 0.4 (careful to begin the sampling after that)
 
-acceptRate <- mean(accepts)
+  acceptRate <- mean(tail(accepts,tailLength))
+  cat("accept rate:",acceptRate);
 
-if(acceptRate < lowAcceptRate){
-	return(sdprop * 0.9)
-
-}else if(acceptRate > highAcceptRate){
-	return(sdprop * 1.1)
-	
-	}else{
-		return(sdprop)
-	}
-
+  attributes(sdprop)$noupdate<-FALSE
+  if(acceptRate < lowAcceptRate){
+    newsdprop<-sdprop*0.9
+    cat("update sdprop",sdprop,"to",newsdprop);
+    return(newsdprop)
+  }else if(acceptRate > highAcceptRate){
+    newsdprop<-sdprop*1.1
+    cat("update sdprop",sdprop,"to",newsdprop);
+    return(newsdprop)
+  }else{
+    attributes(sdprop)$noupdate<-TRUE
+    return(sdprop)
+  }
 }
 
 # resize a matrix retaining information already in matrix
