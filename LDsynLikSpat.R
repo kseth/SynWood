@@ -1,4 +1,3 @@
-library(sl)
 library(LaplacesDemon)
 library(testthat)
 library(verification)
