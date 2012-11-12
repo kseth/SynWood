@@ -336,7 +336,8 @@ names(accepts)<-MyDataFullSample$parm.names
 		##save at every save frequency
 		if(saveFreq!=0 && numit%%saveFreq==0){
 			write.table(Monitor[(numit-saveFreq):numit, ], "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-			write.table(accepts[numit-saveFreq):numit, ], "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(accepts[(numit-saveFreq):numit, ], "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+
 			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n", file = "mcmc_values.txt", append = TRUE)
 		
 }
@@ -396,8 +397,8 @@ names(accepts)<-MyDataFullSample$parm.names
 		numit <- numit + 1
 	}
 
-	write.table(Monitor, "thetasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-	write.table(accepts, "acceptsamples.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+	write.table(Monitor, "thetasamplesdone.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+	write.table(accepts, "acceptsamplesdone.txt", sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
 	
 	Rprof(NULL)
 
