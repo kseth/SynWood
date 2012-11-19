@@ -271,7 +271,7 @@ filter.spam<-function(A,maxtobesetnull){
 	return(as.spam(A));
 }
 }else{
-	cat("\nWARNING filter_spam.so not available, will use pure R code, may be slower.\n")
+	cat("\nWARNING spatcontrol.so not available, will use pure R code, may be slower.\n")
 	filter.spam<-function(A,maxtobesetnull){
 		A@entries[A@entries>maxtobesetnull]<- 0
 		return(A);
@@ -2423,7 +2423,7 @@ fit.spatautocorel<-function(db=NULL,
   # uncommenting break() in manual.stop.r
 
   # source(pfile)
-  source("parameters_extrapol.r")
+  # source("parameters_extrapol.r")
   
   # check fondamental variables present
   if(is.null(db$positive)){
@@ -3145,7 +3145,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
     lastsaved<-num.simul+1
     ## manual stop
-    try(source("manual.stop.r",local=TRUE))
+    # try(source("manual.stop.r",local=TRUE))
   }
   
   num.simul<-num.simul+1

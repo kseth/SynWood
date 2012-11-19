@@ -222,7 +222,7 @@ apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	return(results);
 }
 
-importOk<-try(dyn.load("useC2.so"),silent=TRUE)
+importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)!="try-error"){
 	random_spam_entries_by_row<-function(A){
 		# randomly exchange the *defined entries* of a spam matrix by rows
