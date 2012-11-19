@@ -3,7 +3,6 @@ halfDistH<-10
 rateMove<-0.0375
 useDelta<-TRUE # if TRUE, weightSkipInMove<-0
 delta<- 0.25
-set.seed(777)
 
 weightHopInMove<-1 # should not be changed, the ref for the two others
 weightSkipInMove<-1 # ignored if useDelta == TRUE

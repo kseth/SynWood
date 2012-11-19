@@ -46,7 +46,7 @@ normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 }
 
 # generic function for sampling, see test-functions_sampling.R for use
-omniSample<-function(Model,Data,oldTheta,nameParam,sdprop){
+omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
   # identify param to sample
   names(oldTheta)<-Data$parm.names
   old<-oldTheta[nameParam]
@@ -74,6 +74,9 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop){
   # sample proposal
   prop<-rprop(old,sdprop);
 
+  # constrain proposal to allowed interval
+  # prop <- interval(prop, a=Data$paramInf[nameParam], b=Data$paramSup[nameParam])
+
   # include proposal in theta
   propTheta<-oldTheta
   attributes(propTheta)<-NULL # important to avoid growing thetas
@@ -83,7 +86,28 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop){
   # get LLH for proposal
   outModel<-Model(propTheta,Data)
   LLHprop<-outModel$LP
-  LLHold<-attributes(oldTheta)$outModel$LP
+  
+  #if recomputing or not recomputing LLHold
+  if(!recompLLHold){
+	
+	#old LL stays constant	
+	LLHold<-attributes(oldTheta)$outModel$LP
+ 
+  }else{
+	
+	# set up dummy theta
+	recompTheta<-oldTheta
+	attributes(recompTheta)<-NULL
+	names(recompTheta)<-Data$parm.names
+	
+	#recompute LLH for old
+	recompModel<-Model(recompTheta, Data)
+	LLHold<-recompModel$LP
+		
+	#redirect oldTheta
+  	attributes(oldTheta)$outModel <- recompModel
+  	attributes(oldTheta)$LLH <- LLHold
+  }
 
   # accept/reject
   # always 0 for symmetric distribution, only for record
@@ -91,7 +115,7 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 
   lnr <- LLHprop-LLHold+hasting_term;
   rand<-log(runif(1))
-  # cat("otheta:",oldTheta,"ptheta",propTheta,"lnr:",lnr,"(",LLHprop,"-",LLHold,"+",hasting_term,"rand:",rand,"\n");
+  cat("otheta: ",oldTheta[nameParam]," ptheta: ", propTheta[nameParam]," lnr: ",lnr," (",LLHprop,"-",LLHold,"+",hasting_term, ")", " rand: ", rand,"\n");
   
   if(lnr>=rand){
     newTheta <- propTheta;
@@ -130,13 +154,6 @@ adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,
     attributes(sdprop)$noupdate<-TRUE
     return(sdprop)
   }
-}
-
-# resize a matrix retaining information already in matrix
-resized<-function(A,nr=nrow(A),nc=ncol(A)){
-	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
-	return(B);
 }
 
 

@@ -30,13 +30,6 @@ printdev<-function(...){
 	}
 	return(X11_plot);
 }
-## return the matrix A extended to the given dimensions
-## keeping the values in
-resized<-function(A,nr=nrow(A),nc=ncol(A)){
-	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
-	return(B);
-}
 
 zoom_loaded<-1
 

@@ -55,23 +55,24 @@ start<-Sys.time()
 probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=TRUE)
 cat(Sys.time()-start)
 
-test_that("getPosteriorMaps (and multiGilStats behind the scene)",{
-	source("param.r")
-	source("maps_basic_regression.R")# for maps$X, maps$Y, maps$blockIndex
-	set.seed(1)
-	# and maps$infest3
-	DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, maps$blockIndex)
-	cumulProbMat <- generate_prob_mat_C(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, DistClasses$dists, blockIndex, cumul=TRUE)
+# test_that("getPosteriorMaps (and multiGilStats behind the scene)",{
+#	source("param.r")
+#	source("maps_basic_regression.R")# for maps$X, maps$Y, maps$blockIndex
+#	set.seed(1)
+#	# and maps$infest3
+#	DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, maps$blockIndex)
+#	cumulProbMat <- generate_prob_mat_C(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, DistClasses$dists, blockIndex, cumul=TRUE)
 
-	thetas<-rnorm(10,mean=rateMove,sd=0.01)
-	thetas<-thetas[which(thetas>0)]
-	test<-getPosteriorMaps(maps,thetas,cumulProbMat=cumulProbMat,maps$infest3,nbit=2*52,repByTheta=10)
-	expect_true(all.equal(test,maps$test))
+#	thetas<-rnorm(10,mean=rateMove,sd=0.01)
+#	thetas<-thetas[which(thetas>0)]
+#	test<-getPosteriorMaps(maps,thetas,cumulProbMat=cumulProbMat,maps$infest3,nbit=2*52,repByTheta=10)
+#	print(maps$test)
+#	expect_true(all.equal(test,maps$test))
 
 	# par(mfrow=c(1,3))
 	# plot_reel(maps$X,maps$Y,maps$infest3,base=0,top=1)
 	# plot_reel(maps$X,maps$Y,maps$test,base=0,top=1)
 	# plot_reel(maps$X,maps$Y,test,base=0,top=1)
 	# dump("maps",file="maps_basic_regression.R")
-})
+# })
 
