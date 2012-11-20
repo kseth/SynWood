@@ -61,8 +61,14 @@ removeCol <- function(Table,colNames){
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
+		
 	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
+	B[1:(dim(A)[1]),1:dim(A)[2]]<-as.matrix(A)
+
+	if(class(A)=="data.frame"){
+		B<-as.data.frame(B)
+		attributes(B)<-attributes(A)
+	}
 	return(B);
 }
 
@@ -3265,6 +3271,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 
   return(betas)
 }
+
 traces<-function(db,nl=3,nc=4){
   db<-as.data.frame(db)
   pch <- "."
