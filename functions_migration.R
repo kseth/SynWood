@@ -8,6 +8,63 @@ source("maps_basic_regression.R") # gives maps
 genIntervals <- seq(0, 250, 15) # distance classes for the general variogram
 
 #======================
+# Generate hop/skip/jump matrixes
+#======================
+
+##
+# returns matrixes hopMat, skipMat, jumpMat
+# with 1 if can hop/skip/jump there
+# only need to pass the @colindices and @rowpointers to the c methods
+##
+
+##
+# tests, add to test-functions_migration when have time
+# length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
+##
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex)
+{
+	
+	# memory allocation options for spam matrix	
+	spam.options(nearestdistnnz=c(13764100,400))
+
+	# make same block matrix of households in the same block
+	SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
+	SB@entries <- rep(1,length(SB@entries))
+	SB<-as.spam(SB)
+
+	# make distance matrixes for two thresholds: limitHopSkip, limitJump
+	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
+	dist_mat_jump <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitJump, upper = NULL)
+	
+	# remove diagonal values by cleaning up distances of zero
+	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)
+	dist_mat_jump <- cleanup(dist_mat_jump)
+	
+	#define hopMat, skipMat
+	#hopMat if in same block
+	#skipMat if across streets
+	hopMat <- dist_mat_hop_skip
+	skipMat <- dist_mat_hop_skip
+	
+	hopMat@entries <- rep(1, length(hopMat@entries))
+	skipMat@entries <- rep(1, length(skipMat@entries))
+	
+	hopMat <- hopMat * SB
+	hopMat <- as.spam(hopMat)
+
+	skipMat <- skipMat - hopMat
+	skipMat <- as.spam(skipMat)
+
+	#define jumpMat
+	jumpMat <- dist_mat_jump
+	jumpMat@entries <- rep(1, length(jumpMat@entries))
+	jumpMat <- as.spam(jumpMat)
+
+	return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
+
+}
+
+#======================
 # Generating probability matrix
 #======================
 
@@ -87,6 +144,7 @@ generate_prob_mat <- function(halfDistJ,
 
 	return(probMat)
 }
+
 # fast function keeping varibles for skip/hop/jumps but not as fix rates
 fast_prob_mat <- function(halfDistJ, 
 			      halfDistH, 

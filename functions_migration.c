@@ -250,6 +250,7 @@ void generateProbMatGrant(
 		}
 	}
 }
+
 // return prob_mat based on euclideant distances given in dist_mat
 // cumul == 1, make cumulative probability matrix
 // useDelta == 1, use the delta variable
