@@ -3267,9 +3267,9 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 }
 traces<-function(db,nl=3,nc=4){
   db<-as.data.frame(db)
-  if(dim(db)[2]>100){
+  pch <- "."
+  if(dim(db)[1]>100){
     type="p"
-    pch<-"."
   }else{
     type="l"
   }
