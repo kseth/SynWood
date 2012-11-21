@@ -20,6 +20,7 @@ genIntervals <- seq(0, 250, 15) # distance classes for the general variogram
 ##
 # tests, add to test-functions_migration when have time
 # length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
+# diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
 ##
 generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex)
 {
