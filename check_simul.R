@@ -3,7 +3,9 @@ source("param.r")
 Monitored<-read.table("thetasamples_all.txt",header=TRUE)
 # obtain values from param.r
 true.val<-c(rateMove, rateJumpInMove, delta, halfDistH, halfDistJ)
-names(true.val)<-names(Monitored)[3:length(names(Monitored))]
+names(true.val) <- c("rateMove", "rateJumpInMove", "delta", "halfDistH", "halfDistJ")
+keep <- which(names(true.val) %in% names(Monitored))
+true.val <- true.val[keep]
 traces(Monitored)
 
 dev.new()
