@@ -281,8 +281,6 @@ expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 # 
 # }
 
-stop()
-
 #===========================
 # Init values 
 #===========================
