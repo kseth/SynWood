@@ -16,52 +16,45 @@ source("functions_migration.R")
 #==================
 #  Params, if modifying stats: look for multiGilStat
 #==================
-nameSimul<-"rMove_rJump_delta" # used by sec_launch.sh to give a name to the output folder
-Nrep=75
+nameSimul<-"noKernel" # used by sec_launch.sh to give a name to the output folder
+Nrep=100
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
 monitor.file<- "thetasamples_all.txt"
+limitHopSkip <- 60
+limitJump <- 1000
+rateMove <- 0.0375
+rateHopInMove <- .725
+rateSkipInMove <- .225
+rateJumpInMove <- 1-rateHopInMove-rateSkipInMove
 
 #===================
 # Prep for simulations
 # declare Data for LD
 #===================
-threshold <- 2000
-dist_mat <- nearest.dist(x=sp, y=NULL, method="euclidian", delta=threshold, upper=NULL);          
-dist_mat <- as.matrix(dist_mat)
-
-# cumulProbMat <- fast_prob_mat(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, threshold, sp, dist_mat,SB,cumul=TRUE)
-cumulProbMat <- generate_prob_mat(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, threshold, sp, dist_mat,SB,cumul=TRUE)
-
-# test cumulProbMat
-# needs to be moved to test-functions_migration.R
-test_that("cumulProbMat is cumulative, ending in ones",{
-expect_equal(sum(cumulProbMat[dim(cumulProbMat)[1],]),dim(cumulProbMat)[1])
-expect_true(all.equal(cumulProbMat[dim(cumulProbMat)[1],],rep(1,dim(cumulProbMat)[1])))
-})
+stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitHopSkip, limitJump, maps$blockIndex)
 
 ### the vec of stats for the data
 infestH<-which(maps$infest3==1)
-stats <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex = blockIndex, infestH = infestH, timeH=maps$ages[infestH], endTime = 1, rateMove = rateMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE)
+stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=maps$ages[infestH], endTime = 1, rateMove = rateMove, rateHopInMove = rateHopInMove, rateSkipInMove = rateSkipInMove, rateJumpInMove = rateJumpInMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE)
+### only keep the first simulation
 if(!is.vector(stats$statsTable)){
 statsData <- stats$statsTable[, 1]
 }else{
 statsData <- stats$statsTable
 }
 
+
 ### the standard call to multiGilStat
 snapTimes<-attributes(maps)$snapTimes
 nbit<-snapTimes[3]-snapTimes[2]
 infestH<-which(maps$infest2==1)
 start<- Sys.time()
-outBase <- multiGilStat(cumulProbMat=cumulProbMat, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE)
+outBase <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, rateHopInMove = rateHopInMove, rateSkipInMove = rateSkipInMove, rateJumpInMove = rateJumpInMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE)
 cat(Sys.time()-start)
 
-# # test commentes as following would only be true with enough Nrep
-# test_that("multiGilStat with true params -> stats ~= statsData",{
-# expect_true(count(apply(outBase$statsTable,1,max)<statsData)==0)
-# expect_true(count(apply(outBase$statsTable,1,min)>statsData)==0)
-# })
+## for now, the real vector of stats comes from outBase
+## statsData <- outBase$statsTable[, 1]
 
 ### starting point for simulations
 infestH <- which(maps$infest2 > 0)
@@ -69,26 +62,19 @@ timeH <- maps$ages[infestH]
 
 
 ### Priors (also the place to change the parameters)
-priorMeans<-c(0.03, 0.04, 0.35, 7, 40)
-priorMeans <- priorMeans[1:3]
-priorSdlog <- c(1, 1, 1, 1, 1)
-priorSdlog <- priorSdlog[1:3]
-realMeans<-c(rateMove, rateJumpInMove, delta, halfDistH, halfDistJ)
-realMeans <- realMeans[1:3]
-sampling <- c("lnorm", "lnorm", "lnorm", "lnorm", "lnorm")
-sampling <- sampling[1:3]
-names(priorMeans)<-c("rateMove" , "rateJumpInMove", "delta") #, "halfDistH", "halfDistJ")
-names(priorMeans)<-names(priorMeans)[1:3]
+priorMeans<-c(0.045, 0.10, 0.20)
+priorSdlog <- c(1, 1, 1)
+realMeans<-c(rateMove, rateJumpInMove, rateSkipInMove)
+sampling <- c("lnorm", "lnorm", "lnorm")
+names(priorMeans)<-c("rateMove" , "rateJumpInMove", "rateSkipInMove") 
 names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
 names(priorSdlog)<-names(priorMeans)
 
 ### Intervals of definition for the parameters
 ### No longer used, leave in for backward consistency
-paramInf<-c(0.002,0.0001,0.0001, 0.5, 25)
-paramInf<-paramInf[1:3]
-paramSup<-c(0.30,0.30,0.7, 20, 100)
-paramSup<-paramSup[1:3]
+paramInf<-c(0.002,0.0001,0.0001)
+paramSup<-c(0.30,0.50, 0.50)
 names(paramInf)<-names(priorMeans)
 names(paramSup)<-names(priorMeans)
 
@@ -106,7 +92,7 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 ### Must calculate cumulProbMat in C each time
 MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
-	     cumulProbMat=NULL,
+	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
 	     dist_out = makeDistClassesWithStreets(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals, blockIndex), 
 	     infestH=infestH,
@@ -125,8 +111,6 @@ MyDataFullSample <- list(y=statsData,
 	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
 	     sampling=sampling # method of sampling parameters
 		)
-
-rm(cumulProbMat,dist_mat)
 
 ### "Pirat" data (global because need to be updated)
 minLLever=-10e6
@@ -161,38 +145,20 @@ Model <- function(theta,Data,postDraw=FALSE){
 		getStats<-TRUE
 	}
 	
-	# if only sampled parameter is rateMove
-	if(length(theta) == 1 & all.equal(Data$parm.names[1], "rateMove")){
-		out <- multiGilStat(cumulProbMat = Data$cumulProbMat, blockIndex = Data$blockIndex, 
+	#pass all variables correctly!
+	#note rateHopInMove = 1-rateJumpInMove-rateSkipInMove
+	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = theta["rateMove"], 
+			    rateMove = theta["rateMove"],
+			    rateHopInMove = 1 - theta["rateSkipInMove"] - theta["rateJumpInMove"],
+			    rateSkipInMove = theta["rateSkipInMove"],
+			    rateJumpInMove = theta["rateJumpInMove"], 
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    breaksGenVar = Data$genIntervals,
-			    getStats=getStats,
 			    seed=seed,
-			    dist_out = Data$dist_out)
-	}else{
-		#pass all variables correctly!
-		#need to make probMat everytime, this is more time consuming.
-		#note rateHopInMove = 1-rateJumpInMove
-		out <- multiGilStat(cumulProbMat = Data$cumulProbMat, blockIndex = Data$blockIndex, 
-			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = theta["rateMove"], 
-			    Nrep = Data$Nrep, 
-			    coords = Data$maps[, c("X", "Y")], 
-			    breaksGenVar = Data$genIntervals,
 			    getStats=getStats,
-			    seed=seed,
-			    halfDistJ = ifelse(is.na(theta["halfDistJ"]), halfDistJ, theta["halfDistJ"]), # default is halfDistJ if not in theta
-			    halfDistH = ifelse(is.na(theta["halfDistH"]), halfDistH, theta["halfDistH"]), 
-			    useDelta = ifelse(is.na(theta["useDelta"]), useDelta, theta["useDelta"]), 
-			    delta = ifelse(is.na(theta["delta"]), delta, theta["delta"]), 
-			    rateHopInMove = ifelse(is.na(theta["rateJumpInMove"]), 1-rateJumpInMove, 1-theta["rateJumpInMove"]), 
-			    rateSkipInMove = ifelse(is.na(theta["rateSkipInMove"]), rateSkipInMove, theta["rateSkipInMove"]), 
-			    rateJumpInMove = ifelse(is.na(theta["rateJumpInMove"]), rateJumpInMove, theta["rateJumpInMove"]),
 			    dist_out = Data$dist_out)
-	}
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -245,10 +211,10 @@ Model <- function(theta,Data,postDraw=FALSE){
 #===========================
 # Testing Model/Data
 #===========================
-# start<-Sys.time()
-# ModelOutGood<-Model(priorMeans,MyDataFullSample)
-# cat(Sys.time()-start)
-# ModelOutBest<-Model(realMeans,MyDataFullSample)
+start<-Sys.time()
+ModelOutGood<-Model(priorMeans,MyDataFullSample)
+cat(Sys.time()-start)
+ModelOutBest<-Model(realMeans,MyDataFullSample)
 # expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
 # theta<-realMeans
@@ -454,88 +420,4 @@ for(i in 1:length(priorMeans))
 
 stop()
 
-#===========================
-# Below is older LD framework for MCMC
-#	No longer used
-#===========================
 
-#===========================
-## launch LD
-#===========================
-
-start1<-Sys.time()
-Fit1 <- LaplacesDemon(Model, 
-		     Data=MyData, 
-		     Initial.Values, 
-		     Covar=NULL, # proposal covariance matrix
-		     Iterations=n.mc, # total number of iterations
-		     Status=10, # how often status plotted 
-		     Thinning=1,   # allow to save memory...
-		     Algorithm="",  # see details for this and specs in ?LaplacesDemon
-		     Specs = list(SIV = NULL, n1 = 4, at = 6, aw = 1.5) # standard recommended specifications for twalk
-		     )
-
-#===========================
-## results
-#===========================
-print(Fit1)
-Consort(Fit1)
-
-# PosteriorChecks(Fit1)
-MyData$infestH<-which(maps$infest3==1)
-postMap<-getPosteriorMapsLD(Fit1,MyData,repByTheta=10)
-
-# Brier scores
-predReg<-maps$predict4
-predReg[which(maps$infest3==1)]<-1
-
-verWood<-verify(maps$infest4,maps$postMap)
-# b<-verify(mapsholds<-exp(seq(log(0.01),log(1),0.2))
-verReg<-verify(maps$infest4,maps$predict4)
-
-dev.new()
-probthresholds<-exp(seq(log(0.01),log(1),0.2))
-par(mfrow=c(2,3))
-plot(verReg)
-rocReg<-roc.plot(maps$infest4,maps$predict4,main="predict4",CI=TRUE,n.boot=100)
-valueReg<-value(maps$infest4,maps$predict4,thresholds=probthresholds,all=TRUE)
-
-plot(verWood)
-rocWood<-roc.plot(maps$infest4,maps$postMap,main="postMap",CI=TRUE,n.boot=100)
-valueReg<-value(maps$infest4,maps$postMap,all=TRUE,thresholds=probthresholds)
-
-dev.new()
-discrimination.plot(maps$infest4,maps$predict4,main="Reg")
-dev.new()
-discrimination.plot(maps$infest4,maps$postMap,main="Wood")
-
-dev.new()
-par(mfrow=c(3,3))
-plot_reel(maps$X,maps$Y,maps$infest3,base=0)
-plot_reel(maps$X,maps$Y,maps$infest3,base=0,main="Init")
-plot_reel(maps$X,maps$Y,maps$infest3,base=0)
-plot_reel(maps$X,maps$Y,maps$postMap,base=0,main=paste("Posterior Map \nBrier:",verWood$bs,"Skill:",verWood$ss))
-plot_reel(maps$X,maps$Y,maps$infest4,base=0,main="Observed")
-plot_reel(maps$X,maps$Y,maps$predict4,base=0,main=paste("Prediction regression\nBrier:",verReg$bs,"Skill:",verReg$ss))
-plot_reel(maps$X,maps$Y,maps$postMap,base=0,top=0.1)
-plot_reel(maps$X,maps$Y,maps$infest4,base=0,top=0.1,main="idem topped at 0.1")
-plot_reel(maps$X,maps$Y,maps$predict4,base=0,top=0.1)
-
-caterpillar.plot(Fit1, Parms="rateMove")
-BurnIn <- Fit1$Rec.BurnIn.Thinned
-plot(Fit1, BurnIn, MyData, PDF=FALSE)
-hist(exp(Fit1$Posterior1))
-Pred <- predict(Fit1, Model, MyData)
-summary(Pred, Discrep="Chi-Square")
-plot(Pred, Style="Covariates", Data=MyData)
-plot(Pred, Style="Density", Rows=1:9)
-plot(Pred, Style="ECDF")
-plot(Pred, Style="Fitted")
-plot(Pred, Style="Jarque-Bera")
-plot(Pred, Style="Predictive Quantiles")
-plot(Pred, Style="Residual Density")
-plot(Pred, Style="Residuals")
-Levene.Test(Pred)
-Importance(Fit1, Model, MyData, Discrep="Chi-Square")
-
-# prediction

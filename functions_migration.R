@@ -607,6 +607,124 @@ if(class(importOk)!="try-error"){
 		return(out)
 	}
 
+	## stratHopSkipJump is the result of a call to generate_stratified_mat
+	## list with spam matrices of hoppable, skippable, jumpable locations for each house
+	## this method does not use the kernels or delta
+	## instead need to pass rateHopInMove, rateSkipInMove, rateJumpInMove
+	##	these parameters are dealt with by the gillespie
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, rateHopInMove, rateSkipInMove, rateJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
+		
+		# seed <- runif(1, 1, 2^31-1)
+		#for random seeding of stochastic simulation	
+
+	  	L<-dim(coords)[1]
+		indexInfest <- rep(-1, L)
+		timeI <- rep(-1, L)
+		infested <- rep(0, L)
+		indexInfest[1:length(infestH)] <- infestH - 1
+		timeI[1:length(timeH)] <- timeH
+		infested[infestH] <- 1
+		infestedDens<-rep(0,length(infested))
+
+		if(is.null(dist_out))	
+			dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+			
+		dist_mat <- dist_out$dists
+		dist_indices <- dist_out$CClassIndex
+		cbin <- dist_out$classSize
+		cbinas <- dist_out$classSizeAS
+		cbinsb <- dist_out$classSizeSB
+
+		# if stratHopSkipJump, throw error 	
+		if(is.null(stratHopSkipJump)){
+			stop("need to pass a stratified hop/skip/jump matrix; see generate_stratifed_mat")
+		}
+	
+		# stats selection
+		# need to implement system where we can add and remove stats
+		###===================================
+		## CURRENT STATS:
+		## General Semivariance
+		## General Semivariance Std. Dev.
+		## Interblock Semivariance
+		## Interblock Semivariance Std. Dev.
+		## Intrablock Semivariance
+		## Intrablock Semivariance Std. Dev.
+		## By block Semivariance
+		## By block Semivariance Std. Dev.
+		##	= 8 * length(cbin)
+		## Number Infested Houses
+		## Number Infested Blocks
+		## (Infested Houses)/(Infested Blocks)
+		##	= 8 * length(cbin) + 3
+		###===================================
+       		sizeVvar<-8*length(cbin)
+		nbStats<- sizeVvar + 3
+		statsTable<-mat.or.vec(nbStats,Nrep)
+
+
+		out<- .C("noKernelMultiGilStat",
+			 # simulation parameters
+			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
+			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
+			 skipColIndex = as.integer(stratHopSkipJump$skipMat@colindices-1),
+			 skipRowPointer = as.integer(stratHopSkipJump$skipMat@rowpointers-1),
+			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
+			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
+			 rateHopInMove = as.numeric(rateHopInMove), 
+			 rateSkipInMove = as.numeric(rateSkipInMove), 
+			 rateJumpInMove = as.numeric(rateJumpInMove), 
+			 blockIndex = as.integer(blockIndex),
+			 simul = as.integer(simul),
+			 infested = as.integer(infested),
+			 infestedDens = as.numeric(infestedDens),
+			 endIndex = as.integer(length(infestH) - 1),
+			 L = as.integer(L),
+			 endTime = as.numeric(endTime),
+			 indexInfest = as.integer(indexInfest),
+			 timeI = as.numeric(timeI),
+			 rateMove = as.numeric(rateMove),
+			 seed = as.integer(seed),
+			 Nrep = as.integer(Nrep),
+			 # stats
+			 getStats=as.integer(getStats),
+			 nbins = as.integer(length(breaksGenVar)),
+			 cbin = as.integer(cbin),
+			 cbinas = as.integer(cbinas),
+			 cbinsb = as.integer(cbinsb),
+			 indices = as.integer(dist_indices),
+			 statsTable = as.numeric(statsTable),
+			 nbStats = as.integer(nbStats),
+             sizeVvar = as.integer(sizeVvar)
+			 )
+
+		out$infestedDens<-out$infestedDens/Nrep;
+	
+		# make matrix out of statsTable
+		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
+		
+		# remove interblock and intrablock stats
+		# keep:
+		# general semivar + stdev
+		# sameblock - acrossstreets semivar + stdev
+		# inf.house, inf.block, and inf.house/inf.block count
+		keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
+		# clean away NANs introduced in C
+		notNAN <- which(!is.nan(out$statsTable[, 1]))
+		
+		keep<-intersect(notNAN,keepable)
+		out$statsTable<-out$statsTable[keep, ]
+
+		infestH <- out$indexInfest
+		infestH <- infestH[which(infestH != -1)] + 1
+		out$indexInfest <- infestH
+		timeH <- out$timeI
+		timeH <- timeH[which(infestH != -1)]
+		out$timeI <- timeH
+
+		return(out)
+	}
+
     multiThetaMultiGilStat<-function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, halfDistJ = -1, halfDistH = -1, useDelta = -1, delta = -1, rateHopInMove = -1, rateSkipInMove = -1, rateJumpInMove = -1, breaksStreetVar = breaksGenVar, dist_out = NULL){
 		
 		# seed <- runif(1, 1, 2^31-1)

@@ -531,6 +531,85 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	// printf("final seed:%i",*seed);
 }
 
+void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, int* seed){
+	
+	jcong = (unsigned long)*seed;
+	// printf("seed: %li \n",jcong);
+
+	double rand = UNICONG;
+	
+	//nextEvent - the time to the nextEvent
+	double nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1));
+
+	//set starting time to zero
+	double currentTime = 0;
+
+	//the gillespie loop
+	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
+	while(currentTime + nextEvent < *endTime){
+		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
+		// fflush(stdout);
+		
+		currentTime+=nextEvent;
+
+		//pick a location to be infesting house
+		rand = UNICONG;
+		int index = (int)(rand* (*endIndex+1));
+		int house = *(indexInfest + index);
+
+		// printf("infesting: %i; ", house);
+		
+
+		//pick whether next move is hop/skip/jump
+		
+		int dest = -1;
+		rand = UNICONG;
+		
+		if(rand < *rateHopInMove){
+			// next move is hop
+			// pick new house to become infested
+			// printf("hop ");
+			rand = UNICONG;
+			int numHouses = hopRowPointer[house+1] - hopRowPointer[house];
+			dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)]; 
+		}
+		else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
+			// next move is skip
+			// pick new house to become infested
+			// printf("skip ");
+			rand = UNICONG;
+			int numHouses = skipRowPointer[house+1] - skipRowPointer[house];
+			dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)]; 		
+		}
+		else{
+			// next move is jump
+			// pick new house to become infested
+			// printf("jump ");
+			rand = UNICONG;
+			int numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
+			dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)]; 
+		}
+
+
+		// printf("new infested: %i\n", dest);
+		// ///fflush(stdout);
+		
+		if((*(infested+dest)) != 1){
+			*endIndex+=1;
+			*(infested+dest) = 1;
+			*(indexInfest + *endIndex) = dest;
+			*(age + *endIndex) = currentTime;
+		}
+
+		//calculate time to next event again
+		rand = UNICONG;
+		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1));
+	}
+	*seed=(int)jcong;
+	// printf("final seed:%i",*seed);
+}
+
+
 void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex){  
 	
 	// cast infestedInit from integer to double
@@ -642,6 +721,47 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	}
 	
 }
+
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar){
+
+	int valEndIndex = *endIndex;	
+
+	int infestedInit[*L];
+  	int indexInfestInit[*L];
+ 
+	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
+		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
+
+	 	// initialisation simul
+	 	for(int h=0;h<*L;h++){
+	 		infestedInit[h]=*(infested+h);
+	 		indexInfestInit[h]=*(indexInfest+h);	
+	 	}
+	 	
+	 	*endIndex=valEndIndex; 
+
+	 	if(*simul==1){ // simulation normal 
+	 		
+	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,scale,seed);
+
+	 		for(int h=0;h<*L;h++){
+	 			infestedDens[h]+=infestedInit[h];
+	 		}
+	 		
+	 	}
+
+	 	if(*getStats==1){
+	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex);
+	 	}
+
+	 	if(*simul==0){ // no simulations, just stats 
+	 		break; // to exit loop even if Nrep!=1
+	 	}
+
+	}
+	
+}
+
 
 void multiThetaMultiGilStat(double* probMat,double* distMat, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int* sizeScale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices,int* sizeVvar, double* stats, int *nbStats){
 

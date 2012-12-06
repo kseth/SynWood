@@ -50,10 +50,12 @@ testCumul<-apply(testNotCumul,2,cumsum)
 expect_true(all.equal(testCumul,probMat))
 
 })
-DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, blockIndex)
-start<-Sys.time()
-probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=TRUE)
-cat(Sys.time()-start)
+
+# Time test
+# DistClasses<-makeDistClassesWithStreets(maps$X,maps$Y,genIntervals, blockIndex)
+# start<-Sys.time()
+# probMat<-generate_prob_mat_Grant_C(42,0.1,10e-4,DistClasses$dists,blockIndex,cumul=TRUE)
+# cat(Sys.time()-start)
 
 # test_that("getPosteriorMaps (and multiGilStats behind the scene)",{
 #	source("param.r")
