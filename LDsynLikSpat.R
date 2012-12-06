@@ -420,7 +420,7 @@ write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file,
 
 	write.table(Monitor[1:min(numit, nbsimul), ], "thetasamplescomplete.txt", sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
 	write.table(accepts[1:min(numit, nbsimul), ], "acceptsamplescomplete.txt", sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
-	write.table(finalTestResults, "finaltestresults.txt", sep = "\t", append = FALSE, col.names=TRUE, row.names = FALSE)
+	write(finalTestResults, "finaltestresults.txt")
 	
 	# Rprof(NULL)
 
