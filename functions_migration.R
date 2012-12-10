@@ -610,12 +610,17 @@ if(class(importOk)!="try-error"){
 	## stratHopSkipJump is the result of a call to generate_stratified_mat
 	## list with spam matrices of hoppable, skippable, jumpable locations for each house
 	## this method does not use the kernels or delta
-	## instead need to pass rateHopInMove, rateSkipInMove, rateJumpInMove
+	## instead need to pass weightHopInMove (set to 1), weightSkipInMove, weightJumpInMove
 	##	these parameters are dealt with by the gillespie
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, rateHopInMove, rateSkipInMove, rateJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
-		
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
+
+		# convert weightHop, weightSkip, weightJump to rates by normalizing (rates needed by c code)
+		rateHopInMove <- weightHopInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
+		rateSkipInMove <- weightSkipInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
+		rateJumpInMove <- weightJumpInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
+	
 		# seed <- runif(1, 1, 2^31-1)
-		#for random seeding of stochastic simulation	
+		# for random seeding of stochastic simulation	
 
 	  	L<-dim(coords)[1]
 		indexInfest <- rep(-1, L)
