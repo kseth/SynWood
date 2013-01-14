@@ -18,8 +18,8 @@ source("functions_migration.R")
 # use maps_hunter_blocks.csv
 #==================
 
-nameSimul<-"noKernelnoSkipWithWeights" # used by sec_launch.sh to give a name to the output folder
-Nrep=100
+nameSimul<-"noKernelreasonableValsWithWeights" # used by sec_launch.sh to give a name to the output folder
+Nrep=75
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
 monitor.file<- "thetasamples_all.txt"
@@ -29,11 +29,10 @@ limitHopSkip <- 60
 limitJump <- 1000
 rateMove <- 0.04
 
-## test with only hops
 ## the noKernelMultiGilStat normalizes these weights
 weightHopInMove <- 1
-weightSkipInMove <- 1e-10
-weightJumpInMove <- 0.1
+weightSkipInMove <- 0.35
+weightJumpInMove <- 0.10 
 
 ## csv of hunter map
 maps.tot<-read.csv("maps_hunter_blocks.csv")
@@ -82,6 +81,8 @@ stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitH
 infestH <- c(3200, 1, 10, 3210, 8, 15, 14, 3199, 3220, 16, 20, 25)
 
 ## plot initially infested houses
+## dev.new()
+## par(mfrow = c(1, 2))
 ## infested <- rep(0, length(maps$X))
 ## infested[infestH] <- 1
 ## plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
@@ -101,6 +102,7 @@ print(Sys.time() - start)
 ## cat("starting # infested:", length(infestH), " ending # infested:", length(which(secondTimePointSimul$infestedDens!=0)), "\n")
 ## plot_reel(maps$X, maps$Y, secondTimePointSimul$infestedDens, base = 0, top = 1)
 
+
 ## store stats from gillespie simulation for usage with Wood LD
 if(!is.vector(secondTimePointSimul$statsTable)){
 statsData <- secondTimePointSimul$statsTable[, 1]
@@ -111,7 +113,7 @@ statsData <- secondTimePointSimul$statsTable
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(0.045, 0.10, 0.20)
+priorMeans<-c(0.045, 0.05, 0.25)
 priorSdlog <- c(1, 1, 1)
 realMeans<-c(rateMove, weightJumpInMove, weightSkipInMove)
 sampling <- c("lnorm", "lnorm", "lnorm")
@@ -405,7 +407,7 @@ write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file,
 
 	write.table(Monitor[1:min(numit, nbsimul), ], "thetasamplescomplete.txt", sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
 	write.table(accepts[1:min(numit, nbsimul), ], "acceptsamplescomplete.txt", sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
-	write(finalTestResults, "finaltestresults.txt")
+	# write(finalTestResults, "finaltestresults.txt")
 	
 	# Rprof(NULL)
 
