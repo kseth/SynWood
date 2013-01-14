@@ -1,0 +1,408 @@
+library(LaplacesDemon)
+library(testthat)
+library(verification)
+source("RanalysisFunctions.R")
+source("logLik.r") # override some sl functions and add synLik
+source("functions_sampling.R")
+source("convergence_test.r")
+source("extrapol_field.R")
+source("functions_migration.R")
+
+#==================
+# import params from maps of hunter
+# use maps_hunter_blocks.csv
+#==================
+
+nameSimul<-"Jerusalen" # used by sec_launch.sh to give a name to the output folder
+Nrep=100
+set.seed(1)
+genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
+monitor.file<- "thetasamples_all.txt"
+
+## parameters for uniform hop/skip/jump model
+limitHopSkip <- 60
+limitJump <- 1000
+rateMove <- 0.04
+rateHopInMove <- .725
+rateSkipInMove <- .225
+rateJumpInMove <- 1-rateHopInMove-rateSkipInMove
+
+## csv of Jerusalen
+## "Encuesta_melgar.csv" contains data from the Encuesta for all of Mariana Melgar ~ 2008
+## "jerusalen_encuesta_2011_f2_collapsed_KHL.csv" contains the 2011 data for just jerusalen
+encuesta_melgar <- read.csv(file = "Encuesta_Melgar.csv")
+jerusalen_encuesta <- read.csv(file = "jerusalen_encuesta_2011_full_f2_collapsed_KHL.csv")
+
+keep <- which(encuesta_melgar$unicode %in% jerusalen_encuesta$Unicode)
+
+match <- match(jerusalen_encuesta$Unicode, encuesta_melgar[keep, "unicode"])
+maps <- cbind(jerusalen_encuesta[, -which(names(jerusalen_encuesta) %in% c("EASTING", "NORTHING"))], OLDSTATUS = encuesta_melgar[keep, "status"][match])
+maps <- cbind(maps, X = jerusalen_encuesta[, "EASTING"], Y = jerusalen_encuesta[, "NORTHING"])
+## fields now contained in jerusalen_encuesta:
+## "Unicode","POINT_X","POINT_Y", "STATUS","D.x","L.x","V.x","BLOCK_NUM","TOTAL_C","TOTAL_P", "OLDSTATUS", "X", "Y"
+
+startInfestH <- which(maps$OLDSTATUS == 1)
+endInfestH <- which(maps$STATUS == 1)
+blockIndex <- maps$BLOCK_NUM
+
+stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitHopSkip, limitJump, blockIndex)
+
+#===================
+# Prep geospatial/coordinate/household data for simulations
+#===================
+
+## create a dummy timeH
+timeH <- rep(-2, length(startInfestH))
+
+### the vec of stats for the second timepoint data
+stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH= 1, endTime = 1, rateMove = rateMove, rateHopInMove = rateHopInMove, rateSkipInMove = rateSkipInMove, rateJumpInMove = rateJumpInMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE)
+
+if(!is.vector(stats$statsTable)){
+	statsData <- stats$statsTable[, 1]
+}else{
+	statsData <- stats$statsTable
+}
+
+## time between start and end is 3 years, 52*3
+nbit <- 156
+
+#==================
+# Priors (also the place to change the parameters)
+#==================
+priorMeans<-c(rateMove, rateJumpInMove, rateSkipInMove)
+priorSdlog <- c(1, 1, 1)
+realMeans<-c(NA, NA, NA)
+sampling <- c("lnorm", "lnorm", "lnorm")
+names(priorMeans)<-c("rateMove" , "rateJumpInMove", "rateSkipInMove") 
+names(sampling)<-names(priorMeans)
+names(realMeans)<-names(priorMeans)
+names(priorSdlog)<-names(priorMeans)
+
+### Intervals of definition for the parameters
+### No longer used, leave in for backward consistency
+paramInf<-c(0.002,0.0001,0.0001)
+paramSup<-c(0.30,0.50, 0.50)
+names(paramInf)<-names(priorMeans)
+names(paramSup)<-names(priorMeans)
+
+### LD formalism for Data (no setting should be made past this declaration)
+PGF<-function(Data){ # parameters generating functions (for init etc...)
+	
+	priorMeans<-Data$priorMeans
+	priorSdlog<-Data$priorSdlog
+	
+	values<-rlnorm(length(priorMeans),mean=log(priorMeans), sd=priorSdlog)
+	return(values)
+}
+
+#=================
+# List of data to pass to model + sampler
+#=================
+
+MyDataFullSample <- list(y=statsData,
+	     trans=NULL,
+	     stratHopSkipJump = stratHopSkipJump,
+	     blockIndex=blockIndex,
+	     dist_out = makeDistClassesWithStreets(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals, blockIndex), 
+	     infestH=startInfestH,
+	     timeH=timeH,
+	     endTime=nbit,
+	     maps=maps,
+	     nbit=nbit,
+	     Nrep=Nrep,
+	     priorMeans=priorMeans,
+	     priorSdlog=priorSdlog,
+	     genIntervals=genIntervals,
+	     paramInf=paramInf,
+	     paramSup=paramSup,
+	     PGF=PGF,
+	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+	     sampling=sampling # method of sampling parameters
+		)
+
+#==================================
+## declare Model for LD
+#==================================
+
+### "Pirat" data (global because need to be updated)
+### If run into a case where Wood LD method doesn't work, use this LL
+### Wood LD only doesn't work in extreme + unlikely cases
+minLLever=-10e6
+
+Model <- function(theta,Data,postDraw=FALSE){
+
+	theta<-theta
+	names(theta)<-Data$parm.names
+	
+	# coerce theta, a priori all positive
+	# set intervals for the variables
+	# take care of this problem by doing try catch on wood syn likelihood
+	# for(param in names(theta)){
+        # theta[param]<-interval(theta[param],a=Data$paramInf[param],b=Data$paramSup[param])
+    	# }
+	# cat("theta:",theta, "\n")
+
+	# set seed for c simulations
+	seed <- runif(1, min=0,(2^16-1)) 
+	
+	# simulations
+	start <- Sys.time()
+	
+	if(postDraw){
+		getStats<-FALSE
+		# then in wrapper use infested if Nrep =1 and infested$Dens if Nrep=a few
+		# to show a posterior predictive map
+	}else{
+		getStats<-TRUE
+	}
+	
+	#pass all variables correctly!
+	#note rateHopInMove = 1-rateJumpInMove-rateSkipInMove
+	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
+			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
+			    rateMove = theta["rateMove"],
+			    rateHopInMove = 1 - theta["rateSkipInMove"] - theta["rateJumpInMove"],
+			    rateSkipInMove = theta["rateSkipInMove"],
+			    rateJumpInMove = theta["rateJumpInMove"], 
+			    Nrep = Data$Nrep, 
+			    coords = Data$maps[, c("X", "Y")], 
+			    breaksGenVar = Data$genIntervals,
+			    seed=seed,
+			    getStats=getStats,
+			    dist_out = Data$dist_out)
+
+	end <- Sys.time()
+	# cat("t multiGil:",end-start,"\n")
+
+	if(postDraw){
+		yhat<-out$infestedDens
+		LL<-NA
+		LP<-NA
+	}else{
+		yhat<-out$statsTable[,1]
+       	
+		# print(out$statsTable)	
+		# # see for the following multiGilStat
+		# statsToKeep<-1:length(yhat) # c(1:16,39:42)
+		# statsTable<-out$statsTable[statsToKeep,]
+		# y<-Data$y[statsToKeep]
+		# statsTable<-out$statsTable[!duplicated(yhat),]
+	
+		# synthetic likelihood
+		success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
+		if(class(success)=="try-error"){
+		  ll<-minLLever
+		}else{
+		  minLLever<<-min(ll,minLLever)
+		}
+
+		# get likelihood with priors
+		LL<-ll
+		attributes(LL)<-NULL
+		LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
+		
+		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
+		# cat("LL:",LL,"LP:",LP,"\n")
+	}
+
+	# return
+	
+	Modelout <- list(LP=LP, # joint posterior
+			 Dev=-2*LL, # deviance, probably not to be changed
+			 Monitor=c(LL,LP, theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 yhat=yhat, # data generated for that set of parameter
+			 	    # will be used for posterior check
+			 parm=theta # the parameters, possibly constrained by the model
+			 )
+
+	return(Modelout)
+}
+
+ 
+#===========================
+# Testing Model/Data
+#===========================
+start<-Sys.time()
+ModelOutGood<-Model(priorMeans,MyDataFullSample)
+cat(Sys.time()-start, "\n")
+# ModelOutBest<-Model(realMeans,MyDataFullSample)
+# expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
+
+# theta<-realMeans
+# theta["rateMove"]<-log(0.5)
+# ModelOutBest<-Model(theta,MyDataFullSample)
+
+# weibull order plotting to check if stats are normal
+# for(i in 1:dim(outBase$statsTable)[1])
+# {
+#  
+# order <- order(outBase$statsTable[i, ])
+# plot((1:dim(outBase$statsTable)[2])/(dim(outBase$statsTable)[2]+1), outBase$statsTable[i, order], main = i)
+# Sys.sleep(0.5)
+# 
+# }
+
+stop("Initial preparations good")
+
+#===========================
+# Init values 
+#===========================
+
+theta <- priorMeans 
+nparams <- length(theta)
+
+nbsimul <- 600 #starting simulation size
+
+upFreq <- 1 #update frequency
+saveFreq <- 20 #save frequency
+
+sdprop <- rep(0.4, nparams)
+names(sdprop) <- MyDataFullSample$parm.names
+adaptOK <- FALSE
+checkAdapt <- 20
+beginEstimate <- -1
+lowAcceptRate <- 0.15
+highAcceptRate <- 0.4
+
+useAutoStop <- TRUE
+checkAutoStop <- 100 #initial length of time after which to check the autostop
+finalTestResults <- NULL #where to save the final good convergence test
+
+# init of theta attributes and saving scheme
+outModel<-Model(theta,MyDataFullSample)
+Monitor<-mat.or.vec(nbsimul+1,length(MyDataFullSample$mon.names))
+Monitor[1,]<-outModel$Monitor
+attributes(theta)$outModel<-outModel
+
+accepts<-as.data.frame(matrix(rep(0,nparams*nbsimul),ncol=nparams))
+names(accepts)<-MyDataFullSample$parm.names
+
+# write headers to table
+write.table(t(MyDataFullSample$mon.names), monitor.file, sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
+write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file, sep = ""), sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
+
+
+#============================
+# Launch sampler from functions sampling
+#============================
+
+	#Rprof()
+	
+	numit <- 1
+
+	while(numit <= nbsimul){		
+
+		## display at every update frequency
+		if(upFreq!=0 && numit%%upFreq==0){
+			  cat("it:",numit,"of", nbsimul, "current theta:", theta,"\n");
+		}
+
+		##save at every save frequency
+		if(saveFreq!=0 && numit%%saveFreq==0){
+			write.table(Monitor[(numit-saveFreq):numit, ], monitor.file, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(accepts[(numit-saveFreq):numit, ], paste("acceptsamples", monitor.file, sep = ""), sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n", file =  paste("MCMCvalues", monitor.file, sep = ""), append = TRUE)
+}
+	
+		## adapt the sampling variance	
+		if(!adaptOK && numit%%checkAdapt==0){
+			adaptOK <- TRUE
+			for(paramName in MyDataFullSample$parm.names){
+	      			logSDprop <- adaptSDProp(sdprop[paramName], accepts[1:numit, paramName], lowAcceptRate, highAcceptRate, tailLength = 20)
+				adaptOK <- adaptOK && attributes(logSDprop)$noupdate
+				sdprop[paramName] <- logSDprop
+	    	 	}
+			
+			if(adaptOK){
+
+				cat("adaption of sampling variance complete: beginning final run from numit: ", numit, "\n")
+				beginEstimate <- numit
+				nbsimul <- beginEstimate + nbsimul
+			}
+
+			## if the variances haven't yet been adapted and running out of simulations
+			## double the simulation size and resize
+			if(!adaptOK && numit+checkAdapt >= nbsimul)
+			{
+				
+				cat("sampling variance adaptation not complete: numit: ", numit, "doubling number simulations\n")
+				nbsimul <- nbsimul * 2
+				Monitor<-resized(Monitor,nr=nbsimul+1)
+				accepts<-resized(accepts,nr=nbsimul)
+
+			}
+		}
+		
+		## sample the variables
+		for(paramName in MyDataFullSample$parm.names){
+	      		theta<-omniSample(Model,MyDataFullSample,theta,paramName,sdprop[paramName])
+	      		accepts[numit,paramName]<-as.numeric(attributes(theta)$new)
+	    	 }
+
+	    	Monitor[numit+1,]<-attributes(theta)$outModel$Monitor
+
+		## auto stopping
+		if(useAutoStop && adaptOK && numit == beginEstimate + checkAutoStop){
+
+			cb<-cb.diag(Monitor[(1+beginEstimate):numit, ],logfile="convergence_tests.txt")
+			checkAutoStop<-min(cb$newNbIt,numit*3)
+			
+			if(!cb$ok){
+					cat("checking auto stop: numit: ", numit, "next check: ", numit + checkAutoStop)
+					
+					if(nbsimul <= beginEstimate + checkAutoStop)
+					{
+						nbsimul <- beginEstimate + checkAutoStop
+						Monitor<-resized(Monitor,nr=nbsimul+1)
+						accepts<-resized(accepts,nr=nbsimul)
+					}
+			}
+			else{
+				finalTestResults <- cb
+				cat("auto stop okay! terminating chain")
+				break
+			}
+		}	
+	
+		# increase the iteration count
+		numit <- numit + 1
+	}
+
+	write.table(Monitor[1:min(numit, nbsimul), ], "thetasamplescomplete.txt", sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	write.table(accepts[1:min(numit, nbsimul), ], "acceptsamplescomplete.txt", sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	write(finalTestResults, "finaltestresults.txt")
+	
+	# Rprof(NULL)
+
+	stop("MCMC finished")
+
+#===========================
+## Calculate estimates from MCMC
+#===========================
+
+# post treatment
+
+Monitor<-as.data.frame(Monitor)
+names(Monitor)<-MyDataFullSample$mon.names
+burn.in<-ceiling(n.mc/5)
+
+estMeans <- apply(Monitor[-(1:burn.in), -(1:2)], 2, mean)
+names(estMeans) <- MyDataFullSample$parm.names
+yMean<-mean(MyDataFullSample$y)
+ySd<-sd(MyDataFullSample$y)
+
+
+dev.new()
+par(mfrow = c(3, 2))
+plot(Monitor[max(beginEstimate, 2):min(numit, nbsimul), 2], main = "likelihood", pch = ".")
+
+for(i in 1:length(priorMeans))
+{
+	plot(Monitor[max(beginEstimate, 2):min(numit, nbsimul), i+2], main = paste(MyDataFullSample$parm.names[i], "=", realMeans[i], sep = ""), pch = ".")
+	abline(h=realMeans[i], col = "red")
+}
+
+stop()
+
+
