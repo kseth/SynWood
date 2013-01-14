@@ -497,6 +497,22 @@ if(class(importOk)!="try-error"){
 		timeI[1:length(timeH)] <- timeH
 		infested[infestH] <- 1
 		infestedDens<-rep(0,length(infested))
+		
+		if(is.null(dist_out))	
+			dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+	
+		dist_mat <- dist_out$dists		
+	
+		# if cumulProbMat is not passed, create blank cumulProbMat for C computation
+		# set useProbMat to FALSE	
+		if(is.null(cumulProbMat)){
+			cumulProbMat <- mat.or.vec(L, L)
+			useProbMat <- FALSE
+		}else{ # else pass dummy dist_mat so as not to take up memory space	
+			dist_mat <- 0
+            		useProbMat <- TRUE
+		}
+
 		if(getStats){	
 			# stats selection
 			# need to implement system where we can add and remove stats
@@ -519,11 +535,7 @@ if(class(importOk)!="try-error"){
  	      		sizeVvar<-8*length(cbin)
 			nbStats<- sizeVvar + 3
 			statsTable<-mat.or.vec(nbStats,Nrep)
-		
-			if(is.null(dist_out))	
-				dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-			
-			dist_mat <- dist_out$dists
+
 			dist_indices <- dist_out$CClassIndex
 			cbin <- dist_out$classSize
 			cbinas <- dist_out$classSizeAS
@@ -533,21 +545,11 @@ if(class(importOk)!="try-error"){
  	      		sizeVvar<-0
 			nbStats<-0
 			statsTable<-0
-			dist_mat <- 0
+
 			dist_indices <- 0
 			cbin <- 0
 			cbinas <- 0
 			cbinsb <- 0
-		}
-
-		# if cumulProbMat is not passed, create blank cumulProbMat for C computation
-		# set useProbMat to FALSE	
-		if(is.null(cumulProbMat)){
-			cumulProbMat <- mat.or.vec(L, L)
-			useProbMat <- FALSE
-		}else{ # else pass dummy dist_mat so as not to take up memory space	
-			dist_mat <- 0
-            		useProbMat <- TRUE
 		}
 
 		out<- .C("multiGilStat",
