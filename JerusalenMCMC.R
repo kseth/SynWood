@@ -12,8 +12,10 @@ source("functions_migration.R")
 # import params from maps of hunter
 # use maps_hunter_blocks.csv
 #==================
+## set spam memory options
+spam.options(nearestdistnnz=c(13764100,400))
 
-nameSimul<-"Jerusalen" # used by sec_launch.sh to give a name to the output folder
+nameSimul<-"JerusalenNoKernelWithWeights" # used by sec_launch.sh to give a name to the output folder
 Nrep=100
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
@@ -23,9 +25,11 @@ monitor.file<- "thetasamples_all.txt"
 limitHopSkip <- 60
 limitJump <- 1000
 rateMove <- 0.04
-rateHopInMove <- .725
-rateSkipInMove <- .225
-rateJumpInMove <- 1-rateHopInMove-rateSkipInMove
+
+## the noKernelMultiGilStat normalizes these weights
+weightHopInMove <- 1
+weightSkipInMove <- 0.25
+weightJumpInMove <- 0.10
 
 ## csv of Jerusalen
 ## "Encuesta_melgar.csv" contains data from the Encuesta for all of Mariana Melgar ~ 2008
@@ -34,7 +38,6 @@ encuesta_melgar <- read.csv(file = "Encuesta_Melgar.csv")
 jerusalen_encuesta <- read.csv(file = "jerusalen_encuesta_2011_full_f2_collapsed_KHL.csv")
 
 keep <- which(encuesta_melgar$unicode %in% jerusalen_encuesta$Unicode)
-
 match <- match(jerusalen_encuesta$Unicode, encuesta_melgar[keep, "unicode"])
 maps <- cbind(jerusalen_encuesta[, -which(names(jerusalen_encuesta) %in% c("EASTING", "NORTHING"))], OLDSTATUS = encuesta_melgar[keep, "status"][match])
 maps <- cbind(maps, X = jerusalen_encuesta[, "EASTING"], Y = jerusalen_encuesta[, "NORTHING"])
@@ -55,7 +58,7 @@ stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitH
 timeH <- rep(-2, length(startInfestH))
 
 ### the vec of stats for the second timepoint data
-stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH= 1, endTime = 1, rateMove = rateMove, rateHopInMove = rateHopInMove, rateSkipInMove = rateSkipInMove, rateJumpInMove = rateJumpInMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE)
+stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH= 1, endTime = 1, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = Nrep, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE)
 
 if(!is.vector(stats$statsTable)){
 	statsData <- stats$statsTable[, 1]
@@ -69,11 +72,11 @@ nbit <- 156
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(rateMove, rateJumpInMove, rateSkipInMove)
+priorMeans<-c(rateMove, weightJumpInMove, weightSkipInMove)
 priorSdlog <- c(1, 1, 1)
 realMeans<-c(NA, NA, NA)
 sampling <- c("lnorm", "lnorm", "lnorm")
-names(priorMeans)<-c("rateMove" , "rateJumpInMove", "rateSkipInMove") 
+names(priorMeans)<-c("rateMove" , "weightJumpInMove", "weightSkipInMove") 
 names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
 names(priorSdlog)<-names(priorMeans)
@@ -81,7 +84,7 @@ names(priorSdlog)<-names(priorMeans)
 ### Intervals of definition for the parameters
 ### No longer used, leave in for backward consistency
 paramInf<-c(0.002,0.0001,0.0001)
-paramSup<-c(0.30,0.50, 0.50)
+paramSup<-c(0.30, 1000, 1000)
 names(paramInf)<-names(priorMeans)
 names(paramSup)<-names(priorMeans)
 
@@ -158,19 +161,19 @@ Model <- function(theta,Data,postDraw=FALSE){
 	}
 	
 	#pass all variables correctly!
-	#note rateHopInMove = 1-rateJumpInMove-rateSkipInMove
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
 			    rateMove = theta["rateMove"],
-			    rateHopInMove = 1 - theta["rateSkipInMove"] - theta["rateJumpInMove"],
-			    rateSkipInMove = theta["rateSkipInMove"],
-			    rateJumpInMove = theta["rateJumpInMove"], 
+			    weightHopInMove = 1,
+			    weightSkipInMove = theta["weightSkipInMove"],
+			    weightJumpInMove = theta["weightJumpInMove"], 
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out = Data$dist_out)
+
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -284,7 +287,7 @@ write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file,
 
 
 #============================
-# Launch sampler from functions sampling
+# Launch sampler
 #============================
 
 	#Rprof()

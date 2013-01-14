@@ -1,5 +1,4 @@
 # functions for the migration/spatial stats
-
 # data for the tests
 library(geoR)
 library(testthat)
@@ -24,9 +23,6 @@ genIntervals <- seq(0, 250, 15) # distance classes for the general variogram
 ##
 generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex)
 {
-	
-	# memory allocation options for spam matrix	
-	spam.options(nearestdistnnz=c(13764100,400))
 
 	# make same block matrix of households in the same block
 	SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
