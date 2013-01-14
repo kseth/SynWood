@@ -501,15 +501,48 @@ if(class(importOk)!="try-error"){
 		timeI[1:length(timeH)] <- timeH
 		infested[infestH] <- 1
 		infestedDens<-rep(0,length(infested))
-
-		if(is.null(dist_out))	
-			dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+		if(getStats){	
+			# stats selection
+			# need to implement system where we can add and remove stats
+			###===================================
+			## CURRENT STATS:
+			## General Semivariance
+			## General Semivariance Std. Dev.
+			## Interblock Semivariance
+			## Interblock Semivariance Std. Dev.
+			## Intrablock Semivariance
+			## Intrablock Semivariance Std. Dev.
+			## By block Semivariance
+			## By block Semivariance Std. Dev.
+			##	= 8 * length(cbin)
+			## Number Infested Houses
+			## Number Infested Blocks
+			## (Infested Houses)/(Infested Blocks)
+			##	= 8 * length(cbin) + 3
+			###===================================
+ 	      		sizeVvar<-8*length(cbin)
+			nbStats<- sizeVvar + 3
+			statsTable<-mat.or.vec(nbStats,Nrep)
+		
+			if(is.null(dist_out))	
+				dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
 			
-		dist_mat <- dist_out$dists
-		dist_indices <- dist_out$CClassIndex
-		cbin <- dist_out$classSize
-		cbinas <- dist_out$classSizeAS
-		cbinsb <- dist_out$classSizeSB
+			dist_mat <- dist_out$dists
+			dist_indices <- dist_out$CClassIndex
+			cbin <- dist_out$classSize
+			cbinas <- dist_out$classSizeAS
+			cbinsb <- dist_out$classSizeSB
+	
+		}else{
+ 	      		sizeVvar<-0
+			nbStats<-0
+			statsTable<-0
+			dist_mat <- 0
+			dist_indices <- 0
+			cbin <- 0
+			cbinas <- 0
+			cbinsb <- 0
+		}
 
 		# if cumulProbMat is not passed, create blank cumulProbMat for C computation
 		# set useProbMat to FALSE	
@@ -517,32 +550,9 @@ if(class(importOk)!="try-error"){
 			cumulProbMat <- mat.or.vec(L, L)
 			useProbMat <- FALSE
 		}else{ # else pass dummy dist_mat so as not to take up memory space	
-			dist_mat <- -1
+			dist_mat <- 0
             		useProbMat <- TRUE
 		}
-	
-		# stats selection
-		# need to implement system where we can add and remove stats
-		###===================================
-		## CURRENT STATS:
-		## General Semivariance
-		## General Semivariance Std. Dev.
-		## Interblock Semivariance
-		## Interblock Semivariance Std. Dev.
-		## Intrablock Semivariance
-		## Intrablock Semivariance Std. Dev.
-		## By block Semivariance
-		## By block Semivariance Std. Dev.
-		##	= 8 * length(cbin)
-		## Number Infested Houses
-		## Number Infested Blocks
-		## (Infested Houses)/(Infested Blocks)
-		##	= 8 * length(cbin) + 3
-		###===================================
-       		sizeVvar<-8*length(cbin)
-		nbStats<- sizeVvar + 3
-		statsTable<-mat.or.vec(nbStats,Nrep)
-
 
 		out<- .C("multiGilStat",
 			 # simulation parameters
@@ -577,7 +587,7 @@ if(class(importOk)!="try-error"){
 			 indices = as.integer(dist_indices),
 			 statsTable = as.numeric(statsTable),
 			 nbStats = as.integer(nbStats),
-             sizeVvar = as.integer(sizeVvar)
+             		 sizeVvar = as.integer(sizeVvar)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
@@ -626,42 +636,52 @@ if(class(importOk)!="try-error"){
 		infested[infestH] <- 1
 		infestedDens<-rep(0,length(infested))
 
-		if(is.null(dist_out))	
-			dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-			
-		dist_mat <- dist_out$dists
-		dist_indices <- dist_out$CClassIndex
-		cbin <- dist_out$classSize
-		cbinas <- dist_out$classSizeAS
-		cbinsb <- dist_out$classSizeSB
 
 		# if stratHopSkipJump, throw error 	
 		if(is.null(stratHopSkipJump)){
 			stop("need to pass a stratified hop/skip/jump matrix; see generate_stratifed_mat")
 		}
-	
-		# stats selection
-		# need to implement system where we can add and remove stats
-		###===================================
-		## CURRENT STATS:
-		## General Semivariance
-		## General Semivariance Std. Dev.
-		## Interblock Semivariance
-		## Interblock Semivariance Std. Dev.
-		## Intrablock Semivariance
-		## Intrablock Semivariance Std. Dev.
-		## By block Semivariance
-		## By block Semivariance Std. Dev.
-		##	= 8 * length(cbin)
-		## Number Infested Houses
-		## Number Infested Blocks
-		## (Infested Houses)/(Infested Blocks)
-		##	= 8 * length(cbin) + 3
-		###===================================
-       		sizeVvar<-8*length(cbin)
-		nbStats<- sizeVvar + 3
-		statsTable<-mat.or.vec(nbStats,Nrep)
 
+		if(getStats){
+
+			if(is.null(dist_out))	
+				dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+			
+			dist_indices <- dist_out$CClassIndex
+			cbin <- dist_out$classSize
+			cbinas <- dist_out$classSizeAS
+			cbinsb <- dist_out$classSizeSB
+
+			# stats selection
+			# need to implement system where we can add and remove stats
+			###===================================
+			## CURRENT STATS:
+			## General Semivariance
+			## General Semivariance Std. Dev.
+			## Interblock Semivariance
+			## Interblock Semivariance Std. Dev.
+			## Intrablock Semivariance
+			## Intrablock Semivariance Std. Dev.
+			## By block Semivariance
+			## By block Semivariance Std. Dev.
+			##	= 8 * length(cbin)
+			## Number Infested Houses
+			## Number Infested Blocks
+			## (Infested Houses)/(Infested Blocks)
+			##	= 8 * length(cbin) + 3
+			###===================================
+       			sizeVvar<-8*length(cbin)
+			nbStats<- sizeVvar + 3
+			statsTable<-mat.or.vec(nbStats,Nrep)
+		}else{
+			dist_indices <- 0
+			cbin <- 0
+			cbinas <- 0
+			cbinsb <- 0
+			sizeVvar <- 0
+			nbStats <- 0
+			statsTable <- 0
+		}
 
 		out<- .C("noKernelMultiGilStat",
 			 # simulation parameters
@@ -695,7 +715,7 @@ if(class(importOk)!="try-error"){
 			 indices = as.integer(dist_indices),
 			 statsTable = as.numeric(statsTable),
 			 nbStats = as.integer(nbStats),
-             sizeVvar = as.integer(sizeVvar)
+             		 sizeVvar = as.integer(sizeVvar)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
@@ -755,8 +775,9 @@ if(class(importOk)!="try-error"){
 			useProbMat <- FALSE
 		}else{ # else pass dummy dist_mat so as not to take up memory space	
 			dist_mat <- -1
-            useProbMat <- TRUE
+            		useProbMat <- TRUE
 		}
+
 		# stats selection
 		# need to implement system where we can add and remove stats
 		###===================================
@@ -775,7 +796,7 @@ if(class(importOk)!="try-error"){
 		## (Infested Houses)/(Infested Blocks)
 		##	= 8 * length(cbin) + 3
 		###===================================
-        sizeVvar<-8*length(cbin)
+       		sizeVvar<-8*length(cbin)
 		nbStats<- sizeVvar + 3
 		statsTable<-mat.or.vec(nbStats,Nrep)
 
@@ -1026,5 +1047,5 @@ predictBasicModel<-function(maps,infestInitName,model=basicModel,timePredictOver
 }
 
 # Tests
-test_file("test-functions_migration.R")
+# test_file("test-functions_migration.R")
 
