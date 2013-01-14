@@ -18,8 +18,8 @@ source("functions_migration.R")
 # use maps_hunter_blocks.csv
 #==================
 
-nameSimul<-"noKernel" # used by sec_launch.sh to give a name to the output folder
-Nrep=75
+nameSimul<-"noKernelnoSkipWithWeights" # used by sec_launch.sh to give a name to the output folder
+Nrep=100
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
 monitor.file<- "thetasamples_all.txt"
@@ -28,9 +28,12 @@ monitor.file<- "thetasamples_all.txt"
 limitHopSkip <- 60
 limitJump <- 1000
 rateMove <- 0.04
-rateHopInMove <- .725
-rateSkipInMove <- .225
-rateJumpInMove <- 1-rateHopInMove-rateSkipInMove
+
+## test with only hops
+## the noKernelMultiGilStat normalizes these weights
+weightHopInMove <- 1
+weightSkipInMove <- 1e-10
+weightJumpInMove <- 0.1
 
 ## csv of hunter map
 maps.tot<-read.csv("maps_hunter_blocks.csv")
@@ -91,7 +94,7 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, rateHopInMove = rateHopInMove, rateSkipInMove = rateSkipInMove, rateJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE)
 print(Sys.time() - start)
 
 ## plot results of gillespie
@@ -110,9 +113,9 @@ statsData <- secondTimePointSimul$statsTable
 #==================
 priorMeans<-c(0.045, 0.10, 0.20)
 priorSdlog <- c(1, 1, 1)
-realMeans<-c(rateMove, rateJumpInMove, rateSkipInMove)
+realMeans<-c(rateMove, weightJumpInMove, weightSkipInMove)
 sampling <- c("lnorm", "lnorm", "lnorm")
-names(priorMeans)<-c("rateMove" , "rateJumpInMove", "rateSkipInMove") 
+names(priorMeans)<-c("rateMove" , "weightJumpInMove", "weightSkipInMove") 
 names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
 names(priorSdlog)<-names(priorMeans)
@@ -120,7 +123,7 @@ names(priorSdlog)<-names(priorMeans)
 ### Intervals of definition for the parameters
 ### No longer used, leave in for backward consistency
 paramInf<-c(0.002,0.0001,0.0001)
-paramSup<-c(0.30,0.50, 0.50)
+paramSup<-c(0.30,1000, 1000)
 names(paramInf)<-names(priorMeans)
 names(paramSup)<-names(priorMeans)
 
@@ -196,13 +199,12 @@ Model <- function(theta,Data,postDraw=FALSE){
 	}
 	
 	#pass all variables correctly!
-	#note rateHopInMove = 1-rateJumpInMove-rateSkipInMove
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
 			    rateMove = theta["rateMove"],
-			    rateHopInMove = 1 - theta["rateSkipInMove"] - theta["rateJumpInMove"],
-			    rateSkipInMove = theta["rateSkipInMove"],
-			    rateJumpInMove = theta["rateJumpInMove"], 
+			    weightHopInMove = 1,
+			    weightSkipInMove = theta["weightSkipInMove"],
+			    weightJumpInMove = theta["weightJumpInMove"], 
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    breaksGenVar = Data$genIntervals,
@@ -265,11 +267,7 @@ start<-Sys.time()
 ModelOutGood<-Model(priorMeans,MyDataFullSample)
 cat(Sys.time()-start)
 ModelOutBest<-Model(realMeans,MyDataFullSample)
-expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
-
-# theta<-realMeans
-# theta["rateMove"]<-log(0.5)
-# ModelOutBest<-Model(theta,MyDataFullSample)
+#expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
 # weibull order plotting to check if stats are normal
 # for(i in 1:dim(outBase$statsTable)[1])
@@ -320,7 +318,7 @@ write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file,
 
 
 #============================
-# Launch sampler from functions sampling
+# Launch sampler
 #============================
 
 	#Rprof()
