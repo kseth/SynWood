@@ -453,8 +453,8 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, int* cbin, i
 			vbin[class]=NAN;
 		}
 
-	    // if as or sb pairs doesn't exist for a distance class
-        // set the diff to 0	
+	    	// if as or sb pairs doesn't exist for a distance class
+		// set the diff to NAN	
 		if(cbinas[class] > 0 && cbinsb[class] > 0)
 		{
 			sdbinas[class] = sqrt((sdbinas[class] - ((vbinas[class] * vbinas[class])/cbinas[class]))/(4*(cbinas[class] - 1)));
@@ -796,7 +796,6 @@ void multiThetaMultiGilStat(double* probMat,double* distMat, int* blockIndex, in
 				}
 
 				// printf("rep: %i endIndex:%i seed:%i \n",rep,*endIndex,*seed);
-			}else{ // do stats on initial data
 			}
 			// printf("simul OK, *getStats: %i\n",*getStats);
 
