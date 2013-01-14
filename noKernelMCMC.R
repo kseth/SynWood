@@ -17,6 +17,8 @@ source("functions_migration.R")
 # import params from maps of hunter
 # use maps_hunter_blocks.csv
 #==================
+## set spam memory options
+spam.options(nearestdistnnz=c(13764100,400))
 
 nameSimul<-"noKernelnoSkipWithWeights" # used by sec_launch.sh to give a name to the output folder
 Nrep=100
