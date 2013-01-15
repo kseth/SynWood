@@ -95,7 +95,7 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(endState=binomEndInfested,
+MyDataFullSample <- list(y=binomEndInfested,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
@@ -139,8 +139,6 @@ cat(Sys.time()-start, "\n")
 # Sys.sleep(0.5)
 # 
 # }
-
-stop("testing so far so good")
 
 #=================
 ## Make call to MCMC

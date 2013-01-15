@@ -198,10 +198,10 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		yhat<-out$infestedDens
 
 		# binomial likelihood
-		# take the product of all the infestedDens that are infested at the end time point endBinomInfest
-		# then multiply by (1-infestedDense) for all those that are not infested at end time point endBinomInfest
-		ll <- prod(yhat[which(Data$endBinomInfest == 1)])
-		ll <- ll * prod((1-yhat[which(Data$endBinomInfest == 0)]))		
+		# take the product of all the infestedDens that are infested at the end time point y
+		# then multiply by (1-infestedDense) for all those that are not infested at end time point y
+		ll <- prod(yhat[which(Data$y == 1)])
+		ll <- ll * prod((1-yhat[which(Data$y == 0)]))		
 
 		# get likelihood with priors
 		LL<-ll
