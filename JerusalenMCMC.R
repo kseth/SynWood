@@ -9,8 +9,8 @@ source("extrapol_field.R")
 source("functions_migration.R")
 
 #==================
-# import params from maps of hunter
-# use maps_hunter_blocks.csv
+# import params of two maps from Jerusalen
+# set parameters for simulation
 #==================
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -245,8 +245,6 @@ cat(Sys.time()-start, "\n")
 # Sys.sleep(0.5)
 # 
 # }
-
-stop("Initial preparations good")
 
 #===========================
 # Init values 
