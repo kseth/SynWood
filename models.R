@@ -205,7 +205,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		pred1 <- which(yhat == 1)
 		pred0 <- which(yhat == 0)
 		predMid <- which(yhat > 0 & yhat < 1)
-		ff <- 1/(length(Data$y)+1)
+		ff <- 1/(length(Data$Nrep)+1)
 
 		ll <- sum(log(yhat[intersect(inf, union(predMid, pred1))]))
 		ll <- ll + sum(log(1-yhat[intersect(uninf, union(predMid, pred0))]))
