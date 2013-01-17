@@ -16,8 +16,8 @@ source("MCMC.R")
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
-nameSimul<-"HunterBinomNoKernelReasaonableVals" # used by sec_launch.sh to give a name to the output folder
-Nrep=75
+nameSimul<-"HunterBinomReasaonableValsMoreReps" # used by sec_launch.sh to give a name to the output folder
+Nrep=500
 set.seed(1)
 monitor.file<- "thetasamples_all.txt"
 

@@ -209,7 +209,8 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 		ll <- sum(log(yhat[intersect(inf, union(predMid, pred1))]))
 		ll <- ll + sum(log(1-yhat[intersect(uninf, union(predMid, pred0))]))
-		ll <- ll + sum(log(rep(ff, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
+		# ll <- ll + sum(log(rep(ff, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
+		ll <- ll + sum(log(rep(minLLever, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
 
 		# get likelihood with priors
 		LL<-ll
