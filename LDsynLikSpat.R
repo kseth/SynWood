@@ -265,11 +265,11 @@ Model <- function(theta,Data,postDraw=FALSE){
 #	testLL[i]<-ModelOutGood$LP
 # }
 
-# signedLog<-function(signedBigNums){
-#	signNum<-sign(signedBigNums)
-#	signedLog<-log(abs(signedBigNums))*signNum
-#	return(signedLog)
-# }
+signedLog<-function(signedBigNums){
+      signNum<-sign(signedBigNums)
+      signedLog<-log(abs(signedBigNums))*signNum
+      return(signedLog)
+}
 
 # par(mfrow=c(1,2))
 # plot(log(testRateMove),signedLog(testLL),type="l",ylab="Log(Log(likelihood))",xlab="Log(rateMove)",main="Synthetic likelihood profile for rateMove \n blue is true");

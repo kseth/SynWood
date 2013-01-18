@@ -16,7 +16,7 @@ source("MCMC.R")
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
-nameSimul<-"HunterBinomReasaonableValsMoreReps" # used by sec_launch.sh to give a name to the output folder
+nameSimul<-"HunterBinomMessyData_notopen_notdetected" # used by sec_launch.sh to give a name to the output folder
 Nrep=500
 set.seed(1)
 monitor.file<- "thetasamples_all.txt"
@@ -53,11 +53,11 @@ stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitH
 startInfestH <- c(3200, 1, 10, 3210, 8, 15, 14, 3199, 3220, 16, 20, 25)
 
 ## plot initially infested houses
-## dev.new()
-## par(mfrow = c(1, 2))
-## infested <- rep(0, length(maps$X))
-## infested[startInfestH] <- 1
-## plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
+dev.new()
+par(mfrow = c(3, 1))
+infested <- rep(0, length(maps$X))
+infested[startInfestH] <- 1
+plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
 
 ## create a dummy timeH
 timeH <- rep(-2, length(startInfestH))
@@ -72,8 +72,12 @@ print(Sys.time() - start)
 
 ## plot results of gillespie
 binomEndInfested <- as.integer(secondTimePointSimul$infestedDens)
-## cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
-## plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
+plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+
+binomEndInfested <- simulObserved(binomEndInfested, 0.7, 0.9)
+print(length(which(binomEndInfested == 1)))
+plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
 #==================
 # Priors (also the place to change the parameters)

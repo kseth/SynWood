@@ -20,8 +20,8 @@ source("functions_migration.R")
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
-nameSimul<-"noKernelreasonableValsWithWeights" # used by sec_launch.sh to give a name to the output folder
-Nrep=75
+nameSimul<-"SynLikHunterwithmessydata" # used by sec_launch.sh to give a name to the output folder
+Nrep=150
 set.seed(1)
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) # distance classes for the general variogram
 monitor.file<- "thetasamples_all.txt"
@@ -97,19 +97,24 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = infestH, timeH=rep(-1,length(infestH)), endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = FALSE)
 print(Sys.time() - start)
 
 ## plot results of gillespie
 ## cat("starting # infested:", length(infestH), " ending # infested:", length(which(secondTimePointSimul$infestedDens!=0)), "\n")
 ## plot_reel(maps$X, maps$Y, secondTimePointSimul$infestedDens, base = 0, top = 1)
 
+binomEndInfested <- as.integer(secondTimePointSimul$infestedDens)
+binomEndInfested <- simulObserved(binomEndInfested, 0.7, 0.9)
 
-## store stats from gillespie simulation for usage with Wood LD
-if(!is.vector(secondTimePointSimul$statsTable)){
-statsData <- secondTimePointSimul$statsTable[, 1]
+### the vec of stats for the "messy" second timepoint data
+
+endInfestH<-which(binomEndInfested ==1)
+stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=rep(-1, length(endInfestH)), endTime = 1,rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE)
+if(!is.vector(stats$statsTable)){
+ statsData <- stats$statsTable[, 1]
 }else{
-statsData <- secondTimePointSimul$statsTable
+ statsData <- stats$statsTable
 }
 
 #==================
@@ -282,6 +287,7 @@ ModelOutBest<-Model(realMeans,MyDataFullSample)
 # Sys.sleep(0.5)
 # 
 # }
+
 
 #===========================
 # Init values 
