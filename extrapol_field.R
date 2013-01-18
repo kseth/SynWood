@@ -3337,7 +3337,7 @@ trace.mcmc<-function(samples=NULL,dbFit=NULL){
 
   return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
 }
-get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL, xlim = NULL){
   C<-C[which(!is.infinite(C))]
   if(length(which(!is.na(C)))>1){
     estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
@@ -3359,7 +3359,10 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 
     vals<-predict(densfit,estimate)
     if(visu){
-      plot(densfit,xlab=name)
+	if(is.null(xlim))
+      		plot(densfit,xlab=name)
+	else
+		plot(densfit, xlab=name, xlim = xlim)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
       for(q in 2:4){
 	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
