@@ -3,6 +3,8 @@
 library(geoR)
 library(testthat)
 source("RanalysisFunctions.R")
+source("maps_basic_regression.R") # gives maps
+genIntervals <- seq(0, 250, 15) # distance classes for the general variogram
 
 #======================
 # Generate hop/skip/jump matrixes
@@ -279,6 +281,42 @@ loopMethod <- function(events_time, events_loc, probMat, infestH, timeH, current
 
 	return(loopMethod(events_time, events_loc, probMat, infestH, timeH, events_time[1], endTime))
 }
+
+# # gillespie with multiple snapshots possible
+# useless, just use ages from normal gillespie as demonstrated in basic_regression.R and infestSerieToMaps() in this file
+# gillespie.mo<-function(probMat, # matrix with probability to end up in given house given "departure" from an initial house
+# 		      cumulProbMat, # same but cumulative probability for one house of departure
+# 		      infestH,  # vector of infestation
+# 		      timeH,     # vector of time of infestation
+# 		      snapTimes,# time of snapshots, the last one being the end time of simulation
+# 		      scale,     # 1/(rate of departure per house)
+# 		      toNextEvent=rweibull(1, shape = 1, scale = scale/length(infestH)), # time to the next event
+# 		      currentTime=0 # initial time
+# 		      ){
+# 	snapshots<-list()
+# 	for(itime in 1:length(snapTimes)){
+# 		snapshots[[itime]]<-gillespie(probMat,cumulProbMat,infestH,timeH,snapTimes[itime],scale,toNextEvent,currentTime=currentTime)
+# 		snapshots[[itime]]$time<-snapTimes[itime]
+# 		currentTime <- snapTimes[itime]
+# 		infestH<-snapshots[[itime]]$infestOrder
+# 		timeH<-snapshots[[itime]]$infestTime
+# 		toNextEvent<-snapshots[[itime]]$toNextEvent
+# 		currentTime<-snapshots[[itime]]$time
+# 	}
+# 	return(snapshots)
+# }
+# test
+# set.seed(777)
+# out <- gillespie.mo(probMat, cumulProbMat, infestH, timeH, snapTimes=snapTimes, scale)
+# 
+# par(mfcol=c(2,length(snapTimes)))
+# for(itime in 1:length(snapTimes)){
+# 	outT<-out[[itime]]
+# 	maps<-infestSerieToMaps(outT,sp)
+# 	plot_reel(maps$X,maps$Y,maps$infest,base=0,main=paste(outT$time,"time unit (weeks)"))
+# 	plot_reel(maps$X,maps$Y,log(maps$ages+1),base=0,top=max(log(maps$ages+1)))
+# }
+
 
 
 # with one start, one stop
@@ -710,7 +748,109 @@ if(class(importOk)!="try-error"){
 		return(out)
 	}
 
-    	getPosteriorMapsLD<-function(Fit,Data,repByTheta=1){
+    multiThetaMultiGilStat<-function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, halfDistJ = -1, halfDistH = -1, useDelta = -1, delta = -1, rateHopInMove = -1, rateSkipInMove = -1, rateJumpInMove = -1, breaksStreetVar = breaksGenVar, dist_out = NULL){
+		
+		# seed <- runif(1, 1, 2^31-1)
+		#for random seeding of stochastic simulation	
+
+	  	L<-dim(coords)[1]
+		indexInfest <- rep(-1, L)
+		timeI <- rep(-1, L)
+		infested <- rep(0, L)
+		indexInfest[1:length(infestH)] <- infestH - 1
+		timeI[1:length(timeH)] <- timeH
+		infested[infestH] <- 1
+		infestedDens<-rep(0,length(infested))
+
+		if(is.null(dist_out))	
+		dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+
+		dist_mat <- dist_out$dists
+		dist_indices <- dist_out$CClassIndex
+		cbin <- dist_out$classSize
+		cbinas <- dist_out$classSizeAS
+		cbinsb <- dist_out$classSizeSB
+
+		# if cumulProbMat is not passed, create blank cumulProbMat for C computation
+		# set useProbMat to FALSE	
+		if(is.null(cumulProbMat)){
+			cumulProbMat <- mat.or.vec(L, L)
+			useProbMat <- FALSE
+		}else{ # else pass dummy dist_mat so as not to take up memory space	
+			dist_mat <- -1
+            		useProbMat <- TRUE
+		}
+
+		# stats selection
+		# need to implement system where we can add and remove stats
+		###===================================
+		## CURRENT STATS:
+		## General Semivariance
+		## General Semivariance Std. Dev.
+		## Interblock Semivariance
+		## Interblock Semivariance Std. Dev.
+		## Intrablock Semivariance
+		## Intrablock Semivariance Std. Dev.
+		## By block Semivariance
+		## By block Semivariance Std. Dev.
+		##	= 8 * length(cbin)
+		## Number Infested Houses
+		## Number Infested Blocks
+		## (Infested Houses)/(Infested Blocks)
+		##	= 8 * length(cbin) + 3
+		###===================================
+       		sizeVvar<-8*length(cbin)
+		nbStats<- sizeVvar + 3
+		statsTable<-mat.or.vec(nbStats,Nrep)
+
+		out<- .C("multiThetaMultiGilStat",
+			 # simulation parameters
+			 probMat = as.numeric(cumulProbMat),
+			 distMat = as.numeric(dist_mat),
+			 blockIndex = as.integer(blockIndex),
+			 simul = as.integer(simul),
+			 infested = as.integer(infested),
+			 infestedDens = as.numeric(infestedDens),
+			 endIndex = as.integer(length(infestH) - 1),
+			 L = as.integer(L),
+			 endTime = as.numeric(endTime),
+			 indexInfest = as.integer(indexInfest),
+			 timeI = as.numeric(timeI),
+			 rateMove = as.numeric(rateMove),
+			 sizeRateMove = as.integer(length(rateMove)),
+			 seed = as.integer(seed),
+			 Nrep = as.integer(Nrep),
+			 # stats
+			 getStats=as.integer(getStats),
+			 nbins = as.integer(length(breaksGenVar)),
+			 cbin = as.integer(cbin),
+			 cbinas = as.integer(cbinas),
+			 cbinsb = as.integer(cbinsb),
+			 indices = as.integer(dist_indices),
+			 sizeVvar = as.integer(sizeVvar),
+			 statsTable = as.numeric(statsTable),
+			 nbStats = as.integer(nbStats)
+			 )
+
+		out$infestedDens<-out$infestedDens/(Nrep*length(rateMove));
+		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
+		good <- which(!is.nan(out$statsTable[, 1]))
+		out$statsTable <- out$statsTable[good, ]
+		#statsTable now includes 7 stats
+		#LDsynLikSpat doesn't account for this, make statsTable only include first two stats for backward compatibility
+		#out$statsTable<-out$statsTable[1:(2*(length(genIntervals)-1)), ]
+		infestH <- out$indexInfest
+		infestH <- infestH[which(infestH != -1)] + 1
+		out$indexInfest <- infestH
+		timeH <- out$timeI
+		timeH <- timeH[which(infestH != -1)]
+		out$timeI <- timeH
+
+		return(out)
+		# return(list(infestH, timeI))
+	}
+
+	getPosteriorMapsLD<-function(Fit,Data,repByTheta=1){
 		Data$Nrep<-repByTheta
 		meanMap<-0*rep(0,dim(Data$maps)[1])
 		thetas<-as.matrix(Fit$Posterior2)
