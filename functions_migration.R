@@ -223,6 +223,43 @@ fast_prob_mat <- function(halfDistJ,
 	return(probMat)
 }
 
+
+#=============================
+# Simple grid definition 
+#=============================
+# num.row, num.col - number rows, number cols
+# row.dist, col.dist - distance between adjacent rows, adjacent columns (0, 0 is top, left)
+# if want to makeBlocks, set makeBlocks = TRUE
+#			 set block.rows to how many rows in a block
+# 			 set block.cols to how many cols in a block 
+#			 i.e. 2 by 4 block would be block.rows = 2, block.cols = 4
+makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist, makeBlocks = FALSE, block.rows = 0, block.cols = 0){
+
+	rows <- (1:(num.rows*num.cols) - 1)
+	rows <- floor(rows/num.rows)
+	rows <- rows * row.dist
+	cols <- (1:(num.rows*num.cols) - 1)
+	cols <- floor(cols%%num.rows)
+	cols <- cols*col.dist
+	
+	maps <- data.frame(X = rows, Y = cols)
+
+	# if no need to make blocks, just return maps
+	if(!makeBlocks)
+		return(maps)
+	
+	# make the blocks according to block.rows, block.cols	
+	if(block.rows == 0 || block.cols == 0)
+		stop("block.rows or block.cols not set correctly, need to be nonzero + passed")
+	
+	## NEED TO FIX THIS MECHANISM OF MAKING BLOCKS
+	rows <- (1:num.rows*num.cols) - 1			
+	rows <- rows%%block.rows
+	cols <- (1:num.rows*num.cols) - 1			
+	cols <- cols%%block.cols
+}
+
+
 #=============================
 # Migration functions
 #=============================
@@ -329,6 +366,11 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 	}
 	return(list(infestOrder=infestH,infestTime=timeH,toNextEvent=toNextEvent,time=endTime))
 }
+
+#==========================
+## Functions defined in C
+## all the main loop + statistical functions functions
+#==========================
 
 # import C functions if possible
 importOk<-try(dyn.load("functions_migration.so"), silent=TRUE)
@@ -758,24 +800,6 @@ if(class(importOk)!="try-error"){
 		return(out)
 	}
 
-    	getPosteriorMapsLD<-function(Fit,Data,repByTheta=1){
-		Data$Nrep<-repByTheta
-		meanMap<-0*rep(0,dim(Data$maps)[1])
-		thetas<-as.matrix(Fit$Posterior2)
-		nbThetas<-dim(thetas)[1]
-		for(numTheta in 1:nbThetas){
-			theta<-thetas[numTheta,]
-			ModelOutBest<-Model(theta,Data,postDraw=TRUE)
-			meanMap<-meanMap+ModelOutBest$yhat
-		}
-		
-		meanMap<-meanMap/nbThetas
-		attributes(meanMap)$nbThetas<-nbThetas
-		attributes(meanMap)$repByTheta<-repByTheta
-
-		return(meanMap)
-	}
-
 	generate_prob_mat_C <- function(halfDistJ, halfDistH, useDelta, delta, rateHopInMove, rateSkipInMove, rateJumpInMove, dist_mat, blockIndex, L=sqrt(length(dist_mat)), cumul=FALSE )
 	{
 		prob_mat <- mat.or.vec(L, L)
@@ -821,6 +845,29 @@ if(class(importOk)!="try-error"){
 
 		return(matrix(out$prob_mat, L, L, byrow = byrow))
 	}
+}
+
+#=====================
+## Analysis of outputs of multiGils
+## Way to simulate messiness in data
+#=====================
+
+getPosteriorMapsLD<-function(Fit,Data,repByTheta=1){
+	Data$Nrep<-repByTheta
+	meanMap<-0*rep(0,dim(Data$maps)[1])
+	thetas<-as.matrix(Fit$Posterior2)
+	nbThetas<-dim(thetas)[1]
+	for(numTheta in 1:nbThetas){
+		theta<-thetas[numTheta,]
+		ModelOutBest<-Model(theta,Data,postDraw=TRUE)
+		meanMap<-meanMap+ModelOutBest$yhat
+	}
+	
+	meanMap<-meanMap/nbThetas
+	attributes(meanMap)$nbThetas<-nbThetas
+	attributes(meanMap)$repByTheta<-repByTheta
+
+	return(meanMap)
 }
 
 
