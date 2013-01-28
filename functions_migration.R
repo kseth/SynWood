@@ -19,13 +19,16 @@ source("RanalysisFunctions.R")
 # length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
 # diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
 ##
-generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex)
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=NULL)
 {
 
 	# make same block matrix of households in the same block
-	SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
-	SB@entries <- rep(1,length(SB@entries))
-	SB<-as.spam(SB)
+	if(!is.null(blockIndex)
+	{
+		SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
+		SB@entries <- rep(1,length(SB@entries))
+		SB<-as.spam(SB)
+	}
 
 	# make distance matrixes for two thresholds: limitHopSkip, limitJump
 	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
@@ -35,27 +38,33 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex)
 	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)
 	dist_mat_jump <- cleanup(dist_mat_jump)
 	
-	#define hopMat, skipMat
-	#hopMat if in same block
-	#skipMat if across streets
+	#define hopMat
 	hopMat <- dist_mat_hop_skip
-	skipMat <- dist_mat_hop_skip
-	
 	hopMat@entries <- rep(1, length(hopMat@entries))
-	skipMat@entries <- rep(1, length(skipMat@entries))
-	
-	hopMat <- hopMat * SB
 	hopMat <- as.spam(hopMat)
 
-	skipMat <- skipMat - hopMat
-	skipMat <- as.spam(skipMat)
+	# if blockIndices are passed
+	# define skipMat as across blocks
+	# hopMat as within blocks
+	if(!is.null(blockIndex))
+	{	
+		skipMat <- dist_mat_hop_skip
+		skipMat@entries <- rep(1, length(skipMat@entries))
+		hopMat <- hopMat * SB
+		hopMat <- as.spam(hopMat)
+		skipMat <- skipMat - hopMat
+		skipMat <- as.spam(skipMat)
+	}
 
 	#define jumpMat
 	jumpMat <- dist_mat_jump
 	jumpMat@entries <- rep(1, length(jumpMat@entries))
 	jumpMat <- as.spam(jumpMat)
 
-	return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
+	if(is.null(blockIndex)
+		return(list(hopMat = hopMat, jumpMat = jumpMat))
+	else
+		return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
 
 }
 
@@ -582,7 +591,20 @@ if(class(importOk)!="try-error"){
 	## this method does not use the kernels or delta
 	## instead need to pass weightHopInMove (set to 1), weightSkipInMove, weightJumpInMove
 	##	these parameters are dealt with by the gillespie
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
+	## if haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
+	## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based
+	## pass blockIndex = NULL if want haveBlocks = FALSE
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL, haveBlocks = TRUE){
+
+		
+		# no blockIndex passed, set haveBlocks to false	
+		if(is.null(blockIndex))
+			haveBlocks <- FALSE
+
+		# set the weight of skips to 0 (no blocks)
+		# this should be done by default
+		if(!haveBlocks)
+			weightSkipInMove <- 0
 
 		# convert weightHop, weightSkip, weightJump to rates by normalizing (rates needed by c code)
 		rateHopInMove <- weightHopInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
@@ -614,29 +636,46 @@ if(class(importOk)!="try-error"){
 			
 			dist_indices <- dist_out$CClassIndex
 			cbin <- dist_out$classSize
-			cbinas <- dist_out$classSizeAS
-			cbinsb <- dist_out$classSizeSB
 
-			# stats selection
-			# need to implement system where we can add and remove stats
-			###===================================
-			## CURRENT STATS:
-			## General Semivariance
-			## General Semivariance Std. Dev.
-			## Interblock Semivariance
-			## Interblock Semivariance Std. Dev.
-			## Intrablock Semivariance
-			## Intrablock Semivariance Std. Dev.
-			## By block Semivariance
-			## By block Semivariance Std. Dev.
-			##	= 8 * length(cbin)
-			## Number Infested Houses
-			## Number Infested Blocks
-			## (Infested Houses)/(Infested Blocks)
-			##	= 8 * length(cbin) + 3
-			###===================================
-       			sizeVvar<-8*length(cbin)
-			nbStats<- sizeVvar + 3
+			if(haveBlocks){
+				cbinas <- dist_out$classSizeAS
+				cbinsb <- dist_out$classSizeSB
+
+				# stats selection
+				# need to implement system where we can add and remove stats
+				###===================================
+				## CURRENT STATS:
+				## General Semivariance
+				## General Semivariance Std. Dev.
+				## Interblock Semivariance
+				## Interblock Semivariance Std. Dev.
+				## Intrablock Semivariance
+				## Intrablock Semivariance Std. Dev.
+				## By block Semivariance
+				## By block Semivariance Std. Dev.
+				##	= 8 * length(cbin)
+				## Number Infested Houses
+				## Number Infested Blocks
+				## (Infested Houses)/(Infested Blocks)
+				##	= 8 * length(cbin) + 3
+				###===================================
+       				sizeVvar<-8*length(cbin)
+				nbStats<- sizeVvar + 3
+			}else{
+				cbinas <- 0
+				cbinsb <- 0
+				# stats selection
+				###===================================
+				## CURRENT STATS:
+				## General Semivariance
+				## General Semivariance Std. Dev.
+				##	= 2 * length(cbin)
+				## Number Infested Houses
+				##	= 2 * length(cbin) + 1
+				###===================================
+				sizeVvar <- 2*length(cbin)
+				nbStats <- sizeVvar + 1
+			}
 			statsTable<-mat.or.vec(nbStats,Nrep)
 		}else{
 			dist_indices <- 0
@@ -648,18 +687,20 @@ if(class(importOk)!="try-error"){
 			statsTable <- 0
 		}
 
+		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
+		# also pass 0 as the value to blockIndex
 		out<- .C("noKernelMultiGilStat",
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
-			 skipColIndex = as.integer(stratHopSkipJump$skipMat@colindices-1),
-			 skipRowPointer = as.integer(stratHopSkipJump$skipMat@rowpointers-1),
+			 skipColIndex = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@colindices-1, 0)),
+			 skipRowPointer = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@rowpointers-1, 0)),
 			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
 			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
 			 rateHopInMove = as.numeric(rateHopInMove), 
 			 rateSkipInMove = as.numeric(rateSkipInMove), 
 			 rateJumpInMove = as.numeric(rateJumpInMove), 
-			 blockIndex = as.integer(blockIndex),
+			 blockIndex = ifelse(haveBlocks, as.integer(blockIndex), 0),
 			 simul = as.integer(simul),
 			 infested = as.integer(infested),
 			 infestedDens = as.numeric(infestedDens),
@@ -680,25 +721,32 @@ if(class(importOk)!="try-error"){
 			 indices = as.integer(dist_indices),
 			 statsTable = as.numeric(statsTable),
 			 nbStats = as.integer(nbStats),
-             		 sizeVvar = as.integer(sizeVvar)
+             		 sizeVvar = as.integer(sizeVvar),
+			 haveBlocks = as.integer(haveBlocks)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
 	
 		# make matrix out of statsTable
 		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
-		
-		# remove interblock and intrablock stats
-		# keep:
-		# general semivar + stdev
-		# sameblock - acrossstreets semivar + stdev
-		# inf.house, inf.block, and inf.house/inf.block count
-		keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
-		# clean away NANs introduced in C
-		notNAN <- which(!is.nan(out$statsTable[, 1]))
-		
-		keep<-intersect(notNAN,keepable)
-		out$statsTable<-out$statsTable[keep, ]
+
+		if(haveBlocks){		
+			# remove interblock and intrablock stats
+			# keep:
+			# general semivar + stdev
+			# sameblock - acrossstreets semivar + stdev
+			# inf.house, inf.block, and inf.house/inf.block count
+			keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
+			# clean away NANs introduced in C
+			notNAN <- which(!is.nan(out$statsTable[, 1]))
+			
+			keep<-intersect(notNAN,keepable)
+			out$statsTable<-out$statsTable[keep, ]
+		}else{		
+			#now only need to remove the ones that are NAN
+			notNAN <- which(!is.nan(out$statsTable[, 1]))
+			out$statsTable <- out$statsTable[notNAN, ]
+		}
 
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1

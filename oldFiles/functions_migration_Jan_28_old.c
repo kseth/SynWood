@@ -747,13 +747,6 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 
 void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks){
 
-	// if no blocks but still pass a rate skip
-	// passing rateskip = 0 will prevent gillespie from skipping 
-	if(*haveBlocks == 0 && *rateSkipInMove != 0){
-		printf("no blocks but rateSkipInMove!=0");
-		return;
-	}
-
 	int valEndIndex = *endIndex;	
 
 	int infestedInit[*L];
@@ -791,3 +784,56 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	}
 	
 }
+
+void multiThetaMultiGilStat(double* probMat,double* distMat, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int* sizeScale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices,int* sizeVvar, double* stats, int *nbStats){
+
+	int valEndIndex = *endIndex;	
+
+	int infestedInit[*L];
+  	int indexInfestInit[*L];
+ 
+  	double vbinInit[*nbins];
+  	double sdbinInit[*nbins];
+
+	for(int numTheta=0; numTheta<*sizeScale;numTheta++){
+		for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
+			R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
+
+			// initialisation simul
+			for(int h=0;h<*L;h++)
+			{
+				infestedInit[h]=*(infested+h);
+				indexInfestInit[h]=*(indexInfest+h);	
+			}
+
+			*endIndex=valEndIndex; 
+
+			// printf("Init simul(%i)\n",*simul);
+			if(*simul==1){ // simulation normal 
+
+				gillespie(infestedInit,endIndex,L,probMat,endTime,indexInfestInit,age,scale,seed);
+
+				for(int h=0;h<*L;h++){
+					infestedDens[h]+=infestedInit[h];
+				}
+
+				// printf("rep: %i endIndex:%i seed:%i \n",rep,*endIndex,*seed);
+			}
+			// printf("simul OK, *getStats: %i\n",*getStats);
+
+			if(*getStats==1){
+				//printf("getting stats");
+				get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex);
+			}
+
+			if(*simul==0){ // simulation normal 
+				break; // to exit loop even if Nrep!=1
+			}
+
+		}
+		scale++;
+	}
+	
+}
+
+
