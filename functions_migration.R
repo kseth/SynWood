@@ -23,7 +23,7 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=
 {
 
 	# make same block matrix of households in the same block
-	if(!is.null(blockIndex)
+	if(!is.null(blockIndex))
 	{
 		SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
 		SB@entries <- rep(1,length(SB@entries))
@@ -61,7 +61,7 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=
 	jumpMat@entries <- rep(1, length(jumpMat@entries))
 	jumpMat <- as.spam(jumpMat)
 
-	if(is.null(blockIndex)
+	if(is.null(blockIndex))
 		return(list(hopMat = hopMat, jumpMat = jumpMat))
 	else
 		return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
@@ -228,12 +228,10 @@ fast_prob_mat <- function(halfDistJ,
 # Simple grid definition 
 #=============================
 # num.row, num.col - number rows, number cols
-# row.dist, col.dist - distance between adjacent rows, adjacent columns (0, 0 is top, left)
-# if want to makeBlocks, set makeBlocks = TRUE
-#			 set block.rows to how many rows in a block
-# 			 set block.cols to how many cols in a block 
-#			 i.e. 2 by 4 block would be block.rows = 2, block.cols = 4
-makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist, makeBlocks = FALSE, block.rows = 0, block.cols = 0){
+# row.dist, col.dist - distance between adjacent rows, adjacent columns
+# house 1 is bottom left, go up vertically, then go to the next column
+# house num.rows * num.cols is at top right
+makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist){
 
 	rows <- (1:(num.rows*num.cols) - 1)
 	rows <- floor(rows/num.rows)
@@ -244,19 +242,36 @@ makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist, makeBloc
 	
 	maps <- data.frame(X = rows, Y = cols)
 
-	# if no need to make blocks, just return maps
-	if(!makeBlocks)
-		return(maps)
+	return(maps)	
+}
+
+# partition.rows == number of rows in final grid
+# partition.cols == number of cols in final grid
+# if want 1 by 1 final grid pass 1, 1
+assignMapToGrid <- function(X, Y, partition.rows, partition.cols = grid.rows){
+
+	maxX <- max(X)
+	minX <- min(X)
+	maxY <- max(Y)
+	minY <- min(Y)
+
+	yBreaks <- seq(from = minY, to = maxY, length.out = partition.rows+1)
+	beginY <- yBreaks[1:(length(yBreaks) - 1)]
+	endY <- yBreaks[2:length(yBreaks)]
+	breaksY <- data.frame(firstBreak = beginY, secondBreak = endY)
+
+	outY <- data.frame(apply(breaksY, 1, function(breaks, yVals){ which(yVals >= breaks[1] & yVals <= breaks[2]) }, yVals = Y))
+	outY <- t(outY)
 	
-	# make the blocks according to block.rows, block.cols	
-	if(block.rows == 0 || block.cols == 0)
-		stop("block.rows or block.cols not set correctly, need to be nonzero + passed")
+	xBreaks <- seq(from = minX, to = maxX, length.out = partition.cols+1)
+	beginX <- xBreaks[1:(length(xBreaks) - 1)]
+	endX <- xBreaks[2:length(xBreaks)]
+	breaksX <- data.frame(firstBreak = beginX, secondBreak = endX)
+
+	outX <- data.frame((apply(breaksX, 1, function(breaks, xVals){ which(xVals >= breaks[1] & xVals <= breaks[2]) }, xVals = X)))
+	outX <- t(outX)
+
 	
-	## NEED TO FIX THIS MECHANISM OF MAKING BLOCKS
-	rows <- (1:num.rows*num.cols) - 1			
-	rows <- rows%%block.rows
-	cols <- (1:num.rows*num.cols) - 1			
-	cols <- cols%%block.cols
 }
 
 
@@ -636,15 +651,16 @@ if(class(importOk)!="try-error"){
 	## if haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 	## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based
 	## pass blockIndex = NULL if want haveBlocks = FALSE
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL, haveBlocks = TRUE){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove = 0, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
 
-		
+
+		haveBlocks <- TRUE		
 		# no blockIndex passed, set haveBlocks to false	
 		if(is.null(blockIndex))
 			haveBlocks <- FALSE
 
 		# set the weight of skips to 0 (no blocks)
-		# this should be done by default
+		# this should be done by default in function header
 		if(!haveBlocks)
 			weightSkipInMove <- 0
 
@@ -673,8 +689,11 @@ if(class(importOk)!="try-error"){
 
 		if(getStats){
 
-			if(is.null(dist_out))	
-				dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+			if(is.null(dist_out))
+				if(haveBlocks)	
+					dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+				else
+					dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
 			
 			dist_indices <- dist_out$CClassIndex
 			cbin <- dist_out$classSize

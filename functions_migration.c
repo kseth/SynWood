@@ -675,7 +675,7 @@ void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedIni
 
 		// calculate semi-variance stats
 		int startGVar=*rep* *nbStats;
-		modBinIt(L, dist_index, semivarianceData, cbin, (stats+startGVar), nbins) 
+		modBinIt(L, dist_index, semivarianceData, cbin, (stats+startGVar), nbins); 
 	
 		// move position over by that many stats	
 		startGVar += *sizeVvar;
@@ -695,6 +695,9 @@ void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedIni
 }
 
 void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats,int *sizeVvar){
+
+	// to pass to get_stats
+	int haveBlocks = 1;
 
 	// if not useProbMat, then generate probMat
 	if(*useProbMat != 1){
@@ -734,7 +737,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	 	}
 
 	 	if(*getStats==1){
-	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex);
+	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, &haveBlocks);
 	 	}
 
 	 	if(*simul==0){ // no simulations, just stats 

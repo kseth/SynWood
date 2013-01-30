@@ -16,6 +16,9 @@ source("MCMC.R")
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
+## distance classes for the general variogram
+genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) 
+
 nameSimul<-"JerusalenBinomNoKernelWithWeights" # used by sec_launch.sh to give a name to the output folder
 Nrep=100
 set.seed(1)

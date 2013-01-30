@@ -15,44 +15,42 @@ source("MCMC.R")
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
+## how many gillespie repetitions per iteration
+Nrep <- 200
+
+## size of grid
+num.rows <- 33
+num.cols <- 33
+row.dist <- 10
+
 ## distance classes for the general variogram
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) 
 
-nameSimul<-"HunterBinomMessyData_notopen_notdetected" # used by sec_launch.sh to give a name to the output folder
-Nrep=500
-set.seed(1)
-monitor.file<- "thetasamples_all.txt"
-
 ## parameters for uniform hop/skip/jump model
-limitHopSkip <- 60
-limitJump <- 1000
+limitHopSkip <- 40
+limitJump <- 160
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
 weightHopInMove <- 1
-weightSkipInMove <- 0.35
-weightJumpInMove <- 0.10 
+weightSkipInMove <- 0.0
+weightJumpInMove <- 0.1 
 
-## csv of hunter map
-maps.tot<-read.csv("maps_hunter_blocks.csv")
+# make a map with just x, y
+maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+# set blockIndex to NULL
+# no blocks!
+blockIndex = NULL
 
-# focusing on hunter for now
-maps<-maps.tot[which(maps.tot$D==7 & maps.tot$X>226000 & maps.tot$Y>8179000 & maps.tot$Y<8180000),]
-blockIndex <- maps$block_num
-
-# if any NAs in block index (corrects by making NA = new, different blocks)
-if(any(is.na(blockIndex))){
-	bad <- which(is.na(blockIndex))
-	blockIndex[bad] <- max(blockIndex[-bad])+(1:length(bad))
-}
-
-stratHopSkipJump <- generate_stratified_mat(coords = maps[, c("X", "Y")], limitHopSkip, limitJump, blockIndex)
+# make stratified matrix (no skips, set blockIndex to NULL)
+stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, blockIndex=blockIndex)
 
 #===================
 # Prep geospatial/coordinate/household data for simulations
 #===================
 ### starting point for simulations
-startInfestH <- c(3200, 1, 10, 3210, 8, 15, 14, 3199, 3220, 16, 20, 25)
+startInfestH <- ceiling(33*(33/2))
+startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
 
 ## plot initially infested houses
 dev.new()
@@ -69,36 +67,49 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = FALSE)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = 1)
 print(Sys.time() - start)
 
+## obtain stats from the second gillespie simulation
+if(!is.vector(secondTimePointSimul$statsTable)){
+	statsData <- secondTimePointSimul$statsTable[, 1]
+}else{
+	statsData <- secondTimePointSimul$statsTable
+}
+
 ## plot results of gillespie
-binomEndInfested <- as.integer(secondTimePointSimul$infestedDens)
+binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
-binomEndInfested <- simulObserved(binomEndInfested, 0.7, 0.9)
-print(length(which(binomEndInfested == 1)))
-plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+# weibull order plotting to check if stats are normal
+# for(i in 1:dim(secondTimePointSimul$statsTable)[1])
+# {
+# 
+# order <- order(secondTimePointSimul$statsTable[i, ])
+# plot((1:dim(secondTimePointSimul$statsTable)[2])/(dim(secondTimePointSimul$statsTable)[2]+1), secondTimePointSimul$statsTable[i, order], main = i)
+# readline()
+# 
+# }
 
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(0.045, 0.05, 0.25)
-priorSdlog <- c(1, 1, 1)
-realMeans<-c(rateMove, weightJumpInMove, weightSkipInMove)
-sampling <- c("lnorm", "lnorm", "lnorm")
-names(priorMeans)<-c("rateMove" , "weightJumpInMove", "weightSkipInMove") 
-names(sampling)<-names(priorMeans)
+priorMeans<-c(0.045, 0.05)
+priorSdlog <- c(1, 1)
+realMeans<-c(rateMove, weightJumpInMove)
+sampling <- c("lnorm", "lnorm")
+names(priorMeans)<-c("rateMove" , "weightJumpInMove") 
+names(sampling)<-c("rateMove", "weightJumpInMove")
 names(realMeans)<-names(priorMeans)
 names(priorSdlog)<-names(priorMeans)
 
 ### Intervals of definition for the parameters
 ### No longer used, leave in for backward consistency
-paramInf<-c(0.002,0.0001,0.0001)
-paramSup<-c(0.30,1000, 1000)
-names(paramInf)<-names(priorMeans)
-names(paramSup)<-names(priorMeans)
+paramInf<-c(0.002,0.0001)
+paramSup<-c(0.30,1000)
+names(paramInf)<-names(sampling)
+names(paramSup)<-names(sampling)
 
 ### LD formalism for Data (no setting should be made past this declaration)
 PGF<-function(Data){ # parameters generating functions (for init etc...)
@@ -114,11 +125,11 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=binomEndInfested,
+MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = NULL, 
+	     dist_out = makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals), 
 	     infestH=startInfestH,
 	     timeH=timeH,
 	     endTime=nbit,
@@ -140,27 +151,17 @@ MyDataFullSample <- list(y=binomEndInfested,
 ## Test binomNoKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
-# ModelOutBest<-Model(realMeans,MyDataFullSample)
-# expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
+start<-Sys.time()
+ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
+cat(Sys.time()-start, "\n")
 
-# theta<-realMeans
-# theta["rateMove"]<-log(0.5)
-# ModelOutBest<-Model(theta,MyDataFullSample)
-
-# weibull order plotting to check if stats are normal
-# for(i in 1:dim(outBase$statsTable)[1])
-# {
-#  
-# order <- order(outBase$statsTable[i, ])
-# plot((1:dim(outBase$statsTable)[2])/(dim(outBase$statsTable)[2]+1), outBase$statsTable[i, order], main = i)
-# Sys.sleep(0.5)
-# 
-# }
+# good should be worse than best (by a fudge factor of 4)
+expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, binomNoKernelModel)
+MCMC(MyDataFullSample, noKernelModel)
 
