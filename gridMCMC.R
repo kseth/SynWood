@@ -12,6 +12,10 @@ source("MCMC.R")
 #==================
 # set parameters for simulation
 #==================
+## name the simulation!
+nameSimul <- "GRID_33x33_Hop_Jump_SynLik_genSemivar"
+set.seed(1)
+
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 

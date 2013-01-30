@@ -15,7 +15,7 @@ source("functions_sampling.R")
 ##	checkAutoStop - initial #iterations after finishing adapting sampling variance when to check autostop
 #===========================
 
-MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul = 600, upFreq = 1, saveFreq = 20, sdprop = rep(0.4, nparams), adaptOK = FALSE, checkAdapt = 20, lowAcceptRate = 0.15, highAcceptRate = 0.40, useAutoStop = TRUE, checkAutoStop = 100){
+MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul = 600, upFreq = 1, saveFreq = 20, sdprop = rep(0.4, nparams), adaptOK = FALSE, checkAdapt = 20, lowAcceptRate = 0.15, highAcceptRate = 0.40, useAutoStop = TRUE, checkAutoStop = 100, monitor.file = "thetasamples_all.txt"){
 
 #===========================
 # Init values 
