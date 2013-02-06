@@ -610,7 +610,7 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 }
 
 
-void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
+void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
 	
 	// cast infestedInit from integer to double
   	double semivarianceData[*L];
@@ -696,7 +696,7 @@ void get_stats(int *rep, int *nbStats, int* L, int* dist_index, int* infestedIni
 
 void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats,int *sizeVvar){
 
-	// to pass to get_stats
+	// to pass to get_stats_semivar
 	int haveBlocks = 1;
 
 	// if not useProbMat, then generate probMat
@@ -737,7 +737,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	 	}
 
 	 	if(*getStats==1){
-	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, &haveBlocks);
+	 		get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, &haveBlocks);
 	 	}
 
 	 	if(*simul==0){ // no simulations, just stats 
@@ -784,7 +784,7 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	 	}
 
 	 	if(*getStats==1){
-	 		get_stats(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks);
+	 		get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks);
 	 	}
 
 	 	if(*simul==0){ // no simulations, just stats 

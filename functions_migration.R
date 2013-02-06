@@ -225,7 +225,8 @@ fast_prob_mat <- function(halfDistJ,
 
 
 #=============================
-# Simple grid definition 
+# Simple grid definition
+# And partitioning of map into grid 
 #=============================
 # num.row, num.col - number rows, number cols
 # row.dist, col.dist - distance between adjacent rows, adjacent columns
@@ -248,7 +249,7 @@ makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist){
 # partition.rows == number of rows in final grid
 # partition.cols == number of cols in final grid
 # if want 1 by 1 final grid pass 1, 1
-assignMapToGrid <- function(X, Y, partition.rows, partition.cols = partition.rows){
+partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 	maxX <- max(X)
 	minX <- min(X)
@@ -297,7 +298,12 @@ assignMapToGrid <- function(X, Y, partition.rows, partition.cols = partition.row
 	## colors <- rep(colors, ceiling(length(uniqXY)/7))
 	## plot(X, Y, col = colors[indexXY])
 
-	return(indexXY)
+	## calculate the number of houses in each cell
+	minIndex <- min(indexXY)
+	maxIndex <- max(indexXY)
+	housesPerCell <- unlist(lapply(minIndex:maxIndex, function(x, indexes){ return(length(which(indexes == x))) }, indexes = indexXY))
+
+	return(list(index = indexXY, num_cells = length(uniqXY),  housesPerCell = housesPerCell))
 
 }
 
@@ -538,7 +544,7 @@ if(class(importOk)!="try-error"){
 		
 	
 	# pass cumulProbMat and dist_out to make this method faster	
-	multiGilStat<-function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, halfDistJ = -1, halfDistH = -1, useDelta = -1, delta = -1, rateHopInMove = -1, rateSkipInMove = -1, rateJumpInMove = -1, breaksStreetVar = breaksGenVar, dist_out = NULL){
+	multiGilStat<-function(cumulProbMat, blockIndex, infestH, timeH, endTime, rateMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, halfDistJ = -1, halfDistH = -1, useDelta = -1, delta = -1, rateHopInMove = -1, rateSkipInMove = -1, rateJumpInMove = -1, dist_out = NULL){
 		
 		# seed <- runif(1, 1, 2^31-1)
 		#for random seeding of stochastic simulation	
@@ -673,14 +679,26 @@ if(class(importOk)!="try-error"){
 	## list with spam matrices of hoppable, skippable, jumpable locations for each house
 	## this method does not use the kernels or delta
 	## instead need to pass weightHopInMove (set to 1), weightSkipInMove, weightJumpInMove
-	##	these parameters are dealt with by the gillespie
-	## if haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
-	## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based
-	## pass blockIndex = NULL if want haveBlocks = FALSE
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
+	##	these parameters are subsequently normalized to rates (passing rates is acceptable, but frowned upon)
+	## pass blockIndex = NULL if want to use model w/o streets
+	## pass the type of stat you want to use (if getStats == FALSE, this is disregarded)
+	## 	typeStat defaults to "semivariance"
+	## 	may pass vector of stats (so far, only "semivariance" + "grid" implemented) 
+	##	if typeStat contains "semivariance", a dist_out should be passed (otherwise, it must be calculated - this is time consuming)
+	##		- dist_out is the result of a call to makeDistClassesWithStreets or makeDistClasses (with blocks and w/o blocks, respectively)
+	##	if typeStat contains "grid", map.partitions MUST be passed (otherwise, an error is thrown) 
+	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
+	##		- map.partitions are a result of the call to partitionMap
 
+	## NEED TO IMPLEMENT: passing of grid variables to C + subsequent calculation in C.
+	
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, typeStat = "semivariance"){
+
+		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
+		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
 
 		haveBlocks <- TRUE		
+
 		# no blockIndex passed, set haveBlocks to false	
 		if(is.null(blockIndex))
 			haveBlocks <- FALSE
@@ -713,65 +731,143 @@ if(class(importOk)!="try-error"){
 			stop("need to pass a stratified hop/skip/jump matrix; see generate_stratifed_mat")
 		}
 
+		# implemented stats
+		implStat <- c("semivariance", "grid")
+
+		# initialize all the statistics to 0
+		# if getStats and specific statistics are used, then change their value
+		dist_indices <- 0
+		cbin <- 0
+		cbinas <- 0
+		cbinsb <- 0
+		sizeVvar <- 0
+		nbStats <- 0
+		statsTable <- 0
+		numDiffGrids <- 0
+		gridIndexes <- 0
+		gridNumCells <- 0
+		gridEmptyCells <- 0
+		gridCountCells <- 0
+		grid.nbStats <- 0
+		grid.statsTable <- 0
+
 		if(getStats){
 
-			if(is.null(dist_out))
-				if(haveBlocks)	
-					dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-				else
-					dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
-			
-			dist_indices <- dist_out$CClassIndex
-			cbin <- dist_out$classSize
+			## pass the corresponding matched numbers to C instead of the name of the statistics
+			matchStats <- match(typeStat, implStats)
 
-			if(haveBlocks){
-				cbinas <- dist_out$classSizeAS
-				cbinsb <- dist_out$classSizeSB
-
-				# stats selection
-				# need to implement system where we can add and remove stats
-				###===================================
-				## CURRENT STATS:
-				## General Semivariance
-				## General Semivariance Std. Dev.
-				## Interblock Semivariance
-				## Interblock Semivariance Std. Dev.
-				## Intrablock Semivariance
-				## Intrablock Semivariance Std. Dev.
-				## By block Semivariance
-				## By block Semivariance Std. Dev.
-				##	= 8 * length(cbin)
-				## Number Infested Houses
-				## Number Infested Blocks
-				## (Infested Houses)/(Infested Blocks)
-				##	= 8 * length(cbin) + 3
-				###===================================
-       				sizeVvar<-8*length(cbin)
-				nbStats<- sizeVvar + 3
-			}else{
-				cbinas <- 0
-				cbinsb <- 0
-				# stats selection
-				###===================================
-				## CURRENT STATS:
-				## General Semivariance
-				## General Semivariance Std. Dev.
-				##	= 2 * length(cbin)
-				## Number Infested Houses
-				##	= 2 * length(cbin) + 1
-				###===================================
-				sizeVvar <- 2*length(cbin)
-				nbStats <- sizeVvar + 1
+			if(any(is.na(matchStats)){ #throw an error regarding stats not yet implemented
+				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
 			}
-			statsTable<-mat.or.vec(nbStats,Nrep)
-		}else{
-			dist_indices <- 0
-			cbin <- 0
-			cbinas <- 0
-			cbinsb <- 0
-			sizeVvar <- 0
-			nbStats <- 0
-			statsTable <- 0
+
+			# if want to calculate semivariance stats
+			if("semivariance" %in% typeStat){
+				if(is.null(dist_out)){
+					if(haveBlocks)	
+						dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
+					else
+						dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
+				}
+
+				dist_indices <- dist_out$CClassIndex
+				cbin <- dist_out$classSize
+
+				if(haveBlocks){
+					cbinas <- dist_out$classSizeAS
+					cbinsb <- dist_out$classSizeSB
+
+					# stats selection
+					# need to implement system where we can add and remove stats
+					###===================================
+					## CURRENT STATS:
+					## General Semivariance
+					## General Semivariance Std. Dev.
+					## Interblock Semivariance
+					## Interblock Semivariance Std. Dev.
+					## Intrablock Semivariance
+					## Intrablock Semivariance Std. Dev.
+					## By block Semivariance
+					## By block Semivariance Std. Dev.
+					##	= 8 * length(cbin)
+					## Number Infested Houses
+					## Number Infested Blocks
+					## (Infested Houses)/(Infested Blocks)
+					##	= 8 * length(cbin) + 3
+					###===================================
+       					sizeVvar<-8*length(cbin)
+					nbStats<- sizeVvar + 3
+				}else{
+					cbinas <- 0
+					cbinsb <- 0
+					# stats selection
+					###===================================
+					## CURRENT STATS:
+					## General Semivariance
+					## General Semivariance Std. Dev.
+					##	= 2 * length(cbin)
+					## Number Infested Houses
+					##	= 2 * length(cbin) + 1
+					###===================================
+					sizeVvar <- 2*length(cbin)
+					nbStats <- sizeVvar + 1
+				}
+
+				statsTable<-mat.or.vec(nbStats,Nrep)
+			}
+
+			if("grid" %in% typeStat){
+
+				if(is.null(map.partitions)){ # if an indexing of the map hasn't yet been passed, throw error
+					stop("map.partitions passed as null, cannot execute!")
+				}
+				
+				## the number of different indexings present in gridIndexes
+				numDiffGrids <- length(map.partitions)
+
+				## unlist the first list
+				map.partitions <- unlist(map.partitions, recursive = FALSE)
+		
+				## define the indexing systems
+				gridIndexes <- map.partitions[which(names(map.partitions) %in% "index")]
+				gridIndexes <- unlist(gridIndexes)
+				names(gridIndexes) <- NULL
+
+				## the length of each indexing - the number of cells per grid/index system
+				gridNumCells <- map.partitions[which(names(map.partitions) %in% "num_cells")] 
+				gridNumCells <- unlist(gridNumCells)
+				names(gridNumCells) <- NULL
+
+				## pass empty cells into C for calculation purposes
+				## emptyCells will keep track of positives, countCells will keep track of total number of houses per cell
+				gridEmptyCells <- rep(0, sum(gridNumCells))
+				gridCountCells <- map.partitions[which(names(map.partitions) %in% "housesPerCell")]
+				gridCountCells <- unlist(gridCountCells)
+				names(gridCountCells) <- NULL
+
+				# stats selection
+				###===================================
+				## CURRENT STATS 
+				## (by grid system):
+				## Number cells positive
+				## Variance of % positive per cell
+				##	= 2 * numDiffGrids
+				## (overall)
+				## Number Infested Houses
+				##	= 2 * numDiffGrids + 1
+				## if haveBlocks also
+				## 	Number Infested Blocks
+				## 	(Infested Houses)/(Infested Blocks)
+				##	= 2 * numDiffGrids + 3
+				###===================================
+				grid.nbStats <- 2*numDiffGrids+1
+				
+				if(haveBlocks) ## add two more block stats computations
+					grid.nbStats <- grid.nbStats + 2
+				
+				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
+						
+			}
+
 		}
 
 		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
@@ -780,8 +876,8 @@ if(class(importOk)!="try-error"){
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
-			 skipColIndex = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@colindices-1, 0)),
-			 skipRowPointer = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@rowpointers-1, 0)),
+			 skipColIndex = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@colindices-1, 0)), # if no blocks, pass dummy skip
+			 skipRowPointer = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@rowpointers-1, 0)), # if no blocks, pass dummy skip
 			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
 			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
 			 rateHopInMove = as.numeric(rateHopInMove), 
