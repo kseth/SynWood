@@ -205,12 +205,14 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		pred1 <- which(yhat == 1)
 		pred0 <- which(yhat == 0)
 		predMid <- which(yhat > 0 & yhat < 1)
-		ff <- 1/(length(Data$Nrep)+1)
+
+		# ff == fudge factor, the epsilon that takes into account the error from a limited number of simulations
+		# ff <- 1/(length(Data$Nrep)+1)
+		ff <- 10e-6
 
 		ll <- sum(log(yhat[intersect(inf, union(predMid, pred1))]))
 		ll <- ll + sum(log(1-yhat[intersect(uninf, union(predMid, pred0))]))
-		# ll <- ll + sum(log(rep(ff, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
-		ll <- ll + sum(log(rep(10e-6, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
+		ll <- ll + sum(log(rep(ff, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
 
 		# get likelihood with priors
 		LL<-ll

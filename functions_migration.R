@@ -248,7 +248,7 @@ makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist){
 # partition.rows == number of rows in final grid
 # partition.cols == number of cols in final grid
 # if want 1 by 1 final grid pass 1, 1
-assignMapToGrid <- function(X, Y, partition.rows, partition.cols = grid.rows){
+assignMapToGrid <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 	maxX <- max(X)
 	minX <- min(X)
@@ -256,24 +256,46 @@ assignMapToGrid <- function(X, Y, partition.rows, partition.cols = grid.rows){
 	minY <- min(Y)
 
 	yBreaks <- seq(from = minY, to = maxY, length.out = partition.rows+1)
-	beginY <- yBreaks[1:(length(yBreaks) - 1)]
-	endY <- yBreaks[2:length(yBreaks)]
-	breaksY <- data.frame(firstBreak = beginY, secondBreak = endY)
 
-	outY <- data.frame(apply(breaksY, 1, function(breaks, yVals){ which(yVals >= breaks[1] & yVals <= breaks[2]) }, yVals = Y))
-	outY <- t(outY)
+	uniqY <- unique(Y)
+	outY <- unlist(lapply(uniqY, function(insert, breaks){
+								breaks <- (breaks > insert)
+								comparison <- xor(breaks[1:(length(breaks)-1)], breaks[2:length(breaks)])
+								if(any(comparison))
+									return(which(comparison))
+								else
+									return(length(breaks)-1)
+							}, breaks = yBreaks))
+
+	matchY <- match(Y, uniqY)
+	indexY <- outY[matchY]
+
 	
 	xBreaks <- seq(from = minX, to = maxX, length.out = partition.cols+1)
-	beginX <- xBreaks[1:(length(xBreaks) - 1)]
-	endX <- xBreaks[2:length(xBreaks)]
-	breaksX <- data.frame(firstBreak = beginX, secondBreak = endX)
+	uniqX <- unique(X)
+	outX <- unlist(lapply(uniqY, function(insert, breaks){
+								breaks <- (breaks > insert)
+								comparison <- xor(breaks[1:(length(breaks)-1)], breaks[2:length(breaks)])
+								if(any(comparison))
+									return(which(comparison))
+								else
+									return(length(breaks)-1)
+							}, breaks = xBreaks))
 
-	outX <- data.frame((apply(breaksX, 1, function(breaks, xVals){ which(xVals >= breaks[1] & xVals <= breaks[2]) }, xVals = X)))
-	outX <- t(outX)
+	matchX <- match(X, uniqX)
+	indexX <- outX[matchX]
 
+	## want all unique pairs of indexX, indexY -> use cantor's pairing function
+	combXY <- 1/2*(indexX+indexY)*(indexX+indexY+1) + indexY
+	uniqXY <- unique(combXY)
 	
-}
+	## the grid index of each of the final outputs
+	indexXY	<- match(combXY, uniqXY)
+	plot(X, Y, col = c("red", "blue", "green", "pink")[indexXY])
 
+	return(indexXY)
+
+}
 
 #=============================
 # Migration functions
@@ -651,7 +673,7 @@ if(class(importOk)!="try-error"){
 	## if haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 	## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based
 	## pass blockIndex = NULL if want haveBlocks = FALSE
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove = 0, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, breaksStreetVar = breaksGenVar, dist_out = NULL){
 
 
 		haveBlocks <- TRUE		

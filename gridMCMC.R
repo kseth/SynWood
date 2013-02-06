@@ -13,14 +13,14 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_33x33_Hop_Jump_SynLik_genSemivar"
-set.seed(1)
+nameSimul <- "GRID_33x33_Hop_Jump_BinLik_genSemivar_seed2"
+set.seed(2)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 200
+Nrep <- 600
 
 ## size of grid
 num.rows <- 33
@@ -71,20 +71,23 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = 1)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = FALSE, seed = 2)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
-if(!is.vector(secondTimePointSimul$statsTable)){
-	statsData <- secondTimePointSimul$statsTable[, 1]
-}else{
-	statsData <- secondTimePointSimul$statsTable
-}
+## if(!is.vector(secondTimePointSimul$statsTable)){
+## 	statsData <- secondTimePointSimul$statsTable[, 1]
+## }else{
+## 	statsData <- secondTimePointSimul$statsTable
+## }
 
 ## plot results of gillespie
 binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+
+## close the device so it prints
+dev.off()
 
 # weibull order plotting to check if stats are normal
 # for(i in 1:dim(secondTimePointSimul$statsTable)[1])
@@ -129,11 +132,11 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=statsData,
+MyDataFullSample <- list(y=as.integer(binomEndInfested),
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals), 
+	     dist_out = NULL, # dist_out = makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals), 
 	     infestH=startInfestH,
 	     timeH=timeH,
 	     endTime=nbit,
@@ -155,10 +158,10 @@ MyDataFullSample <- list(y=statsData,
 ## Test binomNoKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 start<-Sys.time()
-ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
+ModelOutBest<-binomNoKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
 # good should be worse than best (by a fudge factor of 4)
@@ -167,5 +170,5 @@ expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, noKernelModel)
+MCMC(MyDataFullSample, binomNoKernelModel)
 
