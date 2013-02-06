@@ -291,7 +291,11 @@ assignMapToGrid <- function(X, Y, partition.rows, partition.cols = partition.row
 	
 	## the grid index of each of the final outputs
 	indexXY	<- match(combXY, uniqXY)
-	plot(X, Y, col = c("red", "blue", "green", "pink")[indexXY])
+
+	## plot the output
+	## colors <- rainbow(7)
+	## colors <- rep(colors, ceiling(length(uniqXY)/7))
+	## plot(X, Y, col = colors[indexXY])
 
 	return(indexXY)
 
