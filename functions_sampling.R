@@ -2,6 +2,18 @@
 #============================
 # Perso MH
 #===========================
+# linking sd/mean to parameters of beta distribution
+getParamBeta<-function(mu,sig){
+	K <- (1/mu -1)
+	a<- mu *(mu^2*K/(sig^2) - 1)
+	b<-K*a
+	return(list(a=a,b=b))
+}
+getMeanSdBetaDis<-function(a,b){
+	mu<- a/(a+b)
+	sig<-sqrt(a*b/((a+b)^2 *(a+b+1)))
+	return(list(mu=mu,sig=sig))
+}
 # function sampling a parameter fed to Model
 normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 
@@ -67,6 +79,15 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
 	  dprop<-function(val,center,disp){
 		  return(dlnorm(val,meanlog=log(center),sdlog=disp,log=TRUE))
 	  }
+  }else if(Data$sampling[nameParam]=="beta"){
+	  rprop<-function(center,disp){
+		  paramBeta<-getParamBeta(center,disp)
+		  return(rbeta(1,paramBeta$a,paramBeta$b))
+	  }
+	  dprop<-function(val,center,disp){
+		  paramBeta<-getParamBeta(center,disp)
+		  return(dbeta(val,paramBeta$a,paramBeta$b,log=TRUE))
+	  }
   }else{
 	  stop("unknown sampling method for",nameParam)
   }
@@ -115,7 +136,7 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
 
   lnr <- LLHprop-LLHold+hasting_term;
   rand<-log(runif(1))
-  cat("otheta: ",oldTheta[nameParam]," ptheta: ", propTheta[nameParam]," lnr: ",lnr," (",LLHprop,"-",LLHold,"+",hasting_term, ")", " rand: ", rand,"\n");
+  # cat("otheta: ",oldTheta[nameParam]," ptheta: ", propTheta[nameParam]," lnr: ",lnr," (",LLHprop,"-",LLHold,"+",hasting_term, ")", " rand: ", rand,"\n");
   
   if(lnr>=rand){
     newTheta <- propTheta;
