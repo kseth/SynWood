@@ -756,7 +756,7 @@ if(class(importOk)!="try-error"){
 			## pass the corresponding matched numbers to C instead of the name of the statistics
 			matchStats <- match(typeStat, implStats)
 
-			if(any(is.na(matchStats)){ #throw an error regarding stats not yet implemented
+			if(any(is.na(matchStats))){ #throw an error regarding stats not yet implemented
 				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
 			}
 
@@ -828,6 +828,7 @@ if(class(importOk)!="try-error"){
 				map.partitions <- unlist(map.partitions, recursive = FALSE)
 		
 				## define the indexing systems
+				## every house should have numDiffGrids indexes
 				gridIndexes <- map.partitions[which(names(map.partitions) %in% "index")]
 				gridIndexes <- unlist(gridIndexes)
 				names(gridIndexes) <- NULL
@@ -897,6 +898,8 @@ if(class(importOk)!="try-error"){
 			 Nrep = as.integer(Nrep),
 			 # stats
 			 getStats=as.integer(getStats),
+			 matchStats=as.integer(matchStats),
+			 lengthStats=as.integer(length(matchStats)),
 			 nbins = as.integer(length(breaksGenVar)),
 			 cbin = as.integer(cbin),
 			 cbinas = as.integer(cbinas),
@@ -905,7 +908,14 @@ if(class(importOk)!="try-error"){
 			 statsTable = as.numeric(statsTable),
 			 nbStats = as.integer(nbStats),
              		 sizeVvar = as.integer(sizeVvar),
-			 haveBlocks = as.integer(haveBlocks)
+			 haveBlocks = as.integer(haveBlocks),
+			 numDiffGrids = as.integer(numDiffGrids),
+			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
+			 gridNumCells = as.integer(gridNumCells),
+			 gridEmptyCells = as.integer(gridEmptyCells),
+			 gridCountCells = as.integer(gridCountCells),
+			 grid.nbStats = as.integer(grid.nbStats),
+			 grid.statsTable = as.integer(grid.statsTable)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;

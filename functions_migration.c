@@ -609,6 +609,50 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 	// printf("final seed:%i",*seed);
 }
 
+void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* grid.nbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* grid.statsTable){
+
+	int currentStartingPoint = 0;
+	int infestedIndex = 0;
+
+	int count = 0;
+	//initialize all the storage cells (to store how many positive) in gridEmptyCells to 0
+	for(int grid=0; grid<*numDiffGrids; grid++){
+		for(int cell=0; cell<*(gridNumCells+grid);cell++){
+			gridEmptyCells[count++] = 0;
+		}
+	}
+
+	//traverse through all the different grid systems
+	for(int grid=0; grid<*numDiffGrids; grid++){
+
+		currentStartingPoint = *L * grid;
+
+		//for each grid system		
+		//traverse through all infested houses and populate
+		//note that endIndex delineates the last spot that is occupied 
+		for(int house=0; house<=endIndex; house++){
+			infestedIndex = gridIndexes[currentStartingPoint + indexInfestInit[house]];
+			gridEmptyCells[infestedIndex]++;
+		}
+
+	}
+
+	//determine the number of positive cells per grid system
+	count = 0;
+	int positivecount = 0;
+	for(int grid=0; grid<*numDiffGrids; grid++){
+
+		for(int cell=0; cell<*(gridNumCells+grid); cell++){
+			if(gridEmptyCells[count++] > 0)
+				cellcount++;
+		}
+	
+		//store positive count in grid.statsTable	
+		positivecount = 0;
+	}
+
+	// need to compute variance + store in grid.statsTable
+}
 
 void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
 	
@@ -748,7 +792,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	
 }
 
-void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks){
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
@@ -784,7 +828,16 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	 	}
 
 	 	if(*getStats==1){
-	 		get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks);
+
+			for(int stat=0;stat<*lengthStats; stat++){
+
+				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
+				switch(matchStats[stat]){
+	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks); break;
+					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, grid.nbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, grid.statsTable); break;
+					default: printf("stat that isn't supported yet\n"); break;
+				}
+			}
 	 	}
 
 	 	if(*simul==0){ // no simulations, just stats 
