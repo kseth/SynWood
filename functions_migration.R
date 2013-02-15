@@ -732,7 +732,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStat <- c("semivariance", "grid")
+		implStats <- c("semivariance", "grid")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -741,8 +741,9 @@ if(class(importOk)!="try-error"){
 		cbinas <- 0
 		cbinsb <- 0
 		sizeVvar <- 0
-		nbStats <- 0
-		statsTable <- 0
+		semivar.nbStats <- 0
+		matchStats <- 0
+		semivar.statsTable <- 0
 		numDiffGrids <- 0
 		gridIndexes <- 0
 		gridNumCells <- 0
@@ -795,7 +796,7 @@ if(class(importOk)!="try-error"){
 					##	= 8 * length(cbin) + 3
 					###===================================
        					sizeVvar<-8*length(cbin)
-					nbStats<- sizeVvar + 3
+					semivar.nbStats<- sizeVvar + 3
 				}else{
 					cbinas <- 0
 					cbinsb <- 0
@@ -809,10 +810,10 @@ if(class(importOk)!="try-error"){
 					##	= 2 * length(cbin) + 1
 					###===================================
 					sizeVvar <- 2*length(cbin)
-					nbStats <- sizeVvar + 1
+					semivar.nbStats <- sizeVvar + 1
 				}
 
-				statsTable<-mat.or.vec(nbStats,Nrep)
+				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
 			}
 
 			if("grid" %in% typeStat){
@@ -905,8 +906,8 @@ if(class(importOk)!="try-error"){
 			 cbinas = as.integer(cbinas),
 			 cbinsb = as.integer(cbinsb),
 			 indices = as.integer(dist_indices),
-			 statsTable = as.numeric(statsTable),
-			 nbStats = as.integer(nbStats),
+			 semivar.statsTable = as.numeric(semivar.statsTable),
+			 semivar.nbStats = as.integer(semivar.nbStats),
              		 sizeVvar = as.integer(sizeVvar),
 			 haveBlocks = as.integer(haveBlocks),
 			 numDiffGrids = as.integer(numDiffGrids),
@@ -915,13 +916,13 @@ if(class(importOk)!="try-error"){
 			 gridEmptyCells = as.integer(gridEmptyCells),
 			 gridCountCells = as.integer(gridCountCells),
 			 grid.nbStats = as.integer(grid.nbStats),
-			 grid.statsTable = as.integer(grid.statsTable)
+			 grid.statsTable = as.numeric(grid.statsTable)
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
 	
-		# make matrix out of statsTable
-		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
+		# make matrix out of semivar.statsTable
+		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 
 		if(haveBlocks){		
 			# remove interblock and intrablock stats
@@ -931,15 +932,31 @@ if(class(importOk)!="try-error"){
 			# inf.house, inf.block, and inf.house/inf.block count
 			keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
 			# clean away NANs introduced in C
-			notNAN <- which(!is.nan(out$statsTable[, 1]))
+			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
 			
 			keep<-intersect(notNAN,keepable)
-			out$statsTable<-out$statsTable[keep, ]
+			out$semivar.statsTable<-out$semivar.statsTable[keep, ]
 		}else{		
 			#now only need to remove the ones that are NAN
-			notNAN <- which(!is.nan(out$statsTable[, 1]))
-			out$statsTable <- out$statsTable[notNAN, ]
+			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
+			out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 		}
+	
+		# make matrix out of grid.statsTable
+		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+
+
+		statsTable <- 0
+		# make the final statsTable to output
+		if("semivariance" %in% typeStat && "grid" %in% typeStat) ## want both semivariance and grid stats
+			statsTable <- rbind(out$semivar.statsTable, grid.statsTable)
+		else
+			if("semivariance" %in% typeStat) ## want only semivariance stats
+				statsTable <- out$semivar.statsTable
+			else
+				if("grid" %in% typeStat) ## want only grid stats
+					statsTable <- out$grid.statsTable
+	
 
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1
@@ -948,6 +965,11 @@ if(class(importOk)!="try-error"){
 		timeH <- timeH[which(infestH != -1)]
 		out$timeI <- timeH
 
+		## add the compiled statsTable to out
+		length(out) <- length(out) + 1;
+		names(out) <- c(names(out)[1:(length(out)-1)], "statsTable")
+		out$statsTable <- statsTable	
+			
 		return(out)
 	}
 
