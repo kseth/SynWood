@@ -18,7 +18,9 @@ minLLever=-10e6
 ###	     trans=NULL,
 ###	     stratHopSkipJump = stratHopSkipJump,
 ###	     blockIndex=blockIndex,
-###	     dist_out = makeDistClassesWithStreets(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals, blockIndex), 
+###	     dist_out = makeDistClassesWithStreets(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals, blockIndex),
+###	     map.partitions = map.partitions,
+###	     useStats = useStats, 
 ###	     infestH=infestH,
 ###	     timeH=timeH,
 ###	     endTime=nbit,
@@ -75,7 +77,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out)
+			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, typeStat = Data$useStats)
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -134,6 +136,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     stratHopSkipJump = stratHopSkipJump,
 ###	     blockIndex=blockIndex,
 ###	     dist_out = NULL, 
+###	     map.partitions = NULL,
+###	     useStats = useStats,
 ###	     infestH=infestH,
 ###	     timeH=timeH,
 ###	     endTime=nbit,
@@ -185,7 +189,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out)
+			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, typeStat = Data$useStats)
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -240,6 +244,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 #==================================
 ## declare kernel Model for LD
+## this model is outdated and has not been used since November 2012
 ## samples over possibly rateMove, rateJumpInMove, rateSkipInMove, halfDistH, halfDistJ
 #==================================
 ## Data must contain:

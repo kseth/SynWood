@@ -689,8 +689,6 @@ if(class(importOk)!="try-error"){
 	##	if typeStat contains "grid", map.partitions MUST be passed (otherwise, an error is thrown) 
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
-
-	## NEED TO IMPLEMENT: passing of grid variables to C + subsequent calculation in C.
 	
 	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, typeStat = "semivariance"){
 
@@ -944,12 +942,18 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+		# for now, remove stat #11 
+		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
+		# will cause issues in variance, covariance matrix
+		out$grid.statsTable <- out$grid.statsTable[-11, ]
 
 
 		statsTable <- 0
 		# make the final statsTable to output
-		if("semivariance" %in% typeStat && "grid" %in% typeStat) ## want both semivariance and grid stats
-			statsTable <- rbind(out$semivar.statsTable, grid.statsTable)
+		if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
+			statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
+			statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
+		}
 		else
 			if("semivariance" %in% typeStat) ## want only semivariance stats
 				statsTable <- out$semivar.statsTable

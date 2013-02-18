@@ -13,41 +13,48 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_33x33_Hop_Jump_BinLik_genSemivar_seed2"
-set.seed(2)
+nameSimul <- "GRID_36x36_Hop_Jump_BinLik_seed3"
+set.seed(3)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 600
+Nrep <- 800
 
 ## size of grid
 num.rows <- 36
 num.cols <- 36
 row.dist <- 10
-
-## distance classes for the general variogram
-genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30)) 
+ 
 
 ## parameters for uniform hop/skip/jump model
 limitHopSkip <- 40
-limitJump <- 160
+limitJump <- 200 
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
-weightHopInMove <- 1
+weightHopInMove <- 1	# must always be 1!
 weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
-# make a map with just x, y
+## which statistics to use?
+useStats <- c("semivariance")
+
+## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
 
+## distance classes for the general variogram
+genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+
+## bin the map into different distances classes
+bin_dist_out <- makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals)
+
+## partition the map
 map.partitions <- list()
 length(map.partitions) <- 6 #6 different grid partitions will be used
 
-# partition the map
-map.partitions[[1]]<- partitionMap(maps$X, maps$Y, 12) #into 12 by 12 (each cell 3 by 3)
+map.partitions[[1]] <- partitionMap(maps$X, maps$Y, 12) #into 12 by 12 (each cell 3 by 3)
 map.partitions[[2]] <- partitionMap(maps$X, maps$Y, 9)  #into 9 by 9 (each cell 4 by 4)
 map.partitions[[3]] <- partitionMap(maps$X, maps$Y, 6)  #into 6 by 6 (each cell 6 by 6)
 map.partitions[[4]] <- partitionMap(maps$X, maps$Y, 4)  #into 4 by 4 (each cell 9 by 9)
@@ -55,11 +62,11 @@ map.partitions[[5]] <- partitionMap(maps$X, maps$Y, 3)  #into 3 by 3 (each cell 
 map.partitions[[6]] <- partitionMap(maps$X, maps$Y, 2)  #into 2 by 2 (each cell 18 by 18)
 
 
-# set blockIndex to NULL
-# no blocks!
+## set blockIndex to NULL
+## no blocks!
 blockIndex = NULL
 
-# make stratified matrix (no skips, set blockIndex to NULL)
+## make stratified matrix (no skips, set blockIndex to NULL)
 stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, blockIndex=blockIndex)
 
 #===================
@@ -84,15 +91,15 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = 2, typeStat = "grid", map.partitions = map.partitions)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = 2, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
-## if(!is.vector(secondTimePointSimul$statsTable)){
-## 	statsData <- secondTimePointSimul$statsTable[, 1]
-## }else{
-## 	statsData <- secondTimePointSimul$statsTable
-## }
+if(!is.vector(secondTimePointSimul$statsTable)){
+ 	statsData <- secondTimePointSimul$statsTable[, 1]
+}else{
+	statsData <- secondTimePointSimul$statsTable
+}
 
 ## plot results of gillespie
 binomEndInfested <- secondTimePointSimul$infestedDens
@@ -145,11 +152,13 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=as.integer(binomEndInfested),
+MyDataFullSample <- list(y=binomEndInfested,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = NULL, # dist_out = makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals), 
+	     dist_out = NULL, #bin_dist_out, 
+	     map.partitions = NULL, #map.partitions,
+	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
 	     endTime=nbit,

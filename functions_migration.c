@@ -677,7 +677,7 @@ void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* 
 		//divide var_percentpositive by number of cells and then subtract percentpositive^2
 		var_percentpositive = var_percentpositive/ *(gridNumCells+grid) - percentpositive * percentpositive;
 
-		printf("numcells %d poscount %d varpp %f\n", *(gridNumCells+grid), positivecount, var_percentpositive);
+		//printf("numcells %d poscount %d varpp %f\n", *(gridNumCells+grid), positivecount, var_percentpositive);
 
 		//store positive count in gridstats
 		stats[grid*2] = positivecount; 
