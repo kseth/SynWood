@@ -19,7 +19,7 @@ source("RanalysisFunctions.R")
 # length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
 # diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
 ##
-generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=NULL)
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump = 0, blockIndex=NULL)
 {
 
 	# make same block matrix of households in the same block
@@ -33,6 +33,14 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=
 	# make distance matrixes for two thresholds: limitHopSkip, limitJump
 	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
 	dist_mat_jump <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitJump, upper = NULL)
+
+	# if we also have a lower limit for the jumps
+	if(lowerLimitJump > 0)
+	{
+		dist_mat_jump_low <- nearest.dist(coords, y=NULL, method = "euclidian", delta = lowerLimitJump, upper = NULL)
+		dist_mat_jump <- dist_mat_jump - dist_mat_jump_low #subtract lower values from total
+		dist_mat_jump <- as.spam(dist_mat_jump) #respam the matrix
+	}
 	
 	# remove diagonal values by cleaning up distances of zero
 	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)

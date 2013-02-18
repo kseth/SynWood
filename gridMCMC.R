@@ -13,14 +13,15 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_BinLik_seed3"
-set.seed(3)
+nameSimul <- "GRID_36x36_Hop_Jump_SynLik_gridstats_seed314_lowerLimitJump100"
+seedSimul <- 314 
+set.seed(seedSimul)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 800
+Nrep <- 500
 
 ## size of grid
 num.rows <- 36
@@ -30,7 +31,8 @@ row.dist <- 10
 
 ## parameters for uniform hop/skip/jump model
 limitHopSkip <- 40
-limitJump <- 200 
+limitJump <- 200
+lowerLimitJump <- 100 
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
@@ -39,7 +41,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("semivariance")
+useStats <- c("grid")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -67,7 +69,7 @@ map.partitions[[6]] <- partitionMap(maps$X, maps$Y, 2)  #into 2 by 2 (each cell 
 blockIndex = NULL
 
 ## make stratified matrix (no skips, set blockIndex to NULL)
-stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, blockIndex=blockIndex)
+stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, blockIndex=blockIndex)
 
 #===================
 # Prep geospatial/coordinate/household data for simulations
@@ -91,7 +93,7 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = 2, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
@@ -152,12 +154,12 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=binomEndInfested,
+MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = NULL, #bin_dist_out, 
-	     map.partitions = NULL, #map.partitions,
+	     dist_out = NULL, #bin_dist_out 
+	     map.partitions = map.partitions, #NULL
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
@@ -180,10 +182,10 @@ MyDataFullSample <- list(y=binomEndInfested,
 ## Test binomNoKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 start<-Sys.time()
-ModelOutBest<-binomNoKernelModel(realMeans,MyDataFullSample)
+ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
 # good should be worse than best (by a fudge factor of 4)
@@ -192,5 +194,5 @@ expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, binomNoKernelModel)
+MCMC(MyDataFullSample, noKernelModel)
 
