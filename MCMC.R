@@ -15,14 +15,16 @@ source("functions_sampling.R")
 ##	checkAutoStop - initial #iterations after finishing adapting sampling variance when to check autostop
 #===========================
 
-MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul = 600, upFreq = 1, saveFreq = 20, sdprop = rep(0.4, nparams), adaptOK = FALSE, checkAdapt = 20, lowAcceptRate = 0.15, highAcceptRate = 0.40, useAutoStop = TRUE, checkAutoStop = 100, monitor.file = "thetasamples_all.txt"){
+MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul = 600, upFreq = 1, saveFreq = 20, sdprop = 0.4, adaptOK = FALSE, checkAdapt = 20, lowAcceptRate = 0.15, highAcceptRate = 0.40, useAutoStop = TRUE, checkAutoStop = 100, monitor.file = "thetasamples_all.txt"){
 
 #===========================
 # Init values 
 #===========================
 
+
 	theta <- MyDataFullSample$priorMeans
-	nparams = length(theta)
+	nparams <- length(theta)
+	sdprop <- rep(sdprop, nparams)
 	names(sdprop) <- MyDataFullSample$parm.names
 
 	beginEstimate <- -1 #value containing position of when adaptation of sampling variance is complete
@@ -60,7 +62,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		if(saveFreq!=0 && numit%%saveFreq==0){
 			write.table(Monitor[(numit-saveFreq):numit, ], monitor.file, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
 			write.table(accepts[(numit-saveFreq):numit, ], paste("acceptsamples", monitor.file, sep = ""), sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n", file =  paste("MCMCvalues", monitor.file, sep = ""), append = TRUE)
+			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n\n", file =  paste("MCMCvalues", monitor.file, sep = ""), append = TRUE)
 }
 	
 		## adapt the sampling variance	
@@ -72,11 +74,13 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 				sdprop[paramName] <- logSDprop
 	    	 	}
 			
-			if(adaptOK){
+			if(adaptOK){ #if we've just adapted
 
 				cat("adaption of sampling variance complete: beginning final run from numit: ", numit, "\n")
 				beginEstimate <- numit
 				nbsimul <- beginEstimate + nbsimul
+				Monitor <- resized(Monitor, nr=nbsimul+1) #resize the Monitor
+				accepts <- resized(accepts, nr=nbsimul) #resize the accepts
 			}
 
 			## if the variances haven't yet been adapted and running out of simulations
@@ -86,8 +90,8 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 				
 				cat("sampling variance adaptation not complete: numit: ", numit, "doubling number simulations\n")
 				nbsimul <- nbsimul * 2
-				Monitor<-resized(Monitor,nr=nbsimul+1)
-				accepts<-resized(accepts,nr=nbsimul)
+				Monitor<-resized(Monitor,nr=nbsimul+1) #resize the Monitor
+				accepts<-resized(accepts,nr=nbsimul) #resize the accepts
 
 			}
 		}
@@ -104,7 +108,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		if(useAutoStop && adaptOK && numit == beginEstimate + checkAutoStop){
 
 			cb<-cb.diag(Monitor[(1+beginEstimate):numit, ],logfile="convergence_tests.txt")
-			checkAutoStop<-min(cb$newNbIt,numit*3)
+			checkAutoStop<-min(cb$newNbIt,(numit-beginEstimate)*3)
 			
 			if(!cb$ok){
 					cat("checking auto stop: numit: ", numit, "next check: ", numit + checkAutoStop)
@@ -112,8 +116,8 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 					if(nbsimul <= beginEstimate + checkAutoStop)
 					{
 						nbsimul <- beginEstimate + checkAutoStop
-						Monitor<-resized(Monitor,nr=nbsimul+1)
-						accepts<-resized(accepts,nr=nbsimul)
+						Monitor<-resized(Monitor,nr=nbsimul+1) #resize the Monitor
+						accepts<-resized(accepts,nr=nbsimul) #resize the accepts
 					}
 			}
 			else{
