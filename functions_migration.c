@@ -646,45 +646,61 @@ void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* 
 		//printf("\n");
 		currentCellStartingPoint += *(gridNumCells+grid);
 	}
-
+  
 	//determine the number of positive cells per grid system
 	//the first stat inserted will be num positive cells
 	//the second stat inserted will be variance of %positive 
 
 	// need to compute variance + store in gridstats
 	// the percent positive is the mean %positive over all the cells (this is scale invariant)
-	double percentpositive = (*endIndex + 1) / *L;
+	double meanPP = (*endIndex + 1) / *L;
 	count = 0;
+
+	// how many stats per different grid
+	// subtract one because blocks not yet implemented
+	// int numStatsPerSystem = (*gridnbStats-1)/ *numDiffGrids;
 	
 	// keeps track of number of positive cells in grid
 	int positivecount = 0;
 
-	//keeps track of the variance of the percentpositive
-	double var_percentpositive = 0;
+	//keeps track of the variance of the percent positive
+	double varPP = 0;
+
+	//num positive, num total per cell
+	double numPositive = 0;
+	double numTotal = 0;
+	double cellPP= 0;
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
 		for(int cell=0; cell<*(gridNumCells+grid); cell++){
 
-			if(gridEmptyCells[count] > 0)
+			numPositive = gridEmptyCells[count];
+			numTotal = gridCountCells[count];
+			cellPP = numPositive/numTotal;
+
+			if(numPositive > 0)
 				positivecount++;
 			
-			var_percentpositive += ((double)gridEmptyCells[count])/((double)gridCountCells[count]) * ((double)gridEmptyCells[count])/((double)gridCountCells[count]);
+			varPP += cellPP*cellPP;
 			count++;
 		}
 
 
-		//divide var_percentpositive by number of cells and then subtract percentpositive^2
-		var_percentpositive = var_percentpositive/ *(gridNumCells+grid) - percentpositive * percentpositive;
+		//divide variance by number of cells and then subtract (mean percent positive)^2
+		varPP = varPP/ *(gridNumCells+grid) - meanPP*meanPP;
 
-		//printf("numcells %d poscount %d varpp %f\n", *(gridNumCells+grid), positivecount, var_percentpositive);
+		//printf("numcells %d poscount %d varpp %f\n", *(gridNumCells+grid), positivecount, varPP);
 
 		//store positive count in gridstats
 		stats[grid*2] = positivecount; 
-		stats[grid*2+1] = var_percentpositive;
+		//store the variance of the percent positive
+		stats[grid*2+1] = varPP;
+		
 		positivecount = 0;
-		var_percentpositive = 0;		
+		varPP = 0;	
 	}
+
 
 	// the last statistic is number of positive houses
 	stats[*numDiffGrids*2] = *endIndex + 1;

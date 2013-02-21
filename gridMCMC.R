@@ -13,22 +13,21 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_BinLik_seed16182718_lowerLimitJump100"
-seedSimul <- 16182718
+nameSimul <- "GRID_36x36_Hop_Jump_BinLik_seed123456_lowerLimitJump100"
+seedSimul <-  123456
 set.seed(seedSimul)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 700
+Nrep <- 700 
  
 ## size of grid
 num.rows <- 36
 num.cols <- 36
 row.dist <- 10
  
-
 ## parameters for uniform hop/skip/jump model
 limitHopSkip <- 40
 limitJump <- 200
@@ -41,13 +40,14 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("semivariance")
+useStats <- c("semivariance", "grid")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
 
 ## distance classes for the general variogram
-genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+## genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+genIntervals <- seq(10, 40, 15)
 
 ## bin the map into different distances classes
 bin_dist_out <- makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals)
@@ -158,8 +158,8 @@ MyDataFullSample <- list(y=binomEndInfested,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = NULL, #bin_dist_out,   
-	     map.partitions = NULL, #map.partitions, 
+	     dist_out = NULL, #bin_dist_out,
+	     map.partitions = NULL, #map.partitions,
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,

@@ -856,8 +856,11 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by grid system):
-				## Number cells positive
+				## NOT IMPLEMENTED 25% quantile
+				## NOT IMPLEMENTED 50% quantile (median)
+				## NOT IMPLEMENTED 75% quantile
 				## Variance of % positive per cell
+				## Number Cells with at least 1 positive 
 				##	= 2 * numDiffGrids
 				## (overall)
 				## Number Infested Houses
@@ -959,8 +962,15 @@ if(class(importOk)!="try-error"){
 		statsTable <- 0
 		# make the final statsTable to output
 		if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
-			statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
-			statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
+
+			if(!is.vector(out$semivar.statsTable) && !is.vector(out$grid.statsTable)){ # if not a vector (only 1 iteration)
+				statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
+				statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
+			}else{
+				statsTable <- c(out$semivar.statsTable, out$grid.statsTable)
+				statsTable <- statsTable[-length(statsTable)]
+			}
+				
 		}
 		else
 			if("semivariance" %in% typeStat) ## want only semivariance stats
