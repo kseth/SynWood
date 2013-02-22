@@ -610,7 +610,7 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 }
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, double* gridstats){
 
 	//printf("%d \n", *endIndex);
 
@@ -637,7 +637,7 @@ void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* 
 		//traverse through all infested houses and populate
 		//note that endIndex delineates the last spot that is occupied 
 		for(int house=0; house<=*endIndex; house++){
-			infestedCell = gridIndexes[currentIndexStartingPoint + indexInfestInit[house]];
+			infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
 			gridEmptyCells[currentCellStartingPoint + infestedCell]++;
 
 			//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
@@ -705,6 +705,10 @@ void get_stats_grid(int* rep, int* L, int* indexInfestInit, int* endIndex, int* 
 	// the last statistic is number of positive houses
 	stats[*numDiffGrids*2] = *endIndex + 1;
 }
+
+void get_stats_circle(int* rep, int* L, int* endInfest, int* endInfex int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
+
+} 
 
 void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
 	
@@ -844,7 +848,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	
 }
 
-void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats){
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCircles, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
@@ -887,6 +891,7 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
+					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}

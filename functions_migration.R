@@ -316,6 +316,36 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 }
 
 #=============================
+# Concentric Circles
+#=============================
+
+conc.circles <- function(X, Y, distClasses, initInfested){
+
+	out <- makeDistClasses(X, Y, distClasses)
+
+	# since out$CClassIndex is triangular and the diagonals are 0
+	all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = 9) + matrix(out$CClassIndex, byrow = FALSE, nrow = 9)
+
+	if(distClasses[1] != 0) #if dont want to include self in concentric circles
+		diag(all.indexes) <- -1
+
+	# return only the indexes of the initInfested
+	all.indexes <- all.indexes[initInfested, ]
+
+	# count how many values exist per distance class per house to get prevalence
+	prev.counts <- mat.or.vec(length(initInfested), length(distClasses)-1)
+	for(house in 1:length(initInfested))
+		for(class in 0:(length(distClasses)-2)){
+
+			howmany <- length(which(all.indexes[house, ] == class))
+			prev.counts[house, class+1] <- howmany
+		} 
+
+	return(list(circleIndexes = all.indexes, counts = prev.counts))
+
+}
+
+#=============================
 # Migration functions
 #=============================
 ##  define the migration functions
@@ -698,7 +728,7 @@ if(class(importOk)!="try-error"){
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
 	
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, typeStat = "semivariance"){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circles = NULL, typeStat = "semivariance"){
 
 		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
@@ -738,7 +768,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid")
+		implStats <- c("semivariance", "grid", "concentric")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -757,6 +787,12 @@ if(class(importOk)!="try-error"){
 		gridCountCells <- 0
 		grid.nbStats <- 0
 		grid.statsTable <- 0
+		numDiffCircles <- 0
+		numDiffCenters <- 0
+		circleIndexes <- 0
+		circleCounts <- 0
+		circle.nbStats <- 0
+		circle.statsTable <- 0
 
 		if(getStats){
 
@@ -770,6 +806,9 @@ if(class(importOk)!="try-error"){
 			# if want to calculate semivariance stats
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
+
+					warning("calculating dist_out with given data, pass dist_out to make much faster")
+
 					if(haveBlocks)	
 						dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
 					else
@@ -879,6 +918,32 @@ if(class(importOk)!="try-error"){
 						
 			}
 
+			if("concentric" %in% typeStat){
+				if(is.null(conc.circles)){ # if an indexing of concentric circles hasn't yet been passed, throw error
+					stop("conc.circles passed as null, cannot execute!")
+				}
+
+				numDiffCenters <- dim(conc.circles$counts)[2]
+				numInitInfested <- dim(conc.circles$counts)[1]
+				circleIndexes <- t(conc.circles$circleIndexes) 
+				circleCounts <- t(conc.circles$counts) 
+
+				# stats selection
+				###===================================
+				## CURRENT STATS 
+				## (by numDiffCircles):
+				## Variance of % positive (across initInfested)
+				## Mean of % positive (across initInfested) 
+				##	= 2 * numDiffCircles
+				## (overall)
+				## Number Infested Houses
+				##	= 2 * numDiffCircles + 1
+				###===================================
+				circle.nbStats <- 2*numDiffCircles + 1
+				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
+
+			}
+
 		}
 
 		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
@@ -925,7 +990,13 @@ if(class(importOk)!="try-error"){
 			 gridEmptyCells = as.integer(gridEmptyCells),
 			 gridCountCells = as.integer(gridCountCells),
 			 grid.nbStats = as.integer(grid.nbStats),
-			 grid.statsTable = as.numeric(grid.statsTable)
+			 grid.statsTable = as.numeric(grid.statsTable),
+			 numDiffCircles = as.integer(numDiffCircles),
+			 numDiffCenters = as.integer(numDiffCenters),
+			 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
+			 circleCounts = as.integer(circleCounts),
+			 circle.nbStats = as.integer(circle.nbStats),
+			 circle.statsTable = as.numeric(circle.statsTable) 
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;

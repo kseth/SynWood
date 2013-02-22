@@ -13,15 +13,15 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_BinLik_seed123456_lowerLimitJump100"
-seedSimul <-  123456
+nameSimul <- "GRID_36x36_Hop_Jump_SynLik_Grid_9914_lowerLimitJump100"
+seedSimul <- 9914 
 set.seed(seedSimul)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 700 
+Nrep <- 500 
  
 ## size of grid
 num.rows <- 36
@@ -40,7 +40,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("semivariance", "grid")
+useStats <- c("grid")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -154,12 +154,12 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=binomEndInfested,
+MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
 	     dist_out = NULL, #bin_dist_out,
-	     map.partitions = NULL, #map.partitions,
+	     map.partitions = map.partitions, #NULL
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
@@ -182,10 +182,10 @@ MyDataFullSample <- list(y=binomEndInfested,
 ## Test binomNoKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 start<-Sys.time()
-ModelOutBest<-binomNoKernelModel(realMeans,MyDataFullSample)
+ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
 # good should be worse than best (by a fudge factor of 4)
@@ -194,5 +194,5 @@ expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, binomNoKernelModel)
+MCMC(MyDataFullSample, noKernelModel)
 
