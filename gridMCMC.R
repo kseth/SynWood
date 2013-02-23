@@ -40,7 +40,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("grid")
+useStats <- c("circles")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -63,7 +63,6 @@ map.partitions[[4]] <- partitionMap(maps$X, maps$Y, 4)  #into 4 by 4 (each cell 
 map.partitions[[5]] <- partitionMap(maps$X, maps$Y, 3)  #into 3 by 3 (each cell 12 by 12)
 map.partitions[[6]] <- partitionMap(maps$X, maps$Y, 2)  #into 2 by 2 (each cell 18 by 18)
 
-
 ## set blockIndex to NULL
 ## no blocks!
 blockIndex = NULL
@@ -77,6 +76,9 @@ stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHop
 ### starting point for simulations
 startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
 startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
+
+## make the concentric circles
+circles <- conc.circles(maps$X, maps$Y, c(0, 20, 30, 40, 60, 80, 100, 140, 180, 220, 270), startInfestH) 
 
 ## plot initially infested houses
 dev.new()
@@ -93,7 +95,7 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
@@ -108,6 +110,7 @@ binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
+stop()
 ## close the device so it prints
 dev.off()
 

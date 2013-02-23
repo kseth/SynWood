@@ -707,18 +707,24 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
-	
+
+	printf("%d %d\n", *numDiffCircles, *numDiffCenters);	
+	printf("1\n");
 	//store the stats in the right place
 	double* stats = circlestats + (*rep * *circlenbStats);
+
+	printf("2\n");
 
 	//store number of positives per circle data
 	double numPP[*numDiffCenters][*numDiffCircles];
 
+	printf("3\n");
 	//instantiate the doubles to 0
 	for(int center=0; center<*numDiffCenters; center++)
 		for(int circle=0; circle<*numDiffCircles; circle++)
 			numPP[center][circle] = 0;
 
+	printf("4\n");
 
 	//for every house in endInfest (infested house)
 	//put in appropriate numPP per center
@@ -729,10 +735,13 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		{
 			whichHouseInfested = *(endInfest+house);
 			wherePut = circleIndexes[(center* *L)+whichHouseInfested];
+
+		//	printf("%04d %04d\n", whichHouseInfested, wherePut); 
 			if(wherePut != -1)
 				numPP[center][wherePut] = numPP[center][wherePut]+1;
 		}
 
+	printf("5\n");
 	double count = 0;
 	double meanPP = 0;
 	double varPP = 0;
@@ -753,6 +762,7 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		stats[circle*2+1] = varPP;
 	}
 		
+	printf("6\n");
 	
 } 
 

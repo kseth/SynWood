@@ -324,7 +324,8 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 	out <- makeDistClasses(X, Y, distClasses)
 
 	# since out$CClassIndex is triangular and the diagonals are 0
-	all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = 9) + matrix(out$CClassIndex, byrow = FALSE, nrow = 9)
+	all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = length(X)) + matrix(out$CClassIndex, byrow = FALSE, nrow = length(X))
+
 
 	if(distClasses[1] != 0) #if dont want to include self in concentric circles
 		diag(all.indexes) <- -1
@@ -728,7 +729,7 @@ if(class(importOk)!="try-error"){
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
 	
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circles = NULL, typeStat = "semivariance"){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance"){
 
 		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
@@ -768,7 +769,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid", "concentric")
+		implStats <- c("semivariance", "grid", "circles")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -918,15 +919,15 @@ if(class(importOk)!="try-error"){
 						
 			}
 
-			if("concentric" %in% typeStat){
-				if(is.null(conc.circles)){ # if an indexing of concentric circles hasn't yet been passed, throw error
+			if("circles" %in% typeStat){
+				if(is.null(conc.circs)){ # if an indexing of concentric circles hasn't yet been passed, throw error
 					stop("conc.circles passed as null, cannot execute!")
 				}
 
-				numDiffCenters <- dim(conc.circles$counts)[2]
-				numInitInfested <- dim(conc.circles$counts)[1]
-				circleIndexes <- t(conc.circles$circleIndexes) 
-				circleCounts <- t(conc.circles$counts) 
+				numDiffCenters <- dim(conc.circs$counts)[1]
+				numDiffCircles <- dim(conc.circs$counts)[2]
+				circleIndexes <- t(conc.circs$circleIndexes) 
+				circleCounts <- t(conc.circs$counts) 
 
 				# stats selection
 				###===================================
