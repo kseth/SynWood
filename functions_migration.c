@@ -706,8 +706,54 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	stats[*numDiffGrids*2] = *endIndex + 1;
 }
 
-void get_stats_circle(int* rep, int* L, int* endInfest, int* endInfex int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
+void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
+	
+	//store the stats in the right place
+	double* stats = circlestats + (*rep * *circlenbStats);
 
+	//store number of positives per circle data
+	double numPP[*numDiffCenters][*numDiffCircles];
+
+	//instantiate the doubles to 0
+	for(int center=0; center<*numDiffCenters; center++)
+		for(int circle=0; circle<*numDiffCircles; circle++)
+			numPP[center][circle] = 0;
+
+
+	//for every house in endInfest (infested house)
+	//put in appropriate numPP per center
+	int wherePut = 0;
+	int whichHouseInfested = 0;
+	for(int house = 0; house <= *endIndex; house++)
+		for(int center=0; center<*numDiffCenters; center++)
+		{
+			whichHouseInfested = *(endInfest+house);
+			wherePut = circleIndexes[(center* *L)+whichHouseInfested];
+			if(wherePut != -1)
+				numPP[center][wherePut] = numPP[center][wherePut]+1;
+		}
+
+	double count = 0;
+	double meanPP = 0;
+	double varPP = 0;
+	for(int circle = 0; circle<*numDiffCircles; circle++)
+	{	
+	
+		for(int center = 0; center<*numDiffCenters; center++)
+		{
+			count = circleCounts[(center* *numDiffCircles) + circle];
+			meanPP = meanPP + numPP[center][circle]/count;
+			varPP = varPP + (numPP[center][circle]/count) * (numPP[center][circle]/count);
+		}
+
+		meanPP = meanPP / *numDiffCenters;
+		varPP = varPP/ *numDiffCenters - meanPP*meanPP;
+		
+		stats[circle*2] = meanPP;
+		stats[circle*2+1] = varPP;
+	}
+		
+	
 } 
 
 void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
@@ -848,7 +894,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	
 }
 
-void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCircles, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats){
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
