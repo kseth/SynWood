@@ -20,6 +20,7 @@ minLLever=-10e6
 ###	     blockIndex=blockIndex,
 ###	     dist_out = makeDistClassesWithStreets(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals, blockIndex),
 ###	     map.partitions = map.partitions,
+###	     conc.circs = NULL,
 ###	     useStats = useStats, 
 ###	     infestH=infestH,
 ###	     timeH=timeH,
@@ -77,11 +78,12 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, typeStat = Data$useStats)
+			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats)
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
 
+	start <- Sys.time()
 	if(postDraw){
 		yhat<-out$infestedDens
 		LL<-NA
@@ -113,6 +115,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		# cat("LL:",LL,"LP:",LP,"\n")
 	}
 
+	end <- Sys.time()
+	# cat("t synLik:", end-start, "\n")
 	# return
 	
 	Modelout <- list(LP=LP, # joint posterior
@@ -137,6 +141,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     blockIndex=blockIndex,
 ###	     dist_out = NULL, 
 ###	     map.partitions = NULL,
+###	     conc.circs = NULL,
 ###	     useStats = useStats,
 ###	     infestH=infestH,
 ###	     timeH=timeH,
@@ -189,7 +194,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, typeStat = Data$useStats)
+			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats)
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")

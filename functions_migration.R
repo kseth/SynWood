@@ -1030,34 +1030,54 @@ if(class(importOk)!="try-error"){
 		# will cause issues in variance, covariance matrix
 		out$grid.statsTable <- out$grid.statsTable[-11, ]
 
-
 		# make matrix out of circle.statsTable
-		out$circle.statsTable <- matrix(out$circle.statsTable, byrow = FALSE, ncol = Nrep)
+		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
+
+
+		# put all the stats into one list for making statsTable
+		allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable)
 
 		statsTable <- 0
 
-		# make the final statsTable to output
-		if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
+		if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
+		{
+			numInfested <- allStats[[matchStats[1]]][length(allStats[[matchStats[1]]])]
+			statsTable <- c()
+			for(statsWant in matchStats)
+		 		statsTable <- c(statsTable, allStats[[statsWant]][-length(allStats[[statsWant]])]) # don't include the last statistic
 
-			if(!is.vector(out$semivar.statsTable) && !is.vector(out$grid.statsTable)){ # if not a vector (only 1 iteration)
-				statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
-				statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
-			}else{
-				statsTable <- c(out$semivar.statsTable, out$grid.statsTable)
-				statsTable <- statsTable[-length(statsTable)]
-			}
-				
+			statsTable <- c(statsTable, numInfested)
+		}else{
+
+			numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
+			statsTable <- data.frame()
+			for(statsWant in matchStats)
+				statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
+
+			statsTable <- rbind(statsTable, numInfested)
 		}
-		else
-			if("semivariance" %in% typeStat) ## want only semivariance stats
-				statsTable <- out$semivar.statsTable
-			else
-				if("grid" %in% typeStat) ## want only grid stats
-					statsTable <- out$grid.statsTable
-				else
-					if("circles" %in% typeStat) ##want only circle stats
-						statsTable <- out$circle.statsTable
-	
+
+		# make the final statsTable to output
+		#	if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
+		#		if(!is.vector(out$semivar.statsTable) && !is.vector(out$grid.statsTable)){ # if not a vector (only 1 iteration)
+		#			statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
+		#			statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
+		#		}else{
+		#			statsTable <- c(out$semivar.statsTable, out$grid.statsTable)
+		#			statsTable <- statsTable[-length(statsTable)]
+		#		}
+		#			
+		#	}
+		#	else
+		#		if("semivariance" %in% typeStat) ## want only semivariance stats
+		#			statsTable <- out$semivar.statsTable
+		#		else
+		#			if("grid" %in% typeStat) ## want only grid stats
+		#				statsTable <- out$grid.statsTable
+		#			else
+		#				if("circles" %in% typeStat) ##want only circle stats
+		#					statsTable <- out$circle.statsTable
+		#
 
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1
@@ -1067,7 +1087,7 @@ if(class(importOk)!="try-error"){
 		out$timeI <- timeH
 
 		## add the compiled statsTable to out
-		length(out) <- length(out) + 1;
+		length(out) <- length(out) + 1
 		names(out) <- c(names(out)[1:(length(out)-1)], "statsTable")
 		out$statsTable <- statsTable	
 			

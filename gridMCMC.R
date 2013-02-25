@@ -13,7 +13,7 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_SynLik_Grid_9914_lowerLimitJump100"
+nameSimul <- "GRID_36x36_Hop_Jump_SynLik_CirclesGrid_9914_lowerLimitJump100"
 seedSimul <- 9914 
 set.seed(seedSimul)
 
@@ -21,7 +21,7 @@ set.seed(seedSimul)
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 500 
+Nrep <- 400 
  
 ## size of grid
 num.rows <- 36
@@ -78,7 +78,7 @@ startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
 startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
 
 ## make the concentric circles
-circleRadii <- c(0, 20, 30, 40, 60, 80, 100, 150, 200)
+circleRadii <- c(0, 20, 35, 50, 80, 110, 155, 200)
 circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
 
 ## plot initially infested houses
@@ -96,7 +96,7 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1000, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
@@ -111,27 +111,6 @@ binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
-
-# weibull order plotting to check if stats are normal
-for(i in 1:dim(secondTimePointSimul$circle.statsTable)[1])
-{
-
-order <- order(secondTimePointSimul$circle.statsTable[i, ])
-plot((1:dim(secondTimePointSimul$circle.statsTable)[2])/(dim(secondTimePointSimul$circle.statsTable)[2]+1), secondTimePointSimul$circle.statsTable[i, order], main = i, type = "l")
-readline()
- 
-}
-
-# weibull order plotting to check if stats are normal
-for(i in 1:dim(secondTimePointSimul$grid.statsTable)[1])
-{
-
-order <- order(secondTimePointSimul$grid.statsTable[i, ])
-plot((1:dim(secondTimePointSimul$grid.statsTable)[2])/(dim(secondTimePointSimul$grid.statsTable)[2]+1), secondTimePointSimul$grid.statsTable[i, order], main = i, type = "l")
-readline()
- 
-}
-stop()
 ## close the device so it prints
 dev.off()
 
@@ -174,7 +153,8 @@ MyDataFullSample <- list(y=statsData,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
 	     dist_out = NULL, #bin_dist_out,
-	     map.partitions = map.partitions, #NULL
+	     map.partitions = map.partitions, #NULL,
+	     conc.circs = circles, #NULL
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
@@ -203,7 +183,27 @@ start<-Sys.time()
 ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
-# good should be worse than best (by a fudge factor of 4)
+# weibull order plotting to check if circle stats are normal
+# for(i in 1:dim(secondTimePointSimul$circle.statsTable)[1])
+# {
+# 
+# order <- order(secondTimePointSimul$circle.statsTable[i, ])
+# plot((1:dim(secondTimePointSimul$circle.statsTable)[2])/(dim(secondTimePointSimul$circle.statsTable)[2]+1), secondTimePointSimul$circle.statsTable[i, order], main = i, type = "l")
+# readline()
+#  
+# }
+# 
+# weibull order plotting to check if grid stats are normal
+# for(i in 1:dim(secondTimePointSimul$grid.statsTable)[1])
+# {
+# 
+# order <- order(secondTimePointSimul$grid.statsTable[i, ])
+# plot((1:dim(secondTimePointSimul$grid.statsTable)[2])/(dim(secondTimePointSimul$grid.statsTable)[2]+1), secondTimePointSimul$grid.statsTable[i, order], main = i, type = "l")
+# readline()
+#  
+# }
+# good should be worse than best (ideally, need -4 because simulations may not be ideal)
+
 expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
 #=================
