@@ -1031,7 +1031,11 @@ if(class(importOk)!="try-error"){
 		out$grid.statsTable <- out$grid.statsTable[-11, ]
 
 
+		# make matrix out of circle.statsTable
+		out$circle.statsTable <- matrix(out$circle.statsTable, byrow = FALSE, ncol = Nrep)
+
 		statsTable <- 0
+
 		# make the final statsTable to output
 		if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
 
@@ -1050,6 +1054,9 @@ if(class(importOk)!="try-error"){
 			else
 				if("grid" %in% typeStat) ## want only grid stats
 					statsTable <- out$grid.statsTable
+				else
+					if("circles" %in% typeStat) ##want only circle stats
+						statsTable <- out$circle.statsTable
 	
 
 		infestH <- out$indexInfest

@@ -40,14 +40,14 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("circles")
+useStats <- c("circles", "grid")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
 
 ## distance classes for the general variogram
-## genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
-genIntervals <- seq(10, 40, 15)
+genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+## genIntervals <- seq(10, 40, 15)  if want to combine with grid
 
 ## bin the map into different distances classes
 bin_dist_out <- makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals)
@@ -78,7 +78,8 @@ startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
 startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
 
 ## make the concentric circles
-circles <- conc.circles(maps$X, maps$Y, c(0, 20, 30, 40, 60, 80, 100, 140, 180, 220, 270), startInfestH) 
+circleRadii <- c(0, 20, 30, 40, 60, 80, 100, 150, 200)
+circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
 
 ## plot initially infested houses
 dev.new()
@@ -95,7 +96,7 @@ nbit <- 104
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1000, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 print(Sys.time() - start)
 
 ## obtain stats from the second gillespie simulation
@@ -110,19 +111,30 @@ binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
+
+# weibull order plotting to check if stats are normal
+for(i in 1:dim(secondTimePointSimul$circle.statsTable)[1])
+{
+
+order <- order(secondTimePointSimul$circle.statsTable[i, ])
+plot((1:dim(secondTimePointSimul$circle.statsTable)[2])/(dim(secondTimePointSimul$circle.statsTable)[2]+1), secondTimePointSimul$circle.statsTable[i, order], main = i, type = "l")
+readline()
+ 
+}
+
+# weibull order plotting to check if stats are normal
+for(i in 1:dim(secondTimePointSimul$grid.statsTable)[1])
+{
+
+order <- order(secondTimePointSimul$grid.statsTable[i, ])
+plot((1:dim(secondTimePointSimul$grid.statsTable)[2])/(dim(secondTimePointSimul$grid.statsTable)[2]+1), secondTimePointSimul$grid.statsTable[i, order], main = i, type = "l")
+readline()
+ 
+}
 stop()
 ## close the device so it prints
 dev.off()
 
-# weibull order plotting to check if stats are normal
-# for(i in 1:dim(secondTimePointSimul$statsTable)[1])
-# {
-# 
-# order <- order(secondTimePointSimul$statsTable[i, ])
-# plot((1:dim(secondTimePointSimul$statsTable)[2])/(dim(secondTimePointSimul$statsTable)[2]+1), secondTimePointSimul$statsTable[i, order], main = i)
-# readline()
-# 
-# }
 
 #==================
 # Priors (also the place to change the parameters)

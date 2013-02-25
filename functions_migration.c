@@ -760,8 +760,13 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		
 		stats[circle*2] = meanPP;
 		stats[circle*2+1] = varPP;
+
+		meanPP = 0;
+		varPP = 0;
 	}
-		
+	
+	//the last statistic is the number of different positive houses
+	stats[*numDiffCircles*2] = *endIndex + 1;	
 	printf("6\n");
 	
 } 
