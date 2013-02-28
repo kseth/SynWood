@@ -1221,7 +1221,7 @@ simulObserved<-function(infested,openRate,detectRate){
   # only openRate of houses observed 
   nbHousesNonObserved<-rpois(n=1,lambda=nbHouses*(1-openRate))
   observed[sample(1:nbHouses,nbHousesNonObserved)]<-0
-  cat("; Openned Inf:", sum(observed));
+  cat("; Opened Inf:", sum(observed));
 
   # only XX% of infested are observed infested
   nbNonDetected<-rpois(n=1,lambda=sum(observed)*(1-detectRate))

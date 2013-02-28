@@ -13,8 +13,8 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_SynLik_CirclesGrid_9914_lowerLimitJump100"
-seedSimul <- 9914 
+nameSimul <- "GRID_36x36_Hop_Jump_SynLik_CirclesGrid_123_Messy_lowerLimitJump100"
+seedSimul <- 123 
 set.seed(seedSimul)
 
 ## set spam memory options
@@ -22,6 +22,11 @@ spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
 Nrep <- 400 
+
+## Make simulation messy or not messy
+MESSY <- FALSE
+openRate <- 0.7
+detectRate <- 0.9
  
 ## size of grid
 num.rows <- 36
@@ -110,6 +115,24 @@ if(!is.vector(secondTimePointSimul$statsTable)){
 binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+
+## if we want to make the simulation noisy, remove some data
+if(MESSY){
+
+	binomEndInfested <- simulObserved(binomEndInfested, openRate, detectRate)
+
+	#plot the results
+	plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+
+	secondTimePointStats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+
+	## obtain stats from the second gillespie simulation now messed up via observation error
+	if(!is.vector(secondTimePointSimul$statsTable)){
+ 		statsData <- secondTimePointStats$statsTable[, 1]
+	}else{
+		statsData <- secondTimePointStats$statsTable
+	}
+}
 
 ## close the device so it prints
 dev.off()
