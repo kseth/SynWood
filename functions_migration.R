@@ -19,7 +19,7 @@ source("RanalysisFunctions.R")
 # length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
 # diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
 ##
-generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=NULL)
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump = 0, blockIndex=NULL)
 {
 
 	# make same block matrix of households in the same block
@@ -33,6 +33,14 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, blockIndex=
 	# make distance matrixes for two thresholds: limitHopSkip, limitJump
 	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
 	dist_mat_jump <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitJump, upper = NULL)
+
+	# if we also have a lower limit for the jumps
+	if(lowerLimitJump > 0)
+	{
+		dist_mat_jump_low <- nearest.dist(coords, y=NULL, method = "euclidian", delta = lowerLimitJump, upper = NULL)
+		dist_mat_jump <- dist_mat_jump - dist_mat_jump_low #subtract lower values from total
+		dist_mat_jump <- as.spam(dist_mat_jump) #respam the matrix
+	}
 	
 	# remove diagonal values by cleaning up distances of zero
 	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)
@@ -304,6 +312,37 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 	housesPerCell <- unlist(lapply(minIndex:maxIndex, function(x, indexes){ return(length(which(indexes == x))) }, indexes = indexXY))
 
 	return(list(index = indexXY, num_cells = length(uniqXY),  housesPerCell = housesPerCell))
+
+}
+
+#=============================
+# Concentric Circles
+#=============================
+
+conc.circles <- function(X, Y, distClasses, initInfested){
+
+	out <- makeDistClasses(X, Y, distClasses)
+
+	# since out$CClassIndex is triangular and the diagonals are 0
+	all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = length(X)) + matrix(out$CClassIndex, byrow = FALSE, nrow = length(X))
+
+
+	if(distClasses[1] != 0) #if dont want to include self in concentric circles
+		diag(all.indexes) <- -1
+
+	# return only the indexes of the initInfested
+	all.indexes <- all.indexes[initInfested, ]
+
+	# count how many values exist per distance class per house to get prevalence
+	prev.counts <- mat.or.vec(length(initInfested), length(distClasses)-1)
+	for(house in 1:length(initInfested))
+		for(class in 0:(length(distClasses)-2)){
+
+			howmany <- length(which(all.indexes[house, ] == class))
+			prev.counts[house, class+1] <- howmany
+		} 
+
+	return(list(circleIndexes = all.indexes, counts = prev.counts))
 
 }
 
@@ -689,10 +728,8 @@ if(class(importOk)!="try-error"){
 	##	if typeStat contains "grid", map.partitions MUST be passed (otherwise, an error is thrown) 
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
-
-	## NEED TO IMPLEMENT: passing of grid variables to C + subsequent calculation in C.
 	
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, typeStat = "semivariance"){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance"){
 
 		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
@@ -732,7 +769,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStat <- c("semivariance", "grid")
+		implStats <- c("semivariance", "grid", "circles")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -741,8 +778,9 @@ if(class(importOk)!="try-error"){
 		cbinas <- 0
 		cbinsb <- 0
 		sizeVvar <- 0
-		nbStats <- 0
-		statsTable <- 0
+		semivar.nbStats <- 0
+		matchStats <- 0
+		semivar.statsTable <- 0
 		numDiffGrids <- 0
 		gridIndexes <- 0
 		gridNumCells <- 0
@@ -750,19 +788,28 @@ if(class(importOk)!="try-error"){
 		gridCountCells <- 0
 		grid.nbStats <- 0
 		grid.statsTable <- 0
+		numDiffCircles <- 0
+		numDiffCenters <- 0
+		circleIndexes <- 0
+		circleCounts <- 0
+		circle.nbStats <- 0
+		circle.statsTable <- 0
 
 		if(getStats){
 
 			## pass the corresponding matched numbers to C instead of the name of the statistics
 			matchStats <- match(typeStat, implStats)
 
-			if(any(is.na(matchStats)){ #throw an error regarding stats not yet implemented
+			if(any(is.na(matchStats))){ #throw an error regarding stats not yet implemented
 				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
 			}
 
 			# if want to calculate semivariance stats
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
+
+					warning("calculating dist_out with given data, pass dist_out to make much faster")
+
 					if(haveBlocks)	
 						dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
 					else
@@ -795,7 +842,7 @@ if(class(importOk)!="try-error"){
 					##	= 8 * length(cbin) + 3
 					###===================================
        					sizeVvar<-8*length(cbin)
-					nbStats<- sizeVvar + 3
+					semivar.nbStats<- sizeVvar + 3
 				}else{
 					cbinas <- 0
 					cbinsb <- 0
@@ -809,10 +856,10 @@ if(class(importOk)!="try-error"){
 					##	= 2 * length(cbin) + 1
 					###===================================
 					sizeVvar <- 2*length(cbin)
-					nbStats <- sizeVvar + 1
+					semivar.nbStats <- sizeVvar + 1
 				}
 
-				statsTable<-mat.or.vec(nbStats,Nrep)
+				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
 			}
 
 			if("grid" %in% typeStat){
@@ -828,6 +875,7 @@ if(class(importOk)!="try-error"){
 				map.partitions <- unlist(map.partitions, recursive = FALSE)
 		
 				## define the indexing systems
+				## every house should have numDiffGrids indexes
 				gridIndexes <- map.partitions[which(names(map.partitions) %in% "index")]
 				gridIndexes <- unlist(gridIndexes)
 				names(gridIndexes) <- NULL
@@ -848,8 +896,11 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by grid system):
-				## Number cells positive
+				## NOT IMPLEMENTED 25% quantile
+				## NOT IMPLEMENTED 50% quantile (median)
+				## NOT IMPLEMENTED 75% quantile
 				## Variance of % positive per cell
+				## Number Cells with at least 1 positive 
 				##	= 2 * numDiffGrids
 				## (overall)
 				## Number Infested Houses
@@ -866,6 +917,32 @@ if(class(importOk)!="try-error"){
 				
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 						
+			}
+
+			if("circles" %in% typeStat){
+				if(is.null(conc.circs)){ # if an indexing of concentric circles hasn't yet been passed, throw error
+					stop("conc.circles passed as null, cannot execute!")
+				}
+
+				numDiffCenters <- dim(conc.circs$counts)[1]
+				numDiffCircles <- dim(conc.circs$counts)[2]
+				circleIndexes <- t(conc.circs$circleIndexes) 
+				circleCounts <- t(conc.circs$counts) 
+
+				# stats selection
+				###===================================
+				## CURRENT STATS 
+				## (by numDiffCircles):
+				## Variance of % positive (across initInfested)
+				## Mean of % positive (across initInfested) 
+				##	= 2 * numDiffCircles
+				## (overall)
+				## Number Infested Houses
+				##	= 2 * numDiffCircles + 1
+				###===================================
+				circle.nbStats <- 2*numDiffCircles + 1
+				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
+
 			}
 
 		}
@@ -897,21 +974,36 @@ if(class(importOk)!="try-error"){
 			 Nrep = as.integer(Nrep),
 			 # stats
 			 getStats=as.integer(getStats),
+			 matchStats=as.integer(matchStats),
+			 lengthStats=as.integer(length(matchStats)),
 			 nbins = as.integer(length(breaksGenVar)),
 			 cbin = as.integer(cbin),
 			 cbinas = as.integer(cbinas),
 			 cbinsb = as.integer(cbinsb),
 			 indices = as.integer(dist_indices),
-			 statsTable = as.numeric(statsTable),
-			 nbStats = as.integer(nbStats),
+			 semivar.statsTable = as.numeric(semivar.statsTable),
+			 semivar.nbStats = as.integer(semivar.nbStats),
              		 sizeVvar = as.integer(sizeVvar),
-			 haveBlocks = as.integer(haveBlocks)
+			 haveBlocks = as.integer(haveBlocks),
+			 numDiffGrids = as.integer(numDiffGrids),
+			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
+			 gridNumCells = as.integer(gridNumCells),
+			 gridEmptyCells = as.integer(gridEmptyCells),
+			 gridCountCells = as.integer(gridCountCells),
+			 grid.nbStats = as.integer(grid.nbStats),
+			 grid.statsTable = as.numeric(grid.statsTable),
+			 numDiffCircles = as.integer(numDiffCircles),
+			 numDiffCenters = as.integer(numDiffCenters),
+			 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
+			 circleCounts = as.integer(circleCounts),
+			 circle.nbStats = as.integer(circle.nbStats),
+			 circle.statsTable = as.numeric(circle.statsTable) 
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
 	
-		# make matrix out of statsTable
-		out$statsTable<-matrix(out$statsTable,byrow=FALSE,ncol=Nrep)
+		# make matrix out of semivar.statsTable
+		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 
 		if(haveBlocks){		
 			# remove interblock and intrablock stats
@@ -921,15 +1013,71 @@ if(class(importOk)!="try-error"){
 			# inf.house, inf.block, and inf.house/inf.block count
 			keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
 			# clean away NANs introduced in C
-			notNAN <- which(!is.nan(out$statsTable[, 1]))
+			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
 			
 			keep<-intersect(notNAN,keepable)
-			out$statsTable<-out$statsTable[keep, ]
+			out$semivar.statsTable<-out$semivar.statsTable[keep, ]
 		}else{		
 			#now only need to remove the ones that are NAN
-			notNAN <- which(!is.nan(out$statsTable[, 1]))
-			out$statsTable <- out$statsTable[notNAN, ]
+			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
+			out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 		}
+	
+		# make matrix out of grid.statsTable
+		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+		# for now, remove stat #11 
+		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
+		# will cause issues in variance, covariance matrix
+		out$grid.statsTable <- out$grid.statsTable[-11, ]
+
+		# make matrix out of circle.statsTable
+		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
+
+
+		# put all the stats into one list for making statsTable
+		allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable)
+
+		statsTable <- 0
+
+		if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
+		{
+			numInfested <- allStats[[matchStats[1]]][length(allStats[[matchStats[1]]])]
+			statsTable <- c()
+			for(statsWant in matchStats)
+		 		statsTable <- c(statsTable, allStats[[statsWant]][-length(allStats[[statsWant]])]) # don't include the last statistic
+
+			statsTable <- c(statsTable, numInfested)
+		}else{
+
+			numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
+			statsTable <- data.frame()
+			for(statsWant in matchStats)
+				statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
+
+			statsTable <- rbind(statsTable, numInfested)
+		}
+
+		# make the final statsTable to output
+		#	if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
+		#		if(!is.vector(out$semivar.statsTable) && !is.vector(out$grid.statsTable)){ # if not a vector (only 1 iteration)
+		#			statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
+		#			statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
+		#		}else{
+		#			statsTable <- c(out$semivar.statsTable, out$grid.statsTable)
+		#			statsTable <- statsTable[-length(statsTable)]
+		#		}
+		#			
+		#	}
+		#	else
+		#		if("semivariance" %in% typeStat) ## want only semivariance stats
+		#			statsTable <- out$semivar.statsTable
+		#		else
+		#			if("grid" %in% typeStat) ## want only grid stats
+		#				statsTable <- out$grid.statsTable
+		#			else
+		#				if("circles" %in% typeStat) ##want only circle stats
+		#					statsTable <- out$circle.statsTable
+		#
 
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1
@@ -938,6 +1086,11 @@ if(class(importOk)!="try-error"){
 		timeH <- timeH[which(infestH != -1)]
 		out$timeI <- timeH
 
+		## add the compiled statsTable to out
+		length(out) <- length(out) + 1
+		names(out) <- c(names(out)[1:(length(out)-1)], "statsTable")
+		out$statsTable <- statsTable	
+			
 		return(out)
 	}
 
@@ -1068,7 +1221,7 @@ simulObserved<-function(infested,openRate,detectRate){
   # only openRate of houses observed 
   nbHousesNonObserved<-rpois(n=1,lambda=nbHouses*(1-openRate))
   observed[sample(1:nbHouses,nbHousesNonObserved)]<-0
-  cat("; Openned Inf:", sum(observed));
+  cat("; Opened Inf:", sum(observed));
 
   # only XX% of infested are observed infested
   nbNonDetected<-rpois(n=1,lambda=sum(observed)*(1-detectRate))
