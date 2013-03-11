@@ -13,7 +13,7 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_SynLik_CirclesGrid_123_Messy_lowerLimitJump100"
+nameSimul <- "GRID_36x36_Hop_Jump_BinLik_123_Messy_lowerLimitJump100"
 seedSimul <- 123 
 set.seed(seedSimul)
 
@@ -24,9 +24,8 @@ spam.options(nearestdistnnz=c(13764100,400))
 Nrep <- 400 
 
 ## Make simulation messy or not messy
-MESSY <- FALSE
-openRate <- 0.7
-detectRate <- 0.9
+MESSY <- TRUE
+errorRate <- 0.7
  
 ## size of grid
 num.rows <- 36
@@ -45,7 +44,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("circles", "grid")
+useStats <- c("circles")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -119,15 +118,16 @@ plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 ## if we want to make the simulation noisy, remove some data
 if(MESSY){
 
-	binomEndInfested <- simulObserved(binomEndInfested, openRate, detectRate)
+	binomEndInfested <- simulObserved(binomEndInfested, errorRate, 1)
+	endInfestH <- which(binomEndInfested == 1)
 
 	#plot the results
 	plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
-	secondTimePointStats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+	secondTimePointStats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 
 	## obtain stats from the second gillespie simulation now messed up via observation error
-	if(!is.vector(secondTimePointSimul$statsTable)){
+	if(!is.vector(secondTimePointStats$statsTable)){
  		statsData <- secondTimePointStats$statsTable[, 1]
 	}else{
 		statsData <- secondTimePointStats$statsTable
@@ -171,13 +171,13 @@ PGF<-function(Data){ # parameters generating functions (for init etc...)
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=statsData,
+MyDataFullSample <- list(y=binomEndInfested,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
 	     dist_out = NULL, #bin_dist_out,
-	     map.partitions = map.partitions, #NULL,
-	     conc.circs = circles, #NULL
+	     map.partitions = NULL, #map.partitions,
+	     conc.circs = NULL, #circles,
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
@@ -200,10 +200,10 @@ MyDataFullSample <- list(y=statsData,
 ## Test binomNoKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 start<-Sys.time()
-ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
+ModelOutBest<-binomNoKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
 # weibull order plotting to check if circle stats are normal
@@ -232,5 +232,5 @@ expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, noKernelModel)
+MCMC(MyDataFullSample, binomNoKernelModel)
 

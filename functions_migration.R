@@ -729,7 +729,7 @@ if(class(importOk)!="try-error"){
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
 	
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance"){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 0){
 
 		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
 		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
@@ -997,7 +997,8 @@ if(class(importOk)!="try-error"){
 			 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
 			 circleCounts = as.integer(circleCounts),
 			 circle.nbStats = as.integer(circle.nbStats),
-			 circle.statsTable = as.numeric(circle.statsTable) 
+			 circle.statsTable = as.numeric(circle.statsTable),
+			 detectRate = as.numeric(detectRate) 
 			 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
@@ -1025,6 +1026,7 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+
 		# for now, remove stat #11 
 		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
 		# will cause issues in variance, covariance matrix
@@ -1033,28 +1035,30 @@ if(class(importOk)!="try-error"){
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
-
-		# put all the stats into one list for making statsTable
-		allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable)
-
 		statsTable <- 0
 
-		if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
-		{
-			numInfested <- allStats[[matchStats[1]]][length(allStats[[matchStats[1]]])]
-			statsTable <- c()
-			for(statsWant in matchStats)
-		 		statsTable <- c(statsTable, allStats[[statsWant]][-length(allStats[[statsWant]])]) # don't include the last statistic
+		if(getStats){ ## if want to get statistics, need to make the statsTable
+	
+			# put all the stats into one list for making statsTable
+			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable)
 
-			statsTable <- c(statsTable, numInfested)
-		}else{
+			if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
+			{
+				numInfested <- allStats[[matchStats[1]]][length(allStats[[matchStats[1]]])]
+				statsTable <- c()
+				for(statsWant in matchStats)
+			 		statsTable <- c(statsTable, allStats[[statsWant]][-length(allStats[[statsWant]])]) # don't include the last statistic
 
-			numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
-			statsTable <- data.frame()
-			for(statsWant in matchStats)
-				statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
+				statsTable <- c(statsTable, numInfested)
+			}else{
 
-			statsTable <- rbind(statsTable, numInfested)
+				numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
+				statsTable <- data.frame()
+				for(statsWant in matchStats)
+					statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
+
+				statsTable <- rbind(statsTable, numInfested)
+			}
 		}
 
 		# make the final statsTable to output

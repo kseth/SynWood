@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 #include <R_ext/Utils.h>
 // allows the use of R_CheckUserInterrupt()
 
@@ -846,7 +847,69 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 	}
 }
 
-void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats,int *sizeVvar){
+void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate){
+
+
+	if(*detectRate>0){ //if we have some error
+
+		double randForHouse = 0;
+		int tempHold[*endIndex+1];
+		int tempCount = 0;
+
+		srand(time(NULL)); //initialize random number generator in stdlib
+
+		for(int house=0; house<*L; house++){
+		randForHouse = rand();
+		randForHouse /= RAND_MAX; //get random value 0<=x<1
+
+			if(randForHouse > *detectRate){ //remove house from infestedInit 
+				infestedInit[house] = 0; //set house to 0
+			}	
+		}
+
+		//now need to reorganize indexInfestInit
+		for(int house=0; house<=*endIndex; house++){
+			if(infestedInit[indexInfestInit[house]] == 1)
+				tempHold[tempCount++] = indexInfestInit[house];
+		}
+
+		tempCount--;
+
+		for(int house=0; house<=*endIndex; house++){
+			if(house<=tempCount)
+				indexInfestInit[house] = tempHold[house];
+			else
+				indexInfestInit[house] = -1;
+			
+		}
+
+		*endIndex = tempCount;
+
+		//now need to reorganize indexInfestInit
+		//for(int house=*endIndex; house>=0; house--){ 
+		//		if(infestedInit[indexInfestInit[house]] == 0)
+		//			indexInfestInit[house] = -1; //set all the houses that have been removed to -1					
+		//	}
+
+		//	for(int house=*endIndex; house>=0; house--){
+		//		if(indexInfestInit[house] == -1){
+		//	
+		//			swap1 = indexInfestInit[*endIndex];
+		//			for(int shiftHouse=*endIndex; shiftHouse>house; shiftHouse--){ //transfer all the data over to replace houses that have been removed
+		//				swap2 = indexInfestInit[shiftHouse-1];
+		//				indexInfestInit[shiftHouse-1] = swap1;
+		//				swap1 = swap2;		
+		//			}
+
+		//			*endIndex = *endIndex - 1; //make the endIndex smaller
+		//		}
+
+		//	}	
+	}
+
+}
+
+void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar){
 
 	// to pass to get_stats_semivar
 	int haveBlocks = 1;
@@ -900,7 +963,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	
 }
 
-void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats){
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats, double* detectRate){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
@@ -936,6 +999,8 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	 	}
 
 	 	if(*getStats==1){
+
+			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate);
 
 			for(int stat=0;stat<*lengthStats; stat++){
 
