@@ -21,10 +21,12 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 # Init values 
 #===========================
 
-
 	theta <- MyDataFullSample$priorMeans
 	nparams <- length(theta)
-	sdprop <- rep(sdprop, nparams)
+	
+	if(length(sdprop) != nparams)
+		sdprop <- rep(sdprop[1], nparams)
+
 	names(sdprop) <- MyDataFullSample$parm.names
 
 	beginEstimate <- -1 #value containing position of when adaptation of sampling variance is complete

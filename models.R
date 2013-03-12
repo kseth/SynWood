@@ -29,11 +29,10 @@ minLLever=-10e6
 ###	     nbit=nbit,
 ###	     Nrep=Nrep,
 ###	     priorMeans=priorMeans,
-###	     priorSdlog=priorSdlog,
+###	     priorSd=priorSd,
+###	     priorType=priorType,
+###	     defaultDR=defaultDR,
 ###	     genIntervals=genIntervals,
-###	     paramInf=paramInf,
-###	     paramSup=paramSup,
-###	     PGF=PGF,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
@@ -44,14 +43,6 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	theta<-theta
 	names(theta)<-Data$parm.names
 	
-	# coerce theta, a priori all positive
-	# set intervals for the variables
-	# take care of this problem by doing try catch on wood syn likelihood
-	# for(param in names(theta)){
-        # theta[param]<-interval(theta[param],a=Data$paramInf[param],b=Data$paramSup[param])
-    	# }
-	# cat("theta:",theta, "\n")
-
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
 	
@@ -78,7 +69,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats)
+			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], defaultDR))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -109,15 +101,28 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		# get likelihood with priors
 		LL<-ll
 		attributes(LL)<-NULL
-		LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
-		
+
+		LP <- LL
+		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+			if(Data$priorType[name] == "lnorm")
+				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "norm")
+				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "boundedNorm")
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+			else priorLL <- 0
+
+			attributes(priorLL)<-NULL
+			LP <- LP + priorLL
+		}
+
+		# LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
 		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
 		# cat("LL:",LL,"LP:",LP,"\n")
 	}
 
 	end <- Sys.time()
 	# cat("t synLik:", end-start, "\n")
-	# return
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 Dev=-2*LL, # deviance, probably not to be changed
@@ -150,11 +155,10 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     nbit=nbit,
 ###	     Nrep=Nrep,
 ###	     priorMeans=priorMeans,
-###	     priorSdlog=priorSdlog,
+###	     priorSd=priorSd,
+###	     priorType=priorType,
+###	     defaultDR=defaultDR,
 ###	     genIntervals=genIntervals,
-###	     paramInf=paramInf,
-###	     paramSup=paramSup,
-###	     PGF=PGF,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
@@ -164,14 +168,6 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
 	names(theta)<-Data$parm.names
-	
-	# coerce theta, a priori all positive
-	# set intervals for the variables
-	# take care of this problem by doing try catch on wood syn likelihood
-	# for(param in names(theta)){
-        # theta[param]<-interval(theta[param],a=Data$paramInf[param],b=Data$paramSup[param])
-    	# }
-	# cat("theta:",theta, "\n")
 
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -194,7 +190,8 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats)
+			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats,
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], defaultDR))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -226,14 +223,26 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		# get likelihood with priors
 		LL<-ll
 		attributes(LL)<-NULL
-		LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
-		
+
+		LP <- LL
+		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+			if(Data$priorType[name] == "lnorm")
+				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "norm")
+				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "boundedNorm")
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+			else priorLL <- 0
+
+			attributes(priorLL)<-NULL
+			LP <- LP + priorLL
+		}
+
+		#LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
 		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
 		# cat("LL:",LL,"LP:",LP,"\n")
 	}
 
-	# return
-	
 	Modelout <- list(LP=LP, # joint posterior
 			 Dev=-2*LL, # deviance, probably not to be changed
 			 Monitor=c(LL,LP, theta), # to be monitored/ploted, carefull to change namesMonitor if modified
@@ -268,11 +277,9 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     nbit=nbit,
 ###	     Nrep=Nrep,
 ###	     priorMeans=priorMeans,
-###	     priorSdlog=priorSdlog,
+###	     priorSd=priorSd,
+###	     priorType=priorType,
 ###	     genIntervals=genIntervals,
-###	     paramInf=paramInf,
-###	     paramSup=paramSup,
-###	     PGF=PGF,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
@@ -282,14 +289,6 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
 	names(theta)<-Data$parm.names
-	
-	# coerce theta, a priori all positive
-	# set intervals for the variables
-	# take care of this problem by doing try catch on wood syn likelihood
-	# for(param in names(theta)){
-        # theta[param]<-interval(theta[param],a=Data$paramInf[param],b=Data$paramSup[param])
-    	# }
-	# cat("theta:",theta, "\n")
 
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -366,13 +365,26 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 		# get likelihood with priors
 		LL<-ll
 		attributes(LL)<-NULL
-		LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
-		
+
+		LP <- LL
+		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+			if(Data$priorType[name] == "lnorm")
+				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "norm")
+				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
+			else if(Data$priorType[name] == "boundedNorm")
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+			else priorLL <- 0
+
+			attributes(priorLL)<-NULL
+			LP <- LP + priorLL
+		}
+
+
+		# LP<-LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
 		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
 		# cat("LL:",LL,"LP:",LP,"\n")
 	}
-
-	# return
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 Dev=-2*LL, # deviance, probably not to be changed
@@ -384,8 +396,4 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 
 	return(Modelout)
 }
-
- 
-
- 
 

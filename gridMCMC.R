@@ -13,19 +13,20 @@ source("MCMC.R")
 # set parameters for simulation
 #==================
 ## name the simulation!
-nameSimul <- "GRID_36x36_Hop_Jump_BinLik_123_Messy_lowerLimitJump100"
-seedSimul <- 123 
+nameSimul <- "GRID_36x36_Hop_Jump_SynLik_Grid_9914_Messy_NoiseNotFit"
+seedSimul <- 9914 
 set.seed(seedSimul)
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 400 
+Nrep <- 350 
 
 ## Make simulation messy or not messy
-MESSY <- TRUE
-errorRate <- 0.7
+detectRate <- 0.7 # true detection rate 
+sampleDR <- FALSE # if true, MCMC will sample over error rates
+defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if not sampling over DR)
  
 ## size of grid
 num.rows <- 36
@@ -44,7 +45,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("circles")
+useStats <- c("grid")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -87,7 +88,7 @@ circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH)
 
 ## plot initially infested houses
 dev.new()
-par(mfrow = c(3, 1))
+par(mfrow = c(2, 2))
 infested <- rep(0, length(maps$X))
 infested[startInfestH] <- 1
 plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
@@ -103,80 +104,75 @@ start <- Sys.time()
 secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 print(Sys.time() - start)
 
-## obtain stats from the second gillespie simulation
-if(!is.vector(secondTimePointSimul$statsTable)){
- 	statsData <- secondTimePointSimul$statsTable[, 1]
-}else{
-	statsData <- secondTimePointSimul$statsTable
-}
-
 ## plot results of gillespie
 binomEndInfested <- secondTimePointSimul$infestedDens
 cat("starting # infested:", length(startInfestH), " ending # infested:", length(which(binomEndInfested!=0)), "\n")
 plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 
-## if we want to make the simulation noisy, remove some data
-if(MESSY){
+## remove data
+binomEndInfestedR <- simulObserved(binomEndInfested, detectRate, 1)
+endInfestHR <- which(binomEndInfestedR == 1)
 
-	binomEndInfested <- simulObserved(binomEndInfested, errorRate, 1)
-	endInfestH <- which(binomEndInfested == 1)
+#plot the results
+plot_reel(maps$X, maps$Y, binomEndInfestedR, base = 0, top = 1)
 
-	#plot the results
-	plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
+#calculate statistics
+secondTimePointStatsR <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHR, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 
-	secondTimePointStats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+## do the same thing in C	
+## endInfestHC <- which(binomEndInfested == 1)
 
-	## obtain stats from the second gillespie simulation now messed up via observation error
-	if(!is.vector(secondTimePointStats$statsTable)){
- 		statsData <- secondTimePointStats$statsTable[, 1]
-	}else{
-		statsData <- secondTimePointStats$statsTable
-	}
+## calculate statistics
+## secondTimePointStatsC <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHC, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, detectRate = detectRate)
+
+#plot the results
+## plot_reel(maps$X, maps$Y, secondTimePointStatsC$infestedDens, base = 0, top = 1)
+
+## obtain stats from the second gillespie simulation now messed up via observation error
+if(!is.vector(secondTimePointStatsR$statsTable)){
+	statsData <- secondTimePointStatsR$statsTable[, 1]
+}else{
+	statsData <- secondTimePointStatsR$statsTable
 }
 
 ## close the device so it prints
-dev.off()
+## dev.off()
 
 
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(0.045, 0.05)
-priorSdlog <- c(1, 1)
-realMeans<-c(rateMove, weightJumpInMove)
-sampling <- c("lnorm", "lnorm")
-names(priorMeans)<-c("rateMove" , "weightJumpInMove") 
-names(sampling)<-c("rateMove", "weightJumpInMove")
+priorMeans<-c(0.045, 0.05, 0.75)
+priorSd <- c(1, 1, 0.20)
+priorType <- c("lnorm", "lnorm", "boundednorm") 
+realMeans<-c(rateMove, weightJumpInMove, detectRate)
+sampling <- c("lnorm", "lnorm", "boundednorm")
+sdProposal <- c(0.4, 0.4, 0.2)
+names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate") 
+names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
-names(priorSdlog)<-names(priorMeans)
+names(priorSd)<-names(priorMeans)
+names(priorType)<-names(priorMeans)
 
-### Intervals of definition for the parameters
-### No longer used, leave in for backward consistency
-paramInf<-c(0.002,0.0001)
-paramSup<-c(0.30,1000)
-names(paramInf)<-names(sampling)
-names(paramSup)<-names(sampling)
-
-### LD formalism for Data (no setting should be made past this declaration)
-PGF<-function(Data){ # parameters generating functions (for init etc...)
-	
-	priorMeans<-Data$priorMeans
-	priorSdlog<-Data$priorSdlog
-	
-	values<-rlnorm(length(priorMeans),mean=log(priorMeans), sd=priorSdlog)
-	return(values)
+if(!sampleDR){ #if don't want to sample over detectRate
+	priorMeans<-priorMeans[-3]
+	priorSd<-priorSd[-3]
+	priorType<-priorType[-3]
+	realMeans<-realMeans[-3]
+	sampling<-sampling[-3]
+	sdProposal<-sdProposal[-3]
 }
 
 #=================
 # List of data to pass to model + sampler
 #=================
 
-MyDataFullSample <- list(y=binomEndInfested,
+MyDataFullSample <- list(y=statsData,
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
 	     dist_out = NULL, #bin_dist_out,
-	     map.partitions = NULL, #map.partitions,
+	     map.partitions = map.partitions, #NULL,  
 	     conc.circs = NULL, #circles,
 	     useStats = useStats,
 	     infestH=startInfestH,
@@ -186,24 +182,23 @@ MyDataFullSample <- list(y=binomEndInfested,
 	     nbit=nbit,
 	     Nrep=Nrep,
 	     priorMeans=priorMeans,
-	     priorSdlog=priorSdlog,
+	     priorSd=priorSd,
+	     priorType=priorType,
+	     defaultDR=defaultDR,
 	     genIntervals=genIntervals,
-	     paramInf=paramInf,
-	     paramSup=paramSup,
-	     PGF=PGF,
 	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
 	     sampling=sampling # method of sampling parameters
 		)
 
 #=================
-## Test binomNoKernelModel to make sure something meaningful comes out
+## Test noKernelModel to make sure something meaningful comes out
 #=================
 start<-Sys.time()
-ModelOutGood<-binomNoKernelModel(priorMeans,MyDataFullSample)
+ModelOutGood<-noKernelModel(priorMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 start<-Sys.time()
-ModelOutBest<-binomNoKernelModel(realMeans,MyDataFullSample)
+ModelOutBest<-noKernelModel(realMeans,MyDataFullSample)
 cat(Sys.time()-start, "\n")
 
 # weibull order plotting to check if circle stats are normal
@@ -228,9 +223,8 @@ cat(Sys.time()-start, "\n")
 # good should be worse than best (ideally, need -4 because simulations may not be ideal)
 
 expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
-
 #=================
 ## Make call to MCMC
 #=================
-MCMC(MyDataFullSample, binomNoKernelModel)
+MCMC(MyDataFullSample, Model=noKernelModel, sdprop=sdProposal)
 

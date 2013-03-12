@@ -728,11 +728,13 @@ if(class(importOk)!="try-error"){
 	##	if typeStat contains "grid", map.partitions MUST be passed (otherwise, an error is thrown) 
 	## 		- map.partitions MUST be a list of the indexing system of the houses in the map
 	##		- map.partitions are a result of the call to partitionMap
+	##		- no blockwise statistics
+	##	if typeStat contains "circles", conc.circs MUST be passed (otherwise, an error is thrown)
+	##		- conc.circs is a result of the call to conc.circles
+	##		- no blockwise statistics
+	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
 	
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 0){
-
-		## haveBlocks is TRUE if a skip matrix is part of stratHopSkipJump, FALSE otherwise
-		## if haveBlocks is FALSE, skips are assumed to not happen, model is entirely hop/jump based, weightSkipInMove <- 0
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1){
 
 		haveBlocks <- TRUE		
 

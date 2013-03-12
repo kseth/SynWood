@@ -1,6 +1,6 @@
 library(testthat)
 # source("functions_sampling.R")
-source("SynWood/functions_sampling.R",chdir=TRUE)
+source("functions_sampling.R",chdir=TRUE)
 graphics.off()
 test_that("getParamBeta OK",{
 	  a<-9
@@ -16,6 +16,7 @@ test_that("getParamBeta OK",{
 	  expect_equal(sig,musigback$sig)
 })
 
+start1 <- Sys.time()
 test_that("omniSample OK for norm/lnorm",{
 	  # simple model to test omniSample
 	  Model<-function(theta,Data){
@@ -62,7 +63,7 @@ test_that("omniSample OK for norm/lnorm",{
 	  names(accepts)<-MyData$parm.names
 
 	  # simple MCMC chain
-	  Rprof()
+	  # Rprof()
 	  for(numit in 1:nbit){
 		  if(numit%%upFreq==0 && upFreq!=0 ){
 			  cat("it:",numit,"of",nbit,"current theta:",theta,"\n");
@@ -73,7 +74,7 @@ test_that("omniSample OK for norm/lnorm",{
 	    }
 	    Monitor[numit+1,]<-attributes(theta)$outModel$Monitor
 	  }
-	  Rprof(NULL)
+	  # Rprof(NULL)
 
 	  # post treatment
 	  Monitor<-as.data.frame(Monitor)
@@ -108,7 +109,8 @@ test_that("omniSample OK for norm/lnorm",{
 	  expect_true(abs(estSd-ySd)<0.1)
 })
 
-# test_that("omniSample OK for beta sampling",{
+start2 <- Sys.time()
+test_that("omniSample OK for [0, 1] sampling with boundednorm",{
 	  # guess a binomial rate
 	  Model<-function(theta,Data){
 	    names(theta)<-Data$parm.names
@@ -130,7 +132,7 @@ test_that("omniSample OK for norm/lnorm",{
 	  set.seed(777)
 	  MyData<-list()
 	  MyData$parm.names<-c("rate")
-	  MyData$sampling<-c("beta")
+	  MyData$sampling<-c("boundednorm")
 	  MyData$mon.names<-c("LP",MyData$parm.names)
 	  MyData$realProba<-0 # to be guessed
 	  MyData$nByDraw<-100
@@ -154,7 +156,7 @@ test_that("omniSample OK for norm/lnorm",{
 	  names(accepts)<-MyData$parm.names
 
 	  # simple MCMC chain
-	  Rprof()
+	  # Rprof()
 	  for(numit in 1:nbit){
 		  if(numit%%upFreq==0 && upFreq!=0 ){
 			  cat("it:",numit,"of",nbit,"current theta:",theta,"\n");
@@ -165,39 +167,27 @@ test_that("omniSample OK for norm/lnorm",{
 	    }
 	    Monitor[numit+1,]<-attributes(theta)$outModel$Monitor
 	  }
-	  Rprof(NULL)
+	  # Rprof(NULL)
 
 	  # post treatment
 	  Monitor<-as.data.frame(Monitor)
 	  names(Monitor)<-MyData$mon.names
 	  burn.in<-ceiling(nbit/10)
-	  estMean<-mean(Monitor[-(1:burn.in),"mean"])
-	  estSd<-mean(Monitor[-(1:burn.in),"sd"])
-	  yMean<-mean(MyData$y)
-	  ySd<-sd(MyData$y)
+	  estProba<-mean(Monitor[-(1:burn.in),"rate"])
 
 	  # cat("rateAccept:",apply(accepts,2,mean),"\n")
-	  # cat("estimate(mean)",estMean,"estimate(sd)",estSd,"\n")
-
-	  # dev.new()
-	  # par(mfrow=c(1,3))
-	  # plot(Monitor[,"LP"])
-	  # plot(Monitor[,"mean"])
-	  # plot(Monitor[,"sd"])
+	  # cat("estimated rate",estProba,"\n")
 
 	  # dev.new()
 	  # par(mfrow=c(1,2))
-	  # hist(Monitor[,"mean"])
-	  # abline(v=estMean,col="black")
-	  # abline(v=MyData$realMean,col="blue")
-	  # abline(v=yMean,col="red")
-	  # hist(Monitor[,"sd"])
-	  # abline(v=estSd,col="black")
-	  # abline(v=MyData$realSd,col="blue")
-	  # abline(v=ySd,col="red")
+	  # plot(Monitor[,"LP"], pch = ".")
+	  # plot(Monitor[,"rate"], pch = ".")
 
-	  expect_true(abs(estMean-yMean)<0.1)
-	  expect_true(abs(estSd-ySd)<0.1)
-# })
+	  expect_true(abs(estProba-MyData$realProba)<0.1)
+})
 
-
+end <- Sys.time()
+# cat("norm MCMC ")
+# print(start2-start1)
+# cat("boundednorm MCMC ")
+# print(end-start2)

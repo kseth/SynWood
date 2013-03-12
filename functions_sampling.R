@@ -1,6 +1,7 @@
+library(msm)
 
 #============================
-# Perso MH
+# Functions for MH
 #===========================
 # linking sd/mean to parameters of beta distribution
 getParamBeta<-function(mu,sig){
@@ -88,15 +89,19 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
 		  paramBeta<-getParamBeta(center,disp)
 		  return(dbeta(val,paramBeta$a,paramBeta$b,log=TRUE))
 	  }
+  }else if(Data$sampling[nameParam]=="boundednorm"){
+	  rprop<-function(center,disp){
+		  return(rtnorm(1,mean=center,sd=disp,lower=0,upper=1))
+	  }
+	  dprop<-function(val,center,disp){
+		  return(dtnorm(val,mean=center,sd=disp,lower=0,upper=1,log=TRUE))
+	  }
   }else{
-	  stop("unknown sampling method for",nameParam)
+	  stop("unknown sampling method for ",nameParam)
   }
 
   # sample proposal
   prop<-rprop(old,sdprop);
-
-  # constrain proposal to allowed interval
-  # prop <- interval(prop, a=Data$paramInf[nameParam], b=Data$paramSup[nameParam])
 
   # include proposal in theta
   propTheta<-oldTheta

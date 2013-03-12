@@ -16,7 +16,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <time.h>
 #include <R_ext/Utils.h>
 // allows the use of R_CheckUserInterrupt()
 
@@ -847,16 +846,17 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 	}
 }
 
-void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate){
+void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate, int* seed){
 
+	if(*detectRate<1){ //if we have some error
 
-	if(*detectRate>0){ //if we have some error
+		printf("starting with %d inf ", *endIndex + 1);
 
 		double randForHouse = 0;
 		int tempHold[*endIndex+1];
 		int tempCount = 0;
 
-		srand(time(NULL)); //initialize random number generator in stdlib
+		srand(*seed); //initialize random number generator in stdlib
 
 		for(int house=0; house<*L; house++){
 		randForHouse = rand();
@@ -885,26 +885,7 @@ void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestIni
 
 		*endIndex = tempCount;
 
-		//now need to reorganize indexInfestInit
-		//for(int house=*endIndex; house>=0; house--){ 
-		//		if(infestedInit[indexInfestInit[house]] == 0)
-		//			indexInfestInit[house] = -1; //set all the houses that have been removed to -1					
-		//	}
-
-		//	for(int house=*endIndex; house>=0; house--){
-		//		if(indexInfestInit[house] == -1){
-		//	
-		//			swap1 = indexInfestInit[*endIndex];
-		//			for(int shiftHouse=*endIndex; shiftHouse>house; shiftHouse--){ //transfer all the data over to replace houses that have been removed
-		//				swap2 = indexInfestInit[shiftHouse-1];
-		//				indexInfestInit[shiftHouse-1] = swap1;
-		//				swap1 = swap2;		
-		//			}
-
-		//			*endIndex = *endIndex - 1; //make the endIndex smaller
-		//		}
-
-		//	}	
+		printf("ending with %d inf\n", *endIndex+1);
 	}
 
 }
@@ -988,9 +969,11 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	 	
 	 	*endIndex=valEndIndex; 
 
-	 	if(*simul==1){ // simulation normal 
+	 	if(*simul==1){ // run a normal simulation
 	 		
 	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,scale,seed);
+
+			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data post gillespie
 
 	 		for(int h=0;h<*L;h++){
 	 			infestedDens[h]+=infestedInit[h];
@@ -998,9 +981,16 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 	 		
 	 	}
 
-	 	if(*getStats==1){
+	 	if(*getStats==1){ // calculate the statistics
 
-			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate);
+			if(*simul!=1){ // if no simulation, need to withhold data and calculated infestedDens here instead 
+
+				simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed);
+
+		 		for(int h=0;h<*L;h++){
+	 				infestedDens[h]+=infestedInit[h];
+	 			}
+			}
 
 			for(int stat=0;stat<*lengthStats; stat++){
 
