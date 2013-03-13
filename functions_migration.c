@@ -850,7 +850,7 @@ void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestIni
 
 	if(*detectRate<1){ //if we have some error
 
-		printf("starting with %d inf ", *endIndex + 1);
+		// printf("starting with %d inf ", *endIndex + 1);
 
 		double randForHouse = 0;
 		int tempHold[*endIndex+1];
@@ -885,7 +885,7 @@ void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestIni
 
 		*endIndex = tempCount;
 
-		printf("ending with %d inf\n", *endIndex+1);
+		// printf("ending with %d inf\n", *endIndex+1);
 	}
 
 }

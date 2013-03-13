@@ -109,7 +109,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
-			else if(Data$priorType[name] == "boundedNorm")
+			else if(Data$priorType[name] == "boundednorm")
 				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
 			else priorLL <- 0
 
@@ -232,7 +232,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
-			else if(Data$priorType[name] == "boundedNorm")
+			else if(Data$priorType[name] == "boundednorm")
 				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
 			else priorLL <- 0
 
@@ -374,7 +374,7 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
-			else if(Data$priorType[name] == "boundedNorm")
+			else if(Data$priorType[name] == "boundednorm")
 				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
 			else priorLL <- 0
 

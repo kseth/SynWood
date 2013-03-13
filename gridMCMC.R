@@ -21,11 +21,11 @@ set.seed(seedSimul)
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 350 
+Nrep <- 400 
 
 ## Make simulation messy or not messy
 detectRate <- 0.7 # true detection rate 
-sampleDR <- FALSE # if true, MCMC will sample over error rates
+sampleDR <- TRUE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if not sampling over DR)
  
 ## size of grid
@@ -142,7 +142,7 @@ if(!is.vector(secondTimePointStatsR$statsTable)){
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(0.045, 0.05, 0.75)
+priorMeans<-c(0.045, 0.05, 0.80)
 priorSd <- c(1, 1, 0.20)
 priorType <- c("lnorm", "lnorm", "boundednorm") 
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
