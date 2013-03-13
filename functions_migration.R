@@ -1055,35 +1055,12 @@ if(class(importOk)!="try-error"){
 			}else{
 
 				numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
-				statsTable <- data.frame()
+				statsTable <- matrix(0, 1, Nrep)
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
-
-				statsTable <- rbind(statsTable, numInfested)
+				statsTable <- rbind(statsTable[-1, ], numInfested)
 			}
 		}
-
-		# make the final statsTable to output
-		#	if("semivariance" %in% typeStat && "grid" %in% typeStat){ ## want both semivariance and grid stats
-		#		if(!is.vector(out$semivar.statsTable) && !is.vector(out$grid.statsTable)){ # if not a vector (only 1 iteration)
-		#			statsTable <- rbind(out$semivar.statsTable, out$grid.statsTable)
-		#			statsTable <- statsTable[-dim(statsTable)[1], ] ## remove the last stat (which will overlap in grid stats and semivariance stats - total number of positive houses)
-		#		}else{
-		#			statsTable <- c(out$semivar.statsTable, out$grid.statsTable)
-		#			statsTable <- statsTable[-length(statsTable)]
-		#		}
-		#			
-		#	}
-		#	else
-		#		if("semivariance" %in% typeStat) ## want only semivariance stats
-		#			statsTable <- out$semivar.statsTable
-		#		else
-		#			if("grid" %in% typeStat) ## want only grid stats
-		#				statsTable <- out$grid.statsTable
-		#			else
-		#				if("circles" %in% typeStat) ##want only circle stats
-		#					statsTable <- out$circle.statsTable
-		#
 
 		infestH <- out$indexInfest
 		infestH <- infestH[which(infestH != -1)] + 1

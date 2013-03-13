@@ -45,7 +45,7 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which statistics to use?
-useStats <- c("grid")
+useStats <- c("grid", "circles")
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -173,7 +173,7 @@ MyDataFullSample <- list(y=statsData,
 	     blockIndex=blockIndex,
 	     dist_out = NULL, #bin_dist_out,
 	     map.partitions = map.partitions, #NULL,  
-	     conc.circs = NULL, #circles,
+	     conc.circs = circles, #NULL,
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,
@@ -223,6 +223,8 @@ cat(Sys.time()-start, "\n")
 # good should be worse than best (ideally, need -4 because simulations may not be ideal)
 
 expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
+
+stop()
 #=================
 ## Make call to MCMC
 #=================

@@ -73,7 +73,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], defaultDR))
 
 	end <- Sys.time()
-	# cat("t multiGil:",end-start,"\n")
+	cat("t multiGil: ")
+	print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -122,7 +123,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	# cat("t synLik:", end-start, "\n")
+	cat("t synLik: ")
+	print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 Dev=-2*LL, # deviance, probably not to be changed
