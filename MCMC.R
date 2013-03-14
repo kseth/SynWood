@@ -62,8 +62,8 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 
 		##save at every save frequency
 		if(saveFreq!=0 && numit%%saveFreq==0){
-			write.table(Monitor[(numit-saveFreq):numit, ], monitor.file, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-			write.table(accepts[(numit-saveFreq):numit, ], paste("acceptsamples", monitor.file, sep = ""), sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(Monitor[(numit-saveFreq+1):numit, ], monitor.file, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+			write.table(accepts[(numit-saveFreq):(numit-1), ], paste("acceptsamples", monitor.file, sep = ""), sep ="\t",append=TRUE,col.names=FALSE,row.names=FALSE) ## very first save index can be zero, it's okay
 			cat("numit: ",numit,"\nnbsimul: ",nbsimul,"\nadaptOK :",adaptOK,"\ncheckAdapt: ",checkAdapt,"\nsdprop: ", sdprop,"\nbeginEstimate: ",beginEstimate,"\nuseAutoStop: ",useAutoStop,"\ncheckAutoStop: ",checkAutoStop,"\nsaveFreq: ",saveFreq, "\n\n", file =  paste("MCMCvalues", monitor.file, sep = ""), append = TRUE)
 }
 	
@@ -133,10 +133,8 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		numit <- numit + 1
 	}
 
-	write.table(Monitor[1:min(numit, nbsimul), ], "thetasamplescomplete.txt", sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
-	write.table(accepts[1:min(numit, nbsimul), ], "acceptsamplescomplete.txt", sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	write.table(Monitor[(beginEstimate+finalTestResults$burnIn):min(numit, nbsimul), ], paste0("complete", monitor.file), sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	write.table(accepts[(beginEstimate+finalTestResults$burnIn):min(numit, nbsimul), ], paste0("completeaccepts", monitor.file), sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
 	
 	# Rprof(NULL)
-
-	stop("MCMC finished")
 }
