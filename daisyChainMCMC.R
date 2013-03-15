@@ -10,7 +10,10 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_BinLik_1000-1100_100Reps_NotMessy"
+nameSimul <- "GRID_36X36_HopJump_SynLik_Grid_1000-1100_NoNoise"
+
+## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
+log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
 daisyChainSeeds <- 1000:1100
@@ -19,11 +22,11 @@ daisyChainSeeds <- 1000:1100
 spam.options(nearestdistnnz=c(13764100,400))
 
 ## how many gillespie repetitions per iteration
-Nrep <- 800 
+Nrep <- 400 
 
 ## Make simulation messy or not messy
-detectRate <- 0.7 # true detection rate 
-sampleDR <- TRUE # if true, MCMC will sample over error rates
+detectRate <- 1 # true detection rate 
+sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if not sampling over DR)
  
 ## size of grid
@@ -43,17 +46,18 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which likelihood to use? 
-useBinLik <- FALSE
+useBinLik <- FALSE 
 
-## which statistics to use?
-useStats <- c("grid", "circles") # disregarded if useBinLik == TRUE
+## which statistics to use? 
+## choices: "grid", "circles", "semivariance"
+useStats <- c("grid") # disregarded if useBinLik == TRUE
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
 
 ## distance classes for the general variogram
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
-## genIntervals <- seq(10, 40, 15)  if want to combine with grid
+## genIntervals <- seq(10, 40, 15)  # if want to combine with grid
 
 ## bin the map into different distances classes
 bin_dist_out <- makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals)
@@ -80,12 +84,22 @@ stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHop
 startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
 startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
 
+## let the infestation spread for two years, nbit <- 52 * 2
+nbit <- 104
+
 ## make the concentric circles
 circleRadii <- c(0, 20, 35, 50, 80, 110, 155, 200)
 circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
 
+## create a dummy timeH
+timeH <- rep(-2, length(startInfestH))
+
 for(daisyChainNumber in daisyChainSeeds){
 	seedSimul <- daisyChainNumber
 	monitor.file <- paste0("thetasamples_all", seedSimul, ".txt")
+	cat("current seed: ", daisyChainNumber, " monitor.file: ", monitor.file, "\n", file = log.file, append = TRUE)
+	ts <- Sys.time()
 	source("gridMCMC.R")
+	te <- Sys.time()
+	cat("time: ", as.numeric(difftime(te, ts, unit = "mins")), " mins\n\n", file = log.file, append = TRUE)
 }
