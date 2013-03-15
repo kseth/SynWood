@@ -128,6 +128,7 @@ plot_reel(maps$X, maps$Y, binomEndInfestedR, base = 0, top = 1)
 #calculate statistics
 secondTimePointStatsR <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHR, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 
+stop()
 ## do the same thing in C	
 ## endInfestHC <- which(binomEndInfested == 1)
 

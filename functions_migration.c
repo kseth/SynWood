@@ -492,7 +492,7 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
-	while(currentTime + nextEvent < *endTime){
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		fflush(stdout);
 		
@@ -546,7 +546,7 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
-	while(currentTime + nextEvent < *endTime){
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
 		
