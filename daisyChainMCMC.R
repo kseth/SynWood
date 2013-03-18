@@ -102,4 +102,8 @@ for(daisyChainNumber in daisyChainSeeds){
 	source("gridMCMC.R")
 	te <- Sys.time()
 	cat("time: ", as.numeric(difftime(te, ts, unit = "mins")), " mins\n\n", file = log.file, append = TRUE)
+
+	## reset all global variables
+	## reset minLLever
+	source("models.R")
 }

@@ -31,6 +31,7 @@ minLLever=-10e6
 ###	     priorMeans=priorMeans,
 ###	     priorSd=priorSd,
 ###	     priorType=priorType,
+###	     priorIntervals=priorIntervals,
 ###	     defaultDR=defaultDR,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
@@ -111,7 +112,9 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "boundednorm")
-				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
+			else if(Data$priorType[name] == "boundedlnorm")
+				priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
 			else priorLL <- 0
 
 			attributes(priorLL)<-NULL
@@ -160,6 +163,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorMeans=priorMeans,
 ###	     priorSd=priorSd,
 ###	     priorType=priorType,
+###	     priorIntervals=priorIntervals,
 ###	     defaultDR=defaultDR,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
@@ -234,7 +238,9 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "boundednorm")
-				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
+			else if(Data$priorType[name] == "boundedlnorm")
+				priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
 			else priorLL <- 0
 
 			attributes(priorLL)<-NULL
@@ -282,6 +288,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorMeans=priorMeans,
 ###	     priorSd=priorSd,
 ###	     priorType=priorType,
+###	     priorIntervals=priorIntervals,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
@@ -376,7 +383,9 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "boundednorm")
-				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = 0, upper = 1, log = TRUE)
+				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
+			else if(Data$priorType[name] == "boundedlnorm")
+				priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
 			else priorLL <- 0
 
 			attributes(priorLL)<-NULL

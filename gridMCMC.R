@@ -152,7 +152,8 @@ dev.off()
 #==================
 priorMeans<-c(0.045, 0.05, 0.80)
 priorSd <- c(1, 1, 0.20)
-priorType <- c("lnorm", "lnorm", "boundednorm") 
+priorType <- c("boundedlnorm", "boundedlnorm", "boundednorm")
+priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1))
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
 sampling <- c("lnorm", "lnorm", "boundednorm")
 sdProposal <- c(0.4, 0.4, 0.2)
@@ -161,11 +162,13 @@ names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
 names(priorSd)<-names(priorMeans)
 names(priorType)<-names(priorMeans)
+names(priorIntervals) <- names(priorMeans) 
 
 if(!sampleDR){ #if don't want to sample over detectRate
 	priorMeans<-priorMeans[-3]
 	priorSd<-priorSd[-3]
 	priorType<-priorType[-3]
+	priorIntervals <- priorIntervals[-3]
 	realMeans<-realMeans[-3]
 	sampling<-sampling[-3]
 	sdProposal<-sdProposal[-3]
@@ -192,6 +195,7 @@ MyDataFullSample <- list(y={if(useBinLik) binomEndInfestedR else statsData},
 	     priorMeans=priorMeans,
 	     priorSd=priorSd,
 	     priorType=priorType,
+	     priorIntervals=priorIntervals,
 	     defaultDR=defaultDR,
 	     genIntervals=genIntervals,
 	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)

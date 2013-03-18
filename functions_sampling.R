@@ -139,7 +139,19 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
   # always 0 for symmetric distribution, only for record
   hasting_term<-dprop(old,prop,sdprop)-dprop(prop,old,sdprop);
 
-  lnr <- LLHprop-LLHold+hasting_term;
+  lnr <- LLHprop-LLHold+hasting_term
+
+  # if the sum is nan b/c of Infs, check them out
+  if(is.nan(lnr))
+	if(is.nan(LLHprop))
+		lnr <- -Inf
+	else if(LLHprop == -Inf)
+		lnr <- -Inf
+	else if(is.nan(LLHold))
+		lnr <- hasting_term
+	else if(LLHold == -Inf)
+		lnr <- hasting_term
+
   rand<-log(runif(1))
   # cat("otheta: ",oldTheta[nameParam]," ptheta: ", propTheta[nameParam]," lnr: ",lnr," (",LLHprop,"-",LLHold,"+",hasting_term, ")", " rand: ", rand,"\n");
   
