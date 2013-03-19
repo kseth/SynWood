@@ -128,15 +128,6 @@ plot_reel(maps$X, maps$Y, binomEndInfestedR, base = 0, top = 1)
 #calculate statistics
 secondTimePointStatsR <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHR, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 
-## do the same thing in C	
-## endInfestHC <- which(binomEndInfested == 1)
-
-## calculate statistics
-## secondTimePointStatsC <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHC, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, detectRate = detectRate)
-
-#plot the results
-## plot_reel(maps$X, maps$Y, secondTimePointStatsC$infestedDens, base = 0, top = 1)
-
 ## obtain stats from the second gillespie simulation now messed up via observation error
 if(!is.vector(secondTimePointStatsR$statsTable)){
 	statsData <- secondTimePointStatsR$statsTable[, 1]
@@ -152,8 +143,8 @@ dev.off()
 #==================
 priorMeans<-c(0.045, 0.05, 0.80)
 priorSd <- c(1, 1, 0.20)
-priorType <- c("boundedlnorm", "boundedlnorm", "boundednorm")
-priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1))
+priorType <- c("lnorm", "lnorm", "boundednorm")
+priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if bounded function
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
 sampling <- c("lnorm", "lnorm", "boundednorm")
 sdProposal <- c(0.4, 0.4, 0.2)

@@ -85,20 +85,43 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP<-NA
 	}else{
 		yhat<-out$statsTable[,1]
-       	
-		# print(out$statsTable)	
-		# # see for the following multiGilStat
-		# statsToKeep<-1:length(yhat) # c(1:16,39:42)
-		# statsTable<-out$statsTable[statsToKeep,]
-		# y<-Data$y[statsToKeep]
-		# statsTable<-out$statsTable[!duplicated(yhat),]
-	
 		# synthetic likelihood
-		success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
-		if(class(success)=="try-error"){
-		  ll<-minLLever
+		epsilon <- 1/(Data$Nrep+1)
+		degen <- out$degenerateStats # the degenerate stats all have dirac distributions
+		print(degen)	
+		if(length(degen) > 0 && length(degen) < length(Data$y)){ #if some but not all stats degenerate
+
+			degenY <- Data$y[degen]
+			degenTheta <- out$statsTable[degen, 1]
+
+			# still try() b/c could have cov issues (cov==0 if stats are proportional)
+			success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
+
+			if(class(success)=="try-error")
+				  ll<-minLLever
+			else{
+				  minLLever<<-min(ll,minLLever)	
+				  numGood <- length(which(degenY - degenTheta == 0))
+
+				  #put in epsilon for degeneracy
+				  ll <- ll + numGood*log(1-epsilon) + (length(degen)-numGood)*log(epsilon) 
+			}		
+		}else if(length(degen) == length(Data$y)){ #if all stats degenerate
+
+			degenY <- Data$y[degen]
+			degenTheta <- out$statsTable[degen, 1]
+			numGood <- length(which(degenY - degenTheta == 0))
+
+			ll <- minLLever + numGood*log(1-epsilon) + (length(degen)-numGood)*log(epsilon)
+
 		}else{
-		  minLLever<<-min(ll,minLLever)
+			# still try() b/c could have cov issues (cov==0 if stats are proportional)
+			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
+
+			if(class(success)=="try-error")
+				  ll<-minLLever
+			else
+				  minLLever<<-min(ll,minLLever)	
 		}
 
 		# get likelihood with priors
@@ -106,6 +129,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
+
 		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
@@ -232,6 +256,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
+
 		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
@@ -356,14 +381,7 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 		LP<-NA
 	}else{
 		yhat<-out$statsTable[,1]
-       	
-		# print(out$statsTable)	
-		# # see for the following multiGilStat
-		# statsToKeep<-1:length(yhat) # c(1:16,39:42)
-		# statsTable<-out$statsTable[statsToKeep,]
-		# y<-Data$y[statsToKeep]
-		# statsTable<-out$statsTable[!duplicated(yhat),]
-	
+
 		# synthetic likelihood
 		success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
 		if(class(success)=="try-error"){

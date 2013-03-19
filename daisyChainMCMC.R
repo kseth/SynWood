@@ -10,13 +10,13 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_SynLik_Grid_1000-1100_NoNoise"
+nameSimul <- "GRID_36X36_HopJump_SynLik_Grid_16182718_NoNoise"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 1000:1100
+daisyChainSeeds <- 16182718
 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -93,7 +93,7 @@ circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH)
 
 ## create a dummy timeH
 timeH <- rep(-2, length(startInfestH))
-
+stop()
 for(daisyChainNumber in daisyChainSeeds){
 	seedSimul <- daisyChainNumber
 	monitor.file <- paste0("thetasamples_all", seedSimul, ".txt")

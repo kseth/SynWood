@@ -33,7 +33,7 @@ normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
   propTheta[nameParam]<-prop
 
   # get LLH for proposal
-  outModel<-Model(propTheta,Data)
+  outModel<-Model(propTheta,Data,...)
   LLHprop<-outModel$LP
   LLHold<-attributes(oldTheta)$outModel$LP
 
@@ -59,7 +59,7 @@ normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 }
 
 # generic function for sampling, see test-functions_sampling.R for use
-omniSample<-function(Model,Data,oldTheta,nameParam,sdprop, recompLLHold = TRUE){
+omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   # identify param to sample
   names(oldTheta)<-Data$parm.names
   old<-oldTheta[nameParam]

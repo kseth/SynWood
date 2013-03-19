@@ -733,7 +733,6 @@ if(class(importOk)!="try-error"){
 	##		- conc.circs is a result of the call to conc.circles
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
-	
 	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1){
 
 		haveBlocks <- TRUE		
@@ -1038,6 +1037,7 @@ if(class(importOk)!="try-error"){
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
 		statsTable <- 0
+		degenerateStats <- integer(0)
 
 		if(getStats){ ## if want to get statistics, need to make the statsTable
 	
@@ -1059,7 +1059,13 @@ if(class(importOk)!="try-error"){
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
 				statsTable <- rbind(statsTable[-1, ], numInfested)
+
+				#figure out which stats are degenerate (important to do prestats removal!)
+				vars <- apply(statsTable, 1, var)
+				degenerateStats <- which(vars == 0)
+
 			}
+
 		}
 
 		infestH <- out$indexInfest
@@ -1069,10 +1075,12 @@ if(class(importOk)!="try-error"){
 		timeH <- timeH[which(infestH != -1)]
 		out$timeI <- timeH
 
-		## add the compiled statsTable to out
-		length(out) <- length(out) + 1
-		names(out) <- c(names(out)[1:(length(out)-1)], "statsTable")
-		out$statsTable <- statsTable	
+		## add the compiled statsTable and degenerateStats to out
+		oldnames <- names(out)
+		length(out) <- length(out) + 2 
+		names(out) <- c(oldnames, "statsTable", "degenerateStats")
+		out$statsTable <- statsTable
+		out$degenerateStats <- degenerateStats
 			
 		return(out)
 	}
