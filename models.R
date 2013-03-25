@@ -87,33 +87,29 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		yhat<-out$statsTable[,1]
 		# synthetic likelihood
 		epsilon <- 1/(Data$Nrep+1)
-		degen <- out$degenerateStats # the degenerate stats all have dirac distributions
-		print(degen)	
-		if(length(degen) > 0 && length(degen) < length(Data$y)){ #if some but not all stats degenerate
+		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
+		if(length(degen) > 0){ #if some stats degenerate
 
-			degenY <- Data$y[degen]
-			degenTheta <- out$statsTable[degen, 1]
-
-			# still try() b/c could have cov issues (cov==0 if stats are proportional)
-			success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
-
-			if(class(success)=="try-error")
-				  ll<-minLLever
+			if(length(degen) == length(Data$y))
+				ll <- -Inf
 			else{
-				  minLLever<<-min(ll,minLLever)	
-				  numGood <- length(which(degenY - degenTheta == 0))
+				degenY <- Data$y[degen]
+				degenTheta <- out$statsTable[degen, 1]
 
-				  #put in epsilon for degeneracy
-				  ll <- ll + numGood*log(1-epsilon) + (length(degen)-numGood)*log(epsilon) 
+				numGood <- length(which(degenY - degenTheta == 0))
+				
+				if(numGood == length(degenY)){ #if all degenerate stats match their actual values
+					
+					# still try() b/c could have cov issues (cov==0 if stats are proportional)
+					success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
+					if(class(success)=="try-error")
+						  ll<-minLLever
+					else
+						  minLLever<<-min(ll,minLLever)	
+				}else{ #if even one degenerate stat does not match actual value
+						ll <- -Inf
+				}
 			}		
-		}else if(length(degen) == length(Data$y)){ #if all stats degenerate
-
-			degenY <- Data$y[degen]
-			degenTheta <- out$statsTable[degen, 1]
-			numGood <- length(which(degenY - degenTheta == 0))
-
-			ll <- minLLever + numGood*log(1-epsilon) + (length(degen)-numGood)*log(epsilon)
-
 		}else{
 			# still try() b/c could have cov issues (cov==0 if stats are proportional)
 			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
@@ -129,6 +125,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
+		Lprioronly <- 0 #keep track of just the prior sum
 
 		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
@@ -143,6 +140,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 
 			attributes(priorLL)<-NULL
 			LP <- LP + priorLL
+			Lprioronly <- Lprioronly + priorLL
 		}
 
 		# LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
@@ -155,8 +153,10 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	## print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, # likelihood of parmeters according only to the prior
 			 Dev=-2*LL, # deviance, probably not to be changed
-			 Monitor=c(LL,LP, theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 Monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
 			 yhat=yhat, # data generated for that set of parameter
 			 	    # will be used for posterior check
 			 parm=theta # the parameters, possibly constrained by the model
@@ -256,6 +256,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
+		Lprioronly <- 0 #keep track of prior likelihood
 
 		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
@@ -270,6 +271,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 			attributes(priorLL)<-NULL
 			LP <- LP + priorLL
+			Lprioronly <- Lprioronly + priorLL
 		}
 
 		# LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
@@ -278,6 +280,8 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 
 	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, #likelihood of parameters according to prior
 			 Dev=-2*LL, # deviance, probably not to be changed
 			 Monitor=c(LL,LP, theta), # to be monitored/ploted, carefull to change namesMonitor if modified
 			 yhat=yhat, # data generated for that set of parameter
@@ -395,6 +399,8 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
+		Lprioronly <- 0
+
 		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
@@ -408,6 +414,7 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 
 			attributes(priorLL)<-NULL
 			LP <- LP + priorLL
+			Lprioronly <- Lprioronly + priorLL
 		}
 
 
@@ -417,6 +424,8 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 	
 	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, #likelihood of parameters according to prior
 			 Dev=-2*LL, # deviance, probably not to be changed
 			 Monitor=c(LL,LP, theta), # to be monitored/ploted, carefull to change namesMonitor if modified
 			 yhat=yhat, # data generated for that set of parameter

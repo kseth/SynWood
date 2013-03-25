@@ -142,7 +142,7 @@ dev.off()
 # Priors (also the place to change the parameters)
 #==================
 priorMeans<-c(0.045, 0.05, 0.80)
-priorSd <- c(1, 1, 0.20)
+priorSd <- c(0.5, 0.5, 0.20)
 priorType <- c("lnorm", "lnorm", "boundednorm")
 priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if bounded function
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
@@ -227,7 +227,6 @@ cat(Sys.time()-start, "\n")
 
 # good should be worse than best (ideally, need -4 because simulations may not be ideal)
 # expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
-
 #=================
 ## Make call to MCMC
 #=================

@@ -10,14 +10,14 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_SynLik_Grid_16182718_NoNoise"
+nameSimul <- "GRID_36X36_HopJump_SynLik_GridCircles_1000-1100_NoNoise_WithDirac"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 16182718
-
+daisyChainSeeds <- 1000:1100
+ 
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
@@ -50,7 +50,7 @@ useBinLik <- FALSE
 
 ## which statistics to use? 
 ## choices: "grid", "circles", "semivariance"
-useStats <- c("grid") # disregarded if useBinLik == TRUE
+useStats <- c("grid", "circles") # disregarded if useBinLik == TRUE
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
@@ -93,7 +93,6 @@ circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH)
 
 ## create a dummy timeH
 timeH <- rep(-2, length(startInfestH))
-stop()
 for(daisyChainNumber in daisyChainSeeds){
 	seedSimul <- daisyChainNumber
 	monitor.file <- paste0("thetasamples_all", seedSimul, ".txt")

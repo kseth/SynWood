@@ -112,12 +112,15 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   # get LLH for proposal
   outModel<-Model(propTheta,Data)
   LLHprop<-outModel$LP
+  LLHprop_prioronly <- outModel$Lprioronly
+  LLHprop_statsonly <- outModel$LL
   
   #if recomputing or not recomputing LLHold
   if(!recompLLHold){
-	
 	#old LL stays constant	
 	LLHold<-attributes(oldTheta)$outModel$LP
+	LLHold_prioronly <- attributes(oldTheta)$outModel$Lprioronly
+	LLHold_statsonly <- attributes(oldTheta)$outModel$LL
  
   }else{
 	
@@ -129,6 +132,8 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 	#recompute LLH for old
 	recompModel<-Model(recompTheta, Data)
 	LLHold<-recompModel$LP
+	LLHold_prioronly <- recompModel$Lprioronly
+	LLHold_statsonly <- recompModel$LL
 		
 	#redirect oldTheta
   	attributes(oldTheta)$outModel <- recompModel
@@ -137,21 +142,40 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 
   # accept/reject
   # always 0 for symmetric distribution, only for record
-  hasting_term<-dprop(old,prop,sdprop)-dprop(prop,old,sdprop);
+  hasting_term<-dprop(old,prop,sdprop)-dprop(prop,old,sdprop)
 
-  lnr <- LLHprop-LLHold+hasting_term
+  # compute the log accept/reject ratio
+  if(is.finite(LLHprop) && is.finite(LLHold)){
+	if(LLHprop!=LLHold){
+  		lnr <- LLHprop-LLHold+hasting_term
+	}else{
+		if(LLHprop_statsonly == LLHold_statsonly) # if both stats only LL equal, consider only priors
+			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
+		else # if stats only LL not equal but LLHprop == LLHold, then we must take only hasting_term
+			lnr <- hasting_term
+	}
+  }else{
 
-  # if the sum is nan b/c of Infs, check them out
-  if(is.nan(lnr))
-	if(is.nan(LLHprop))
-		lnr <- -Inf
-	else if(LLHprop == -Inf)
-		lnr <- -Inf
-	else if(is.nan(LLHold))
-		lnr <- hasting_term
-	else if(LLHold == -Inf)
-		lnr <- hasting_term
-
+	if(!is.nan(LLHprop) && !is.nan(LLHold) && !is.na(LLHprop) && !is.na(LLHold)){
+		if(LLHprop > LLHold)
+			lnr <- Inf
+		else if(LLHprop < LLHold)
+			lnr <- -Inf
+		else 
+			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
+	}else{
+		if(is.nan(LLHprop) && is.nan(LLHold))
+			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
+		else if(is.nan(LLHold))
+			lnr <- Inf
+		else if(is.nan(LLHprop))
+			lnr <- -Inf
+		else #if there's some NA issue
+			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
+	}
+	
+  }
+ 
   rand<-log(runif(1))
   # cat("otheta: ",oldTheta[nameParam]," ptheta: ", propTheta[nameParam]," lnr: ",lnr," (",LLHprop,"-",LLHold,"+",hasting_term, ")", " rand: ", rand,"\n");
   
