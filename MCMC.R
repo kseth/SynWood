@@ -113,7 +113,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 			checkAutoStop<-min(cb$newNbIt,(numit-beginEstimate)*3)
 			
 			if(!cb$ok){
-					cat("checking auto stop: numit: ", numit, "next check: ", numit + checkAutoStop)
+					cat("checking auto stop: numit: ", numit, "next check: ", checkAutoStop)
 					
 					if(nbsimul <= beginEstimate + checkAutoStop)
 					{
@@ -123,8 +123,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 					}
 			}
 			else{
-				finalTestResults <- cb
-				cat("auto stop okay! terminating chain")
+				cat("auto stop okay! terminating chain\n")
 				break
 			}
 		}	
@@ -133,8 +132,13 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		numit <- numit + 1
 	}
 
-	write.table(Monitor[(beginEstimate+finalTestResults$burnIn):min(numit, nbsimul), ], paste0("complete", monitor.file), sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
-	write.table(accepts[(beginEstimate+finalTestResults$burnIn):min(numit, nbsimul), ], paste0("completeaccepts", monitor.file), sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	if(!exists("cb")){
+		cat("didn't check autostop, no automatic burnIn, throwing away first 500 iterations\n")
+		cb <- list(burnIn = 500)
+	}
+
+	write.table(Monitor[(beginEstimate+cb$burnIn):min(numit, nbsimul), ], paste0("complete", monitor.file), sep="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
+	write.table(accepts[(beginEstimate+cb$burnIn):min(numit, nbsimul), ], paste0("completeaccepts", monitor.file), sep ="\t",append=FALSE,col.names=TRUE,row.names=FALSE)
 	
 	# Rprof(NULL)
 }

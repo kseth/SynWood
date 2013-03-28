@@ -275,7 +275,7 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 	cat("new Kthin:",Kthin,"Kind",Kind,"\n",file=logfile,append=TRUE);
 	burnIn<-resRafMax[2];
 	Nmin<-resRafMax[4];
-	if(nbItMin<nbItBrut){
+	if(nbItMin<=nbItBrut){
 		cat("Raftery positive (",nbItBrut,">",nbItMin,")\n",file=logfile,append=TRUE);
 		## if enough iterations according to the raftery, test if Geweke ok on non burnin 
 		discard<-burnIn;

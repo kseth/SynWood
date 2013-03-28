@@ -10,13 +10,13 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_SynLik_GridCircles_1000-1100_NoNoise_WithDirac"
+nameSimul <- "GRID_36X36_HopJump_SynLik_Circles_1010-1048_NoNoise_LowerLimitJump=0"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 1000:1100
+daisyChainSeeds <- 1010:1048
  
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -37,7 +37,7 @@ row.dist <- 10
 ## parameters for uniform hop/skip/jump model
 limitHopSkip <- 40
 limitJump <- 200
-lowerLimitJump <- 100 
+lowerLimitJump <- 0 
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
@@ -50,7 +50,7 @@ useBinLik <- FALSE
 
 ## which statistics to use? 
 ## choices: "grid", "circles", "semivariance"
-useStats <- c("grid", "circles") # disregarded if useBinLik == TRUE
+useStats <- c("circles") # disregarded if useBinLik == TRUE
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
