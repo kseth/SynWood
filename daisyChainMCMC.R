@@ -10,13 +10,13 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_SynLik_Circles_1010-1048_NoNoise_LowerLimitJump=0"
+nameSimul <- "GRID_36X36_HopJump_BinLik_1000:1049_Noise0.7_NotFit_LowerLimitJump100"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 1010:1048
+daisyChainSeeds <- 1000:1049 
  
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -25,7 +25,7 @@ spam.options(nearestdistnnz=c(13764100,400))
 Nrep <- 400 
 
 ## Make simulation messy or not messy
-detectRate <- 1 # true detection rate 
+detectRate <- 0.7 # true detection rate 
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if not sampling over DR)
  
@@ -37,7 +37,7 @@ row.dist <- 10
 ## parameters for uniform hop/skip/jump model
 limitHopSkip <- 40
 limitJump <- 200
-lowerLimitJump <- 0 
+lowerLimitJump <- 100 
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
@@ -46,11 +46,11 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which likelihood to use? 
-useBinLik <- FALSE 
+useBinLik <- TRUE 
 
 ## which statistics to use? 
 ## choices: "grid", "circles", "semivariance"
-useStats <- c("circles") # disregarded if useBinLik == TRUE
+useStats <- c("grid") # disregarded if useBinLik == TRUE
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
