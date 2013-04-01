@@ -1,3 +1,4 @@
+library(MASS)
 source("extrapol_field.R")
 
 nameSimul <- "name_LLJ100"
@@ -177,8 +178,33 @@ cookp <- 1-cookp
 
 #plot Cook's q, p
 dev.new()
-par(mfrow = c(1, 2))
-hist(prior_q_distribution[["rateMove"]], xlab = "quantiles", main = paste0("rate move (cook's p ", cookp["rateMove"], " )"))
-hist(prior_q_distribution[["weightJumpInMove"]], xlab = "quantiles", main = paste0("weight jump (cook's p ", cookp["weightJumpInMove"], " )"))
+par(mfrow = c(3, 2))
+hist(prior_q_distribution[["rateMove"]], xlab = "quantiles", main = paste0("rate move (cook's p ", signif(cookp["rateMove"], 3), ")"))
+hist(prior_q_distribution[["weightJumpInMove"]], xlab = "quantiles", main = paste0("weight jump (cook's p ", signif(cookp["weightJumpInMove"], 3), ")"))
+
+get.estimate(prior_q_distribution[["rateMove"]], name = "rate move", xlim = c(0, 1))
+abline(h = 1, col = "green")
+get.estimate(prior_q_distribution[["weightJumpInMove"]], name = "weight jump", xlim = c(0, 1))
+abline(h = 1, col = "green")
+
+rmDens <- density(prior_q_distribution[["rateMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
+plot(rmDens, xlim = c(0.001, 0.999), main = "rateMove", xlab = "quantiles", ylab = "density")
+abline(h = 1, col = "green")
+wjDens <- density(prior_q_distribution[["weightJumpInMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
+plot(wjDens, xlim = c(0.001, 0.999), main = "weight jump", xlab = "quantile", ylab = "density")
+abline(h = 1, col = "green")
+
 dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
+
+
+
+## auxiliary functions
+dtrunc <- function(x, spec, a = -Inf, b = Inf, ...)
+{
+	tt <- rep(0, length(x))
+	g <- get(paste("d", spec, sep = ""), mode = "function")
+	G <- get(paste("p", spec, sep = ""), mode = "function")
+	tt[x>=a & x<=b] <- g(x[x>=a&x<=b], ...)/(G(b, ...) - G(a, ...))
+	return(tt)
+}
 
