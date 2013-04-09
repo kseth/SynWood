@@ -155,6 +155,11 @@ names(priorSd)<-names(priorMeans)
 names(priorType)<-names(priorMeans)
 names(priorIntervals) <- names(priorMeans) 
 
+initValues<-priorMeans #the values with which to initialize the sampler
+initValues["rateMove"]<-0.05
+initValues["weightJumpInMove"]<-0.15
+initValues["detectRate"]<-0.70
+
 if(!sampleDR){ #if don't want to sample over detectRate
 	priorMeans<-priorMeans[-3]
 	priorSd<-priorSd[-3]
@@ -163,7 +168,9 @@ if(!sampleDR){ #if don't want to sample over detectRate
 	realMeans<-realMeans[-3]
 	sampling<-sampling[-3]
 	sdProposal<-sdProposal[-3]
+	initValues<-initValues[-3]
 }
+
 
 #=================
 # List of data to pass to model + sampler
@@ -187,6 +194,7 @@ MyDataFullSample <- list(y={if(useBinLik) binomEndInfestedR else statsData},
 	     priorSd=priorSd,
 	     priorType=priorType,
 	     priorIntervals=priorIntervals,
+	     initValues=initValues,
 	     defaultDR=defaultDR,
 	     genIntervals=genIntervals,
 	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)

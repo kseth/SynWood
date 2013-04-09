@@ -21,7 +21,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 # Init values 
 #===========================
 
-	theta <- MyDataFullSample$priorMeans
+	theta <- MyDataFullSample$initValues
 	nparams <- length(theta)
 	
 	if(length(sdprop) != nparams)
