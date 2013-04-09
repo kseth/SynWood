@@ -1,4 +1,3 @@
-library(MASS)
 source("extrapol_field.R")
 
 nameSimul <- "name_LLJ100"
