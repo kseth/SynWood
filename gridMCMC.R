@@ -143,7 +143,8 @@ dev.off()
 #==================
 priorMeans<-c(0.045, 0.05, 0.80)
 priorSd <- c(0.5, 0.5, 0.20)
-priorType <- c("lnorm", "lnorm", "boundednorm")
+#priorType <- c("lnorm", "lnorm", "boundednorm")
+priorType <- c("noPrior", "noPrior", "noPrior")
 priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if bounded function
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
 sampling <- c("lnorm", "lnorm", "boundednorm")

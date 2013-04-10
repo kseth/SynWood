@@ -1,6 +1,6 @@
 source("extrapol_field.R")
 
-Monitored<-read.table("completethetasamples_all9914.txt",header=TRUE)
+Monitored<-read.table("completethetasamples_all12000.txt",header=TRUE)
 
 # obtain values from param.r
 # delta = rateSkipInMove/rateHopInMove
@@ -18,7 +18,7 @@ detectRate <- 0.7
 
 true.val<-c(rateMove, weightJumpInMove, detectRate)
 names(true.val) <- c("rateMove", "weightJumpInMove", "detectRate")
-names(Monitored) <- c("LL", "LP", names(true.val))
+names(Monitored) <- c("LL", "LP", names(true.val)[1:(dim(Monitored)[2]-2)])
 keep <- which(names(true.val) %in% names(Monitored))
 true.val <- true.val[keep]
 traces(Monitored)

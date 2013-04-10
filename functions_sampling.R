@@ -145,18 +145,14 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   hasting_term<-dprop(old,prop,sdprop)-dprop(prop,old,sdprop)
 
   # compute the log accept/reject ratio
-  if(is.finite(LLHprop) && is.finite(LLHold)){
-	if(LLHprop!=LLHold){
+  if(is.finite(LLHprop) && is.finite(LLHold)){ # deal with NAN or Inf in synlik
+	# to avoid problems with LLH_statsonly >> priors, nullifying the impact of the prior
+	if(LLHprop_statsonly == LLHold_statsonly) # if both stats only LL equal, consider only priors
+		lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
+	else
   		lnr <- LLHprop-LLHold+hasting_term
-	}else{
-		if(LLHprop_statsonly == LLHold_statsonly) # if both stats only LL equal, consider only priors
-			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
-		else # if stats only LL not equal but LLHprop == LLHold, then we must take only hasting_term
-			lnr <- hasting_term
-	}
   }else{
-
-	if(!is.nan(LLHprop) && !is.nan(LLHold) && !is.na(LLHprop) && !is.na(LLHold)){
+	if(!is.na(LLHprop) && !is.na(LLHold)){ # if only infinites, no NA
 		if(LLHprop > LLHold)
 			lnr <- Inf
 		else if(LLHprop < LLHold)
@@ -164,16 +160,14 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 		else 
 			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
 	}else{
-		if(is.nan(LLHprop) && is.nan(LLHold))
+		warning(paste("NAN from synLik: LLHprop",LLHprop,"LLHold",LLHold,"\n"))
+		if(is.na(LLHprop) && is.na(LLHold))
 			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
-		else if(is.nan(LLHold))
+		else if(is.na(LLHold))
 			lnr <- Inf
-		else if(is.nan(LLHprop))
+		else if(is.na(LLHprop))
 			lnr <- -Inf
-		else #if there's some NA issue
-			lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
 	}
-	
   }
  
   rand<-log(runif(1))

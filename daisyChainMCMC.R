@@ -10,13 +10,13 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_SynLik_GridCircles_10:12*1000_LLJ100_Test_HighInitVals"
+nameSimul <- "GRID_36X36_HopJump_BinLik_10:159*1000_LLJ100"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 10:12 * 1000 
+daisyChainSeeds <- 10:159 * 1000 
  
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -46,11 +46,11 @@ weightSkipInMove <- 0.0
 weightJumpInMove <- 0.1 
 
 ## which likelihood to use? 
-useBinLik <- FALSE
+useBinLik <- TRUE
  
 ## which statistics to use? 
 ## choices: "grid", "circles", "semivariance"
-useStats <- c("grid", "circles") # disregarded if useBinLik == TRUE
+useStats <- c("circles") # disregarded if useBinLik == TRUE
 
 ## make a map with just x, y
 maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)

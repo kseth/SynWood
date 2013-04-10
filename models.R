@@ -87,20 +87,17 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	}else{
 		yhat<-out$statsTable[,1]
 		# synthetic likelihood
-		epsilon <- 1/(Data$Nrep+1)
 		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
 		if(length(degen) > 0){ #if some stats degenerate
-
 			if(length(degen) == length(Data$y))
 				ll <- -Inf
 			else{
 				degenY <- Data$y[degen]
 				degenTheta <- out$statsTable[degen, 1]
 
-				numGood <- length(which(degenY - degenTheta == 0))
+				numGood <- length(which(degenY - degenTheta == 0)) # stats exactly correct
 				
 				if(numGood == length(degenY)){ #if all degenerate stats match their actual values
-					
 					# still try() b/c could have cov issues (cov==0 if stats are proportional)
 					success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
 					if(class(success)=="try-error")
@@ -110,9 +107,9 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 				}else{ #if even one degenerate stat does not match actual value
 						ll <- -Inf
 				}
-			}		
+			}
 		}else{
-			# still try() b/c could have cov issues (cov==0 if stats are proportional)
+			# still try() b/c could have cov issues (cor==1 if stats are proportional)
 			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
 
 			if(class(success)=="try-error")
