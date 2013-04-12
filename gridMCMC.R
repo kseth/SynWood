@@ -1,104 +1,9 @@
-#library(testthat)
-#library(verification)
-#source("RanalysisFunctions.R")
-#source("logLik.r") # override some sl functions and add synLik
-#source("functions_sampling.R")
-#source("convergence_test.r")
-#source("extrapol_field.R")
-#source("functions_migration.R")
-#source("models.R")
-#source("MCMC.R")
-
-#==================
-# set parameters for simulation
-#==================
-## name the simulation!
-## nameSimul <- "GRID_36x36_Hop_Jump_BinLik_9914_Messy_FitNoise"
-
 ## set the seed for the simulation
-## seedSimul <- 9914 
 set.seed(seedSimul)
 
-## name the MCMC file output
-## monitor.file <- "thetasamples_all.txt"
-
-## set spam memory options
-## spam.options(nearestdistnnz=c(13764100,400))
-
-## how many gillespie repetitions per iteration
-## Nrep <- 800 
-
-## Make simulation messy or not messy
-## detectRate <- 0.7 # true detection rate 
-## sampleDR <- TRUE # if true, MCMC will sample over error rates
-## defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if not sampling over DR)
- 
-## size of grid
-## num.rows <- 36
-## num.cols <- 36
-## row.dist <- 10
- 
-## parameters for uniform hop/skip/jump model
-## limitHopSkip <- 40
-## limitJump <- 200
-## lowerLimitJump <- 100 
-## rateMove <- 0.04
-
-## the noKernelMultiGilStat normalizes these weights
-## weightHopInMove <- 1	# must always be 1!
-## weightSkipInMove <- 0.0
-## weightJumpInMove <- 0.1 
-
-## which likelihood to use? 
-## useBinLik <- FALSE
-
-## which statistics to use?
-## useStats <- c("grid", "circles") # disregarded if useBinLik == TRUE
-
-## make a map with just x, y
-## maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
-
-## distance classes for the general variogram
-## genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
-## genIntervals <- seq(10, 40, 15)  if want to combine with grid
-
-## bin the map into different distances classes
-## bin_dist_out <- makeDistClasses(X = as.vector(maps[, "X"]), Y = as.vector(maps[, "Y"]), genIntervals)
-
-## partition the map
-## map.partitions <- list()
-## length(map.partitions) <- 6 #6 different grid partitions will be used
-
-## map.partitions[[1]] <- partitionMap(maps$X, maps$Y, 12) #into 12 by 12 (each cell 3 by 3)
-## map.partitions[[2]] <- partitionMap(maps$X, maps$Y, 9)  #into 9 by 9 (each cell 4 by 4)
-## map.partitions[[3]] <- partitionMap(maps$X, maps$Y, 6)  #into 6 by 6 (each cell 6 by 6)
-## map.partitions[[4]] <- partitionMap(maps$X, maps$Y, 4)  #into 4 by 4 (each cell 9 by 9)
-## map.partitions[[5]] <- partitionMap(maps$X, maps$Y, 3)  #into 3 by 3 (each cell 12 by 12)
-## map.partitions[[6]] <- partitionMap(maps$X, maps$Y, 2)  #into 2 by 2 (each cell 18 by 18)
-
-## set blockIndex to NULL
-## no blocks!
-## blockIndex = NULL
-
-## make stratified matrix (no skips, set blockIndex to NULL)
-## stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, blockIndex=blockIndex)
-
-## pick starting point for simulations
-## startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
-## startInfestH <- c(startInfestH, startInfestH + 1, startInfestH - 1) 
-
-## make the concentric circles
-## circleRadii <- c(0, 20, 35, 50, 80, 110, 155, 200)
-## circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
-
-## create a dummy timeH
-## timeH <- rep(-2, length(startInfestH))
-
-## let the infestation spread for two years, nbit <- 52 * 2
-## nbit <- 104
-
 #===================
-# Run simulation and get end point statistics 
+# Run simulation 
+# Generate data 
 #===================
 
 ## plot initially infested houses
@@ -110,7 +15,7 @@ plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
 
 ## run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 print(Sys.time() - start)
 
 ## plot results of gillespie
@@ -126,7 +31,7 @@ endInfestHR <- which(binomEndInfestedR == 1)
 plot_reel(maps$X, maps$Y, binomEndInfestedR, base = 0, top = 1)
 
 #calculate statistics
-secondTimePointStatsR <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHR, timeH=timeH, endTime = nbit, rateMove = rateMove, weightHopInMove = weightHopInMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
+secondTimePointStatsR <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestHR, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 
 ## obtain stats from the second gillespie simulation now messed up via observation error
 if(!is.vector(secondTimePointStatsR$statsTable)){
@@ -141,14 +46,13 @@ dev.off()
 #==================
 # Priors (also the place to change the parameters)
 #==================
-priorMeans<-c(0.045, 0.05, 0.80)
-priorSd <- c(0.5, 0.5, 0.20)
-#priorType <- c("lnorm", "lnorm", "boundednorm")
-priorType <- c("noPrior", "noPrior", "noPrior")
+priorMeans<-c(0.04, 0.05, 0.80)
+priorSd <- c(1, 0.5, 0.20)
+priorType <- c("lnorm", "noPrior", "boundednorm")
 priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if bounded function
 realMeans<-c(rateMove, weightJumpInMove, detectRate)
-sampling <- c("lnorm", "lnorm", "boundednorm")
-sdProposal <- c(0.4, 0.4, 0.2)
+sampling <- c("lnorm", "boundednorm", "boundednorm")
+sdProposal <- c(0.4, 0.2, 0.2)
 names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate") 
 names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
@@ -181,9 +85,9 @@ MyDataFullSample <- list(y={if(useBinLik) binomEndInfestedR else statsData},
 	     trans=NULL,
 	     stratHopSkipJump = stratHopSkipJump,
 	     blockIndex=blockIndex,
-	     dist_out = {if("semivariance" %in% useStats) bin_dist_out else NULL},
-	     map.partitions = {if("grid" %in% useStats) map.partitions else NULL}, 
-	     conc.circs = {if("circles" %in% useStats) circles else NULL}, 
+	     dist_out = {if(!useBinLik && ("semivariance" %in% useStats)) bin_dist_out else NULL},
+	     map.partitions = {if(!useBinLik && ("grid" %in% useStats)) map.partitions else NULL}, 
+	     conc.circs = {if(!useBinLik && ("circles" %in% useStats)) circles else NULL}, 
 	     useStats = useStats,
 	     infestH=startInfestH,
 	     timeH=timeH,

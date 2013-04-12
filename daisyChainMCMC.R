@@ -10,13 +10,13 @@ source("models.R")
 source("MCMC.R")
 
 ## name the simulation
-nameSimul <- "GRID_36X36_HopJump_BinLik_10:159*1000_LLJ100"
+nameSimul <- "GRID_50X50_HopJump_BinLik_10:109*1000_J30_100"
 
 ## the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 ## pick the seeds for the simulation
-daisyChainSeeds <- 10:159 * 1000 
+daisyChainSeeds <- 10:109*1000
  
 ## set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
@@ -30,24 +30,23 @@ sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (should be 1 if detectRate==1, can set to 0.7, only used if sampleDR is FALSE)
  
 ## size of grid
-num.rows <- 36
-num.cols <- 36
+num.rows <- 50 
+num.cols <- 50
 row.dist <- 10
  
 ## parameters for uniform hop/skip/jump model
-limitHopSkip <- 40
-limitJump <- 200
-lowerLimitJump <- 100 
+limitHopSkip <- 30
+limitJump <- 100
+lowerLimitJump <- 30 
 rateMove <- 0.04
 
 ## the noKernelMultiGilStat normalizes these weights
-weightHopInMove <- 1	# must always be 1!
 weightSkipInMove <- 0.0
-weightJumpInMove <- 0.1 
+weightJumpInMove <- 0.10 
 
 ## which likelihood to use? 
 useBinLik <- TRUE
- 
+
 ## which statistics to use? 
 ## choices: "grid", "circles", "semivariance"
 useStats <- c("circles") # disregarded if useBinLik == TRUE

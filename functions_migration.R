@@ -717,8 +717,8 @@ if(class(importOk)!="try-error"){
 	## stratHopSkipJump is the result of a call to generate_stratified_mat
 	## list with spam matrices of hoppable, skippable, jumpable locations for each house
 	## this method does not use the kernels or delta
-	## instead need to pass weightHopInMove (set to 1), weightSkipInMove, weightJumpInMove
-	##	these parameters are subsequently normalized to rates (passing rates is acceptable, but frowned upon)
+	## weightSkipInMove, weightJumpInMove
+	##	these parameters are subsequently normalized to rates
 	## pass blockIndex = NULL if want to use model w/o streets
 	## pass the type of stat you want to use (if getStats == FALSE, this is disregarded)
 	## 	typeStat defaults to "semivariance"
@@ -733,7 +733,7 @@ if(class(importOk)!="try-error"){
 	##		- conc.circs is a result of the call to conc.circles
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightHopInMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1){
 
 		haveBlocks <- TRUE		
 
@@ -746,10 +746,10 @@ if(class(importOk)!="try-error"){
 		if(!haveBlocks)
 			weightSkipInMove <- 0
 
-		# convert weightHop, weightSkip, weightJump to rates by normalizing (rates needed by c code)
-		rateHopInMove <- weightHopInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
-		rateSkipInMove <- weightSkipInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
-		rateJumpInMove <- weightJumpInMove/(weightHopInMove+weightSkipInMove+weightJumpInMove)	
+		# convert weightSkipInMove, weightJumpInMove to rates by nested multiplications (rates needed by c code)
+		rateJumpInMove <- weightJumpInMove
+		rateSkipInMove <- (1-weightJumpInMove)*weightSkipInMove
+		rateHopInMove <- (1-weightJumpInMove)*(1-weightSkipInMove)	
 	
 		# seed <- runif(1, 1, 2^31-1)
 		# for random seeding of stochastic simulation	
