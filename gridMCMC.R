@@ -54,8 +54,8 @@ if(!is.vector(secondTimePointStats2$statsTable)){
 }
 
 # close the device so it prints
-# dev.off()
-stop()
+dev.off()
+
 #=================
 # Model and
 # List of data to pass to model + sampler

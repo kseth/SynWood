@@ -13,7 +13,7 @@ source("MCMC.R")
 # Seeding, Simulation management, and memory/saving options
 #=====================
 # name the simulation
-nameSimul <- "GRID_48x48_HopJump_BinLik_10:109*1000_J30_100"
+nameSimul <- "GRID_48x48_HopJump_SynLik_Grid_10:109*1000_J30_100_randInit_52"
 
 # the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
@@ -120,11 +120,11 @@ if(!sampleDR){ #if don't want to sample over detectRate
 Nrep <- 400 
 
 # which likelihood to use? 
-useBinLik <- TRUE
+useBinLik <- FALSE
 
 # which statistics to use? 
 # choices: "grid", "circles", "semivariance"
-useStats <- c("circles") # disregarded if useBinLik
+useStats <- c("grid") # disregarded if useBinLik
 
 # distance classes for the general variogram
 genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
