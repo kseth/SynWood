@@ -55,6 +55,7 @@ if(!is.vector(secondTimePointStats2$statsTable)){
 
 # close the device so it prints
 dev.off()
+stop()
 
 #=================
 # Model and

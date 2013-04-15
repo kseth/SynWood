@@ -1,10 +1,8 @@
 library(testthat)
 library(verification)
-source("RanalysisFunctions.R")
+source("../spatcontrol/spatcontrol.R", chdir=TRUE) #has all the spatial analysis + convergence functions
 source("logLik.r") # override some sl functions and add synLik
 source("functions_sampling.R")
-source("convergence_test.r")
-source("extrapol_field.R")
 source("functions_migration.R")
 source("models.R")
 source("MCMC.R")

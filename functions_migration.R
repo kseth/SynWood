@@ -2,7 +2,7 @@
 # data for the tests
 library(geoR)
 library(testthat)
-source("RanalysisFunctions.R")
+# source("RanalysisFunctions.R")
 
 #======================
 # Generate hop/skip/jump matrixes
