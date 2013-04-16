@@ -1,7 +1,8 @@
 source("extrapol_field.R")
+#source("../spatcontrol/spatcontrol.R", chdir = TRUE)
 
 nameSimul <- "name_LLJ100"
-daisyChainSeeds <- 1000:1048
+daisyChainSeeds <- 10:102*1000 
 
 outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
@@ -12,12 +13,12 @@ for(nums in 2:length(outfiles)){
 	allLengths <- c(allLengths, dim(allRuns)[1])
 }
 
-names(allRuns) <- { if(dim(allRuns)[2] == 4) c("LL", "LP", "rateMove", "weightJumpInMove") else c("LL", "LP", "rateMove", "weightJumpInMove", "detectRate") }
+names(allRuns) <- { if(dim(allRuns)[2] == 4) c("LL", "LP", "rateMove", "rateJump") else c("LL", "LP", "rateMove", "rateJump", "detectRate") }
 traces(allRuns)
 
 realMeans <- c(0.04, 0.10, 1)
-names(realMeans) <- c("rateMove", "weightJumpInMove", "detectRate")
-lims <- data.frame("rateMove" = c(0, .08), "weightJumpInMove" = c(0, 1), "detectRate" = c(0, 1))
+names(realMeans) <- c("rateMove", "rateJump", "detectRate")
+lims <- data.frame("rateMove" = c(0, .08), "rateJump" = c(0, 1), "detectRate" = c(0, 1))
 
 dev.new()
 par(mfrow=c(dim(allRuns)[2],1))
@@ -26,17 +27,6 @@ for(param in names(realMeans)){
 	if(param %in% names(allRuns))
 		get.estimate(allRuns[[param]],true.val=realMeans[param], name=param, xlim = lims[, param])
 }
-
-totalWeight <- realMeans["weightJumpInMove"] + 1
-true.val2 <- c(1/totalWeight, realMeans["weightJumpInMove"]/totalWeight)
-names(true.val2) <- c("rateHop", "rateJump")
-xlim <- c(0, 1)
-totalWeight <- allRuns$weightJumpInMove + 1
-rateHop <- 1/totalWeight
-rateJump <- allRuns$weightJumpInMove/totalWeight
-
-get.estimate(rateHop, true.val = true.val2["rateHop"], name = "rateHop", xlim = xlim)
-get.estimate(rateJump, true.val = true.val2["rateJump"], name = "rateJump", xlim = xlim)
 
 dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
 graphics.off()
@@ -145,20 +135,23 @@ percentgood <- counts/length(allLengths)
 percentbad <- 1-percentgood
 print(percentbad[1:2])
 
-# determine the log percent that the median is off from the realmeans
-percentoff_all <- abs((log(median_each) - log(realMeans[1:2]))/log(realMeans[1:2]))
-percentoff <- apply(percentoff_all, 2, mean)
+# determine the percent that the median is off from the realmeans
+percentoff_rm <- abs((log(median_each[, 1]) - log(realMeans[1]))/log(realMeans[1]))
+percentoff_rm <- mean(percentoff_rm)
+
+percentoff_rj <- abs((median_each[, 2] - realMeans[2])/realMeans[2])
+percentoff_rj <- mean(percentoff_rm)
 
 ## caterpillar plot
 dev.new()
 par(mfrow=c(2, 1))
-plot(1:length(allLengths), log(median_each[, 1]), xlab = "MCMC Chain Index", ylab = "log parameter interval", main = paste0("log rate of movement (%off (log) ", signif(percentoff[1], 3)," ) (%out ", signif(percentbad[1],2), " )"), pch = 16, ylim = c(-4.25, -2.25))
+plot(1:length(allLengths), log(median_each[, 1]), xlab = "MCMC Chain Index", ylab = "log parameter interval", main = paste0("log rate of movement (%off (log) ", signif(percentoff_rm, 3)," ) (%out ", signif(percentbad[1],2), " )"), pch = 16, ylim = c(-4.25, -2.25))
 abline(h = log(realMeans["rateMove"]), col = "green")
 arrows(1:length(allLengths), log(quantile_each[, 1]), 1:length(allLengths), log(quantile_each[, 2]), code = 3, angle=90, length=0.01)
 
-plot(1:length(allLengths), log(median_each[, 2]), xlab = "MCMC Chain Index", ylab = "log parameter interval", main = paste0("log weight of jump (%off (log) ", signif(percentoff[2], 3)," ) (%out ", signif(percentbad[2],2), " )"), pch = 16, ylim = log(c(1e-3, 1)))
-abline(h = log(realMeans["weightJumpInMove"]), col = "green")
-arrows(1:length(allLengths), log(quantile_each[, 3]), 1:length(allLengths), log(quantile_each[, 4]), code = 3, angle=90, length=0.01)
+plot(1:length(allLengths), median_each[, 2], xlab = "MCMC Chain Index", ylab = "parameter interval", main = paste0("rate jump (%off ", signif(percentoff_rj, 3)," ) (%out ", signif(percentbad[2],2), " )"), pch = 16, ylim = c(0, 1))
+abline(h = realMeans["rateJump"], col = "green")
+arrows(1:length(allLengths), quantile_each[, 3], 1:length(allLengths), quantile_each[, 4], code = 3, angle=90, length=0.01)
 
 dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
 
@@ -179,13 +172,13 @@ cookp <- 1-cookp
 dev.new()
 par(mfrow = c(2, 2))
 hist(prior_q_distribution[["rateMove"]], xlab = "quantiles", main = paste0("rate move (cook's p ", signif(cookp["rateMove"], 3), ")"))
-hist(prior_q_distribution[["weightJumpInMove"]], xlab = "quantiles", main = paste0("weight jump (cook's p ", signif(cookp["weightJumpInMove"], 3), ")"))
+hist(prior_q_distribution[["rateJump"]], xlab = "quantiles", main = paste0("rate jump (cook's p ", signif(cookp["rateJump"], 3), ")"))
 
 rmDens <- density(prior_q_distribution[["rateMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
 plot(rmDens, xlim = c(0.001, 0.999), main = "rateMove", xlab = "quantiles", ylab = "density")
 abline(h = 1, col = "green")
-wjDens <- density(prior_q_distribution[["weightJumpInMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
-plot(wjDens, xlim = c(0.001, 0.999), main = "weight jump", xlab = "quantile", ylab = "density")
+wjDens <- density(prior_q_distribution[["rateJump"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
+plot(wjDens, xlim = c(0.001, 0.999), main = "rate jump", xlab = "quantile", ylab = "density")
 abline(h = 1, col = "green")
 
 dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
