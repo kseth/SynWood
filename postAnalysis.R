@@ -140,7 +140,7 @@ percentoff_rm <- abs((log(median_each[, 1]) - log(realMeans[1]))/log(realMeans[1
 percentoff_rm <- mean(percentoff_rm)
 
 percentoff_rj <- abs((median_each[, 2] - realMeans[2])/realMeans[2])
-percentoff_rj <- mean(percentoff_rm)
+percentoff_rj <- mean(percentoff_rj)
 
 ## caterpillar plot
 dev.new()
