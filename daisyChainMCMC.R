@@ -1,7 +1,7 @@
 library(testthat)
 library(verification)
 source("../spatcontrol/spatcontrol.R", chdir=TRUE) #has all the spatial analysis + convergence functions
-source("logLik.r") # override some sl functions and add synLik
+source("logLik.R") # override some sl functions and add synLik
 source("functions_sampling.R")
 source("functions_migration.R")
 source("models.R")
