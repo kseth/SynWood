@@ -1,86 +1,133 @@
+#=====================
+# Transformation Functions
+#=====================
+## routine's for transformation of statistics to better meet normality assumptions,
+## and for checking the MVN approximation
 
-
-
-
-
-## naive likelihoods and related....
-
-ricker.fey <-  function(theta,y,e) {
-## naive joint density of data y and random effects e for ricker model
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  n.t <- nrow(y)
-  n.reps <- 1
-  n <- y*0
-  sig.e <- theta[2]
-  oo <- .C("ricker",n=as.double(n),as.double(theta),as.double(e),as.integer(0),as.integer(n.t),
-                    as.integer(n.reps),as.double(log(max(y[1],1))),PACKAGE="sl")
-  mu <- exp(oo$n) ## E(y|e)
-  sum (dpois(y,mu,log=TRUE)) + sum(dnorm(e,sd=sig.e,log=TRUE)) ## log f(y,e)
-
+## S is an ns by n.reps matrix of statistics. This routine works through
+## its rows finding piecewise linear transformations to normality, by 
+## interactive use of `locator'.
+get.trans <- function(S){
+  op <- par(mfrow=c(1,1))
+  if (!is.matrix(S)) S <- matrix(S,1,length(S))
+  ns <- nrow(S)    ## the number of statistics
+  n.rep <- ncol(S) ## the number of replicates
+  z <- qnorm((1:n.rep-.5)/n.rep) ## standard normal quantiles
+  trans <- list()
+  for (i in 1:ns) { ## loop through stats...
+    plot(sort(S[i,]),z)
+    tr <- locator(,type="l",col=2)
+    if (length(tr$x)<2) { 
+      warning("no transform");
+      trans[[i]] <- NULL  
+    } else
+    ## now extend end segments
+    if (length(tr$x)==2) { ## single segment --- extend both ends
+      xr <- tr$x[2]-tr$x[1]
+      slope <- (tr$y[2]-tr$y[1])/xr
+      tr$x[1] <- tr$x[1] - 1000*xr 
+      tr$y[1] <- tr$y[1] - slope*1000*xr
+      tr$x[2] <- tr$x[2] + 1000*xr
+      tr$y[2] <- tr$y[2] + slope*1000*xr
+      trans[[i]] <- tr      
+    } else { ## extend end segments
+      xr <- max(tr$x) - min(tr$x)
+      slope <- (tr$y[2]-tr$y[1])/(tr$x[2]-tr$x[1])
+      tr$x[1] <- tr$x[1] - 1000*xr 
+      tr$y[1] <- tr$y[1] - slope*1000*xr
+      nt <- length(tr$x)
+      slope <- (tr$y[nt]-tr$y[nt-1])/(tr$x[nt]-tr$x[nt-1])
+      tr$x[nt] <- tr$x[nt] + 1000*xr
+      tr$y[nt] <- tr$y[nt] + slope*1000*xr
+      trans[[i]] <- tr     
+    }
+  }
+  trans[[ns+1]] <- NA
+  par(op)
+  trans ## the transformation object
 }
 
-
-## default log synthetic likelihoods for models 
-
-
-ricker.ll <- function(theta,y,e,u,burn.in,trans=NULL,stats=FALSE) {
-## function to obtain log synthetic likelihood for the Ricker model
-## as coded in `ricker'
-
-## simulate from model with current parameter values
-
-  Y <- ricker(theta,e,u,burn.in)
-
-## Now assemble the relevant statistics
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  acf.Y <- sl.acf(Y,max.lag=5)
-  acf.y <- sl.acf(y,max.lag=5)
-
-  b0.Y <- nlar(Y^.3,lag=c(1,1),power=c(1,2))
-  b0.y <- nlar(y^.3,lag=c(1,1),power=c(1,2))
-
-  b1.Y <- order.dist(Y,y,np=3,diff=1)
-  b1.y <- order.dist(y,y,np=3,diff=1)   
-
-## combine the statistics...
-
-  sy <- c(as.numeric(acf.y),
-          as.numeric(b0.y),
-          as.numeric(b1.y),
-          mean(y),sum(y==0)
-         )
-  sY <- rbind(acf.Y,
-              b0.Y, 
-              b1.Y,
-              colMeans(Y),
-              colSums(Y==0)
-             )
-
-
-  if (!is.null(trans)) {
-    sy <- trans.stat(sy,trans)
-    sY <- trans.stat(sY,trans)
+## apply a piecewise linear `trans' object to the rows 
+## of a statistics matrix, S
+trans.stat <- function(S,trans) {
+  if (!is.matrix(S)) S <- matrix(S,length(S),1)
+  for (i in 1:nrow(S)) {
+    if (!is.null(trans[[i]]))
+    S[i,] <- approx(trans[[i]]$x,trans[[i]]$y,S[i,],rule=2)$y
   }
+  if (ncol(S)==1) S <- as.numeric(S)
+  S
+}
 
-## get the log synthetic likelihood
-
-  sY <- sY[,is.finite(colSums(sY))]
-  if (stats) {  ## return statistics
-   attr(sY,"observed") <- sy
-   return(sY) 
-  }
-
-  er <- robust.vcov(sY)
-
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  ll <- -rss/2 - er$half.ldet.V
+#=================
+# Visualization Function
+#=================
+## graphical check of multivariate normality, from
+## Krzanowski (1988) 7.5
+MVN.check <- function(S,s=NULL,cex.axis=1,cex.lab=1) {
+  p <- nrow(S)
+  n <- ncol(S)
+  if (n<10*p) warning("You don't really have enough reps for this approach")
   
-} ## end of ricker.ll
+  ps <- s
+  for (i in 1:nrow(S)) ps[i] <- sum(S[i,]<s[i])/ncol(S)
+
+  um <- robust.vcov(S)
+  ms <- as.numeric(um$mY)
+  S <- S-ms
+  ## Malahanobis for each column of S
+  z <- colSums(S*(t(um$E)%*%um$E%*%S))
+  
+  q <- log(qchisq((1:n-.5)/n,df=p))
+  z <- log(sort(z))
+  
+  plot(q,z,type="l",col="grey",
+       xlab="log theoretical quantiles",ylab="log observed quantiles",
+       cex.axis=cex.axis,cex.lab=cex.lab)
+  points(q,z,pch=".")
+  abline(0,1,col=2)
+  cat("\nproportion |log(z)-log(q)|>.25 = ",sum(abs(z-q)>.25)/n,"\n")
+  
+  if (!is.null(s)) { ## QQ plot for observed stats
+    z <- um$E%*%(s-ms)
+    q <- sum(z^2)
+    abline(h=log(q),lty=2)
+  }
 
 
-marginal.norm <- function(sy,sY) {
+  ## Marginal stats
+
+  for (i in 1:nrow(S)) S[i,] <- S[i,]/um$sd[i]
+  n <- ncol(S)
+  z <- qnorm((1:n-.5)/n)
+  rz <- range(z)
+  rz <- c(rz[1]-2,rz[2]+2)
+  
+  plot(z,sort(S[1,]),type="l",col="grey",ylim=rz,
+       xlab="N(0,1) quantiles",ylab="marginal quantiles",
+       cex.axis=cex.axis,cex.lab=cex.lab)
+  points(z,sort(S[1,]),pch=".")
+  for (i in 2:nrow(S)) { 
+    lines(z,sort(S[i,]),col="grey")
+    points(z,sort(S[i,]),pch=".")
+  }
+  abline(0,1,col=2)  
+
+  if (!is.null(s)) { ## QQ plot for observed stats
+    z <- um$E%*%(s-ms)
+    qqnorm(z,cex.axis=cex.axis,cex.lab=cex.lab);qqline(z,col=2)
+  }
+
+  ps
+ 
+}
+
+#=====================
+# Syn Lik Computation Functions
+#=====================
 ## marginal normalization routine. Each statistic gets replaced by a 
 ## normal quantile.... doesn't work - only fixed transforms are allowed
+marginal.norm <- function(sy,sY) {
   ns <- nrow(sY)
   n <- ncol(sY)+1
   for (i in 1:ns) {
@@ -92,8 +139,8 @@ marginal.norm <- function(sy,sY) {
   list(sy=sy,sY=sY)
 }
 
-trim.stat <- function(sY,p=.01) {
 ## trim the smallest and largest p of data from each row
+trim.stat <- function(sY,p=.01) {
   n <- ncol(sY)
   for (i in 1:nrow(sY)) {
     r <- rank(sY[i,])
@@ -102,9 +149,10 @@ trim.stat <- function(sY,p=.01) {
   sY
 }
 
-robust.vcov <- function(sY,alpha=2,beta=1.25) {
 ## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
 ## But adds pre-conditioning for stable computation....
+robust.vcov <- function(sY,alpha=2,beta=1.25) {
+ 
   mY <- rowMeans(sY)
   sY1 <- sY - mY 
   ## use pre-conditioning to stabilize computation
@@ -135,11 +183,12 @@ robust.vcov <- function(sY,alpha=2,beta=1.25) {
   half.ldet.V <- sum(log(abs(diag(R)))) + sum(log(D))
 
   list(E=E,half.ldet.V=half.ldet.V,mY=mY,sd=sd)
+
 }
 
-
-robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
 ## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
+robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
+
   mY <- rowMeans(sY)
   sY1 <- sY - mY 
  
@@ -168,108 +217,23 @@ robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
   list(mY = mY, Va=Va)
 }
 
-blowfly.ll <- function(theta,y,lu,lu1,burn.in,trans=NULL,stats=FALSE,step=2) {
-## function to obtain log synthetic likelihood for the Nisbet and Gurney
-## blowfly model as coded in `ng.bf' 
-## also check the help for this funtion in the blowfly package
-# theta: vector of current blowfly parameters (see ng.bf in sl.r)
-#        c(P, N0, sig.p, tau, sig.d)
-# y : vector of the observed abundances
-# lu/lu1: noise matrices (see ng.bf in transform.r)
-# burn.in: length of burn.in
-# trans: if not null use trans to perform a "radical normalization of the summary statistic"
-# stats: if false return only the stats and not the log(synthetic likelihood)
-# step: weird, multiply the size of y?!?
-
-## simulate from model with current parameter values
-
-  n.y <- length(y)
-  Y <- ng.bf(theta,lu,lu1,burn.in)[1:n.y*step,]
-
-###################################
-## Now assemble the relevant statistics
-###################################
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  acf.Y <- sl.acf(Y,max.lag=11)
-  acf.y <- sl.acf(y,max.lag=11)
-
-  b0.Y <- nlar(Y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-  b0.y <- nlar(y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-
-  b1.Y <- order.dist(Y,y,np=3,diff=1)
-  b1.y <- order.dist(y,y,np=3,diff=1)   
-
-## combine the statistics for old and current proposed 
-
-  sy <- c(as.numeric(acf.y),
-          as.numeric(b0.y),
-          as.numeric(b1.y),
-          mean(y),
-          mean(y)-median(y)#, ## possibly mean would be better here?
-          #sum(abs(diff(sign(diff(y)))))/2 ## count turning points
-         )
-  sY <- rbind(acf.Y,
-              b0.Y, 
-              b1.Y,
-              colMeans(Y),
-              colMeans(Y)-apply(Y,2,median)#,
-              #colSums(abs(diff(sign(diff(Y)))))/2
-             )
-
-###################################
-## get the log synthetic likelihood
-###################################
-  # ## extreme transform to normality.... CB:what the heck?!?
-
-  # if (!is.null(trans)) {
-  #   sY <- trans.stat(sY,trans)
-  #   sy <- trans.stat(sy,trans)
-  # }
-
-
-
-  # sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite?
-
-###   sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-
-  # if (stats) { 
-  #   attr(sY,"observed") <- sy 
-  #   return(sY)   ## just return statistics
-  # }
-
-  # er <- robust.vcov(sY)
-
-  # rss <- sum((er$E%*%(sy-er$mY))^2)
-  # ll <- -rss/2 - er$half.ldet.V
-
-  # attr(ll,"rss") <- rss
-  # ll # the log synthetic likelihood
-    ll<-synLik(sY,sy,trans)
-  if(stats){
-    sY<-attributes(ll)$sY
-    sy<-attributes(ll)$sy
-    attr(sY,"observed") <- sy 
-    return(sY)   ## just return statistics
-  }else{
-    return(ll)
-  }
-  
-} ## end of blowfly.ll
-
-synLik<-function(sY,sy,trans=NULL){
 ## get the log synthetic likelihood
   # sY: matrix with stats for theta
   # sy: vector with stats in data
+  # trans: a result of call get.trans
+  #	   contains piecewise transform to normality (is interactive)
+synLik<-function(sY,sy,trans=NULL){
 
-  ## extreme transform to normality.... CB:what the heck?!?
-  if (!is.null(trans)) {
+  ## extreme transform to normality
+  if (!is.null(trans)){
     sY <- trans.stat(sY,trans)
     sy <- trans.stat(sy,trans)
   }
 
-  sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite?
+  sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
 
-  ##  sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
+  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
+  ## commented out because we don't want to robustify! KS
 
   er <- robust.vcov(sY)
 
@@ -283,221 +247,13 @@ synLik<-function(sY,sy,trans=NULL){
   return(ll)
 }
 
-dsbf.ll <- function(theta,y,burn.in,n.rep=500,trans=NULL,stats=FALSE,step=2) {
-## function to obtain log synthetic likelihood for the Nisbet and Gurney
-## blowfly model as coded in `ds.bf' --- i.e. for the model where *all*
-## stochasticity is demographic.
-## theta contains delta,P,N0 and tau, in that order.
-
-## simulate from model with current parameter values
-
-  n.y <- length(y)
-  Y <- ds.bf(theta,burn.in=burn.in,n.t=n.y*step,n.rep=n.rep)[1:n.y*step,]
-
-## Now assemble the relevant statistics
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  acf.Y <- sl.acf(Y,max.lag=11)
-  acf.y <- sl.acf(y,max.lag=11)
-
-  b0.Y <- nlar(Y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-  b0.y <- nlar(y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-
-  b1.Y <- order.dist(Y,y,np=3,diff=1)
-  b1.y <- order.dist(y,y,np=3,diff=1)   
-
-## combine the statistics...
-
-  sy <- c(as.numeric(acf.y),
-          as.numeric(b0.y),
-          as.numeric(b1.y),
-          mean(y),
-          mean(y)-median(y) ## possibly mean would be better here?
-          ##sum(abs(diff(sign(diff(y)))))/2 ## count turning points
-         )
-  sY <- rbind(acf.Y,
-              b0.Y, 
-              b1.Y,
-              colMeans(Y),
-              colMeans(Y)-apply(Y,2,median)
-              ##colSums(abs(diff(sign(diff(Y)))))/2
-             )
-
-## extreme transform to normality....
-
-  if (!is.null(trans)) {
-    sY <- trans.stat(sY,trans)
-    sy <- trans.stat(sy,trans)
-  }
-
-
-## get the log synthetic likelihood
-  sY <- sY[,is.finite(colSums(sY))]
-
-##  sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-
-  if (stats) { 
-    attr(sY,"observed") <- sy 
-    return(sY)   ## just return statistics
-  }
-
-  er <- robust.vcov(sY)
-
-  ## robustify the likelihood...
- 
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  
-  ll0 <- -rss/2 - er$half.ldet.V ## true l_s
-
-  d0 <- qchisq(.99,nrow(sY))^.5
-
-  rss <- not.sq(sqrt(rss),alpha=.1,d0=d0)
- 
-  ll <- -rss/2 - er$half.ldet.V ## robustified l_s
-  attr(ll,"true") <- ll0 ## append the true l_s
-  ll
-
-} ## end of dsbf.ll
-
-desbf.ll <- function(theta,y,burn.in,n.rep=500,trans=NULL,stats=FALSE,step=2) {
-## function to obtain log synthetic likelihood for the Nisbet and Gurney
-## blowfly model as coded in `des.bf' --- i.e. for the model where 
-## stochasticity is demographic + environmental. Given demographic contribution
-## it trivial this is not really useful --- might as well use bf.ll
-## theta contains delta,P,N0,tau,sig2.p,sig2.d in that order.
-
-## simulate from model with current parameter values
-
-  n.y <- length(y)
-  Y <- des.bf(theta,burn.in=burn.in,n.t=n.y*step,n.rep=n.rep)[1:n.y*step,]
-
-## Now assemble the relevant statistics
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  acf.Y <- sl.acf(Y,max.lag=11)
-  acf.y <- sl.acf(y,max.lag=11)
-
-  b0.Y <- nlar(Y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-  b0.y <- nlar(y,lag=c(6,6,6,1,1),power=c(1,2,3,1,2))
-
-  b1.Y <- order.dist(Y,y,np=3,diff=1)
-  b1.y <- order.dist(y,y,np=3,diff=1)   
-
-## combine the statistics...
-
-  sy <- c(as.numeric(acf.y),
-          as.numeric(b0.y),
-          as.numeric(b1.y),
-          mean(y),
-          mean(y)-median(y), ## possibly mean would be better here?
-          sum(abs(diff(sign(diff(y)))))/2 ## count turning points
-         )
-  sY <- rbind(acf.Y,
-              b0.Y, 
-              b1.Y,
-              colMeans(Y),
-              colMeans(Y)-apply(Y,2,median),
-              colSums(abs(diff(sign(diff(Y)))))/2
-             )
-
-## transform to normality....
-
-  if (!is.null(trans)) {
-    sY <- trans.stat(sY,trans)
-    sy <- trans.stat(sy,trans)
-  }
-
-
-## get the log synthetic likelihood
-  sY <- sY[,is.finite(colSums(sY))]
-
-##  sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-
-  if (stats) { 
-    attr(sY,"observed") <- sy 
-    return(sY)   ## just return statistics
-  }
-
-  er <- robust.vcov(sY)
-
-  ## robustify the likelihood...
- 
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  
-  ll0 <- -rss/2 - er$half.ldet.V ## true l_s
-
-  d0 <- qchisq(.99,nrow(sY))^.5
-
-  rss <- not.sq(sqrt(rss),alpha=.1,d0=d0)
- 
-  ll <- -rss/2 - er$half.ldet.V ## robustified l_s
-  attr(ll,"true") <- ll0 ## append the true l_s
-  ll
-
-} ## end of desbf.ll
-
-
-
-bupalus.ll <- function(theta,y,e,u,burn.in,trans=NULL,stats=FALSE) {
-## function to obtain log synthetic likelihood for the host parasite  model
-## as coded in `bup.para'
-
-## simulate from model with current parameter values
-
-  Y <- bup.para(theta,e,u,burn.in)
-
-## Now assemble the relevant statistics
-  if (!is.matrix(y)) y <- matrix(y,length(y),1)
-  acf.Y <- sl.acf(Y,max.lag=15)
-  acf.y <- sl.acf(y,max.lag=15)
-
-#  b0.Y <- nlar(Y,lag=c(1,1,2,2),power=c(1,2,1,2))
-#  b0.y <- nlar(y,lag=c(1,1,2,2),power=c(1,2,1,2))
-
-  b1.Y <- order.dist(Y,y,np=3,diff=1)
-  b1.y <- order.dist(y,y,np=3,diff=1)   
-
-## combine the statistics...
-
-  sy <- c(as.numeric(acf.y),
-        #  as.numeric(b0.y),
-          as.numeric(b1.y),
-          mean(y)
-         )
-  sY <- rbind(acf.Y,
-         #     b0.Y, 
-              b1.Y,
-              colMeans(Y)
-             )
-
-## get the log synthetic likelihood
-  sY <- sY[,is.finite(colSums(sY))]
-
-  if (!is.null(trans)) {
-    sy <- trans.stat(sy,trans)
-    sY <- trans.stat(sY,trans)
-  }
-
-  if (stats) { 
-    attr(sY,"observed") <- sy 
-    return(sY)
-  }
-
-  er <- robust.vcov(sY)
-
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  ll <- -rss/2 - er$half.ldet.V
-
-  ll
-
-} ## end of bupalus.ll
-
-
-chain2ll <- function(th,para=NULL,ll="ll",start=2000) {
 ## fits quadratic regression to chain output in th.
 ## rows of th contain chain output, and must include a 
 ## row of log likelihood obs. 
 ## para is an array of variable names.
-## ll is the name of the log likelihood field
-  
+## ll is the name of the log likelihood field 
+chain2ll <- function(th,para=NULL,ll="ll",start=2000) {
+
   ## get default predictor names
   if (is.null(para)) para <- rownames(th)
   para <- para[para!=ll]
