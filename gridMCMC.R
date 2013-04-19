@@ -22,6 +22,8 @@ if(randominitdays == 0){ # no random init, seeding points are starting points
 	randominitout <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = randominitdays, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = FALSE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
 	infested2 <- randominitout$infestedDens
 	startInfestH2 <- which(infested2 == 1)
+	circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH2) #new circles centered at new infested 
+ 
 }
 
 plot_reel(maps$X, maps$Y, infested2, base = 0, top = 1)

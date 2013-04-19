@@ -71,7 +71,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], defaultDR))
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR))
 
 	end <- Sys.time()
 
@@ -219,7 +219,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], defaultDR))
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
