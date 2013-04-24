@@ -40,7 +40,7 @@ stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHop
 #=======================
 # pick starting point for simulations
 startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
-startInfestH <- c(startInfestH + 1, startInfestH - 1) 
+startInfestH <- c(startInfestH + 1, startInfestH, startInfestH - 1) 
 
 #=======================
 # Pick length of simulation
@@ -58,9 +58,9 @@ detectRate <- 1 # true detection rate (1 == don't remove data)
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
-realMeans <- c(0.04, 0.10, 0.80)
-priorMeans<-c(0.04, 0.10, 0.80) 
-priorSd <- c(1, 0.4, 0.20)
+realMeans <- c(0.04, 0.1, 0.80)
+priorMeans<-c(0.04, 0.1, 0.80) #should be realMeans (unless want some sort of skewed prior) 
+priorSd <- c(0.5, 0.3, 0.20)
 priorType <- c("lnorm", "boundednorm", "boundednorm")
 priorIntervals <- list(NULL, c(0, 1), c(0, 1)) # only considered if priorType is bounded
 
@@ -86,8 +86,7 @@ if(!sampleDR){ #if don't want to sample over detectRate
 useStats <- c("grid", "circles", "semivariance") # disregarded if useBinLik
 
 # distance classes for the general variogram
-genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
-# genIntervals <- seq(10, 40, 15)  # if want to combine with grid
+genIntervals <- c(seq(10, 190, 30), seq(240, 340, 50))
 
 # partition sizes for the map
 # i.e. 12x12 cells (each cell 3x3), 8x8 cells (each cell 6x6), ..., 3x3 cells (each cell 16x16)
@@ -119,18 +118,22 @@ circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH)
 real_reps <- 10000
 
 ts <- Sys.time()
+
 real_sims <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = nbit, rateMove = realMeans["rateMove"], weightSkipInMove = 0, weightJumpInMove = realMeans["weightJumpInMove"], Nrep = real_reps, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats=TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
-real_sims_stats <- real_sims$statsTable
+
 te <- Sys.time()
 
 print(te-ts)
-stop()
+
+real_sims_stats <- real_sims$statsTable
+rownames(real_sims_stats) <- paste0("stats",1:dim(real_sims_stats)[1])
 
 #========================
-# Num draws from prior, num simulations
+# Simulations and their statistics
 #========================
-num_draws <- 10000
-sim_results <- data.frame()
+num_draws <- 10000 #number iterations (draws from prior)
+sim_params <- data.frame() #data frame to hold simulated thetas
+sim_stats <- data.frame() #data frame to hold stats from simulated thetas
 
 for(draw in 1:num_draws){
 	print(draw)
@@ -163,13 +166,171 @@ for(draw in 1:num_draws){
 			    detectRate=ifelse("detectRate" %in% names(sim_vals), sim_vals["detectRate"], defaultDR))
 
 	stats <- simulation$statsTable
-	ll <- synLik(real_sims_stats, stats, trans = NULL)
-	sim_vals <- c(sim_vals, ll)
-	sim_results <- rbind(sim_results, sim_vals)
+
+	sim_params <- rbind(sim_params, sim_vals)
+	sim_stats <- rbind(sim_stats, stats)
 }
 
-library(rgl)
-plot3d(sim_results[, 1], sim_results[, 2], sim_results[, 3], xlim = c(0, 0.1), ylim = c(0, 0.5))
+names(sim_params) <- c("rateMove", "rateJump") #assign names
+sim_stats <- as.matrix(sim_stats) #convert dataframe to matrix
+colnames(sim_stats) <- paste0("stats", 1:dim(sim_stats)[2]) #rename columns
 
-goodLL <- which(sim_results[, 3] > 0)
-plot3d(sim_results[goodLL, 1], sim_results[goodLL, 2], sim_results[goodLL, 3])
+# assign which statistics are which (may have to be done manually if change statistics)
+grid_stats <- paste0("stats", 1:11)
+circ_stats <- paste0("stats", 12:25)
+semivar_stats <- paste0("stats", 26:43)
+num_inf_stats <- paste0("stats", 44)
+
+#========================
+# Calculating likelihoods
+#========================
+sim_ll <- data.frame()
+for(draw in 1:num_draws){
+
+	print(draw)
+
+	ll <- rep(0, 6)
+	ll[1] <- synLik(real_sims_stats, sim_stats[draw, c(grid_stats, circ_stats, semivar_stats, num_inf_stats)], trans = NULL)
+	ll[2] <- synLik(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
+	ll[3] <- synLik(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
+	ll[4] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
+	ll[5] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
+	ll[6] <- dnorm(sim_stats[draw, num_inf_stats], mean=mean(real_sims_stats[num_inf_stats, ]), sd=sd(real_sims_stats[num_inf_stats, ]), log=TRUE)
+	sim_ll <- rbind(sim_ll, ll)
+}
+
+names(sim_ll) <- c("all_stats", "grid_stats", "circ_stats", "semivar_stats", "num_inf_stats", "normal_num_inf_stats")
+
+stop()
+
+#==================
+# Plotting
+#==================
+
+## determine which quantile to cut off the likelihoods
+cutoff <- c(1, 0.9, 0.8, 0.7, 0.60, 0.50)
+q_ll <- apply(sim_ll, 2, quantile, cutoff)
+print(q_ll)
+
+## 66% cut off means keep the top 2/5ths of results
+cutoff_ll <- q_ll["60%", ]
+
+## 3D plotting
+library(rgl)
+
+goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
+plot3d(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "all_stats"], col = xtocolors(sim_ll[goodLL, "all_stats"]))
+
+## 2D plotting
+#uniform xlims, ylims
+xlim = c(0.01, 0.06)
+ylim = c(0, 1)
+
+dev.new()
+par(mfrow = c(2, 3))
+
+## plot all
+goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "all_stats"]), xlab = "rateMove", ylab = "rateJump", main = "all", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## plot grid
+goodLL <- which(sim_ll[, "grid_stats"] > cutoff_ll["grid_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "grid_stats"]), xlab = "rateMove", ylab = "rateJump", main = "grid", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## plot circles
+goodLL <- which(sim_ll[, "circ_stats"] > cutoff_ll["circ_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "circ_stats"]), xlab = "rateMove", ylab = "rateJump", main = "circles", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## plot semivariance
+goodLL <- which(sim_ll[, "semivar_stats"] > cutoff_ll["semivar_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "semivar_stats"]), xlab = "rateMove", ylab = "rateJump", main = "semivariance", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## plot num_inf_stats
+goodLL <- which(sim_ll[, "num_inf_stats"] > cutoff_ll["num_inf_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "num_inf_stats"]), xlab = "rateMove", ylab = "rateJump", main = "(density) number infested", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## plot normal_num_inf_stats 
+goodLL <- which(sim_ll[, "normal_num_inf_stats"] > cutoff_ll["normal_num_inf_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "normal_num_inf_stats"]), xlab = "rateMove", ylab = "rateJump", main = "(normal) number infested", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+## 2D contour plotting
+dev.new()
+par(mfrow = c(2, 3))
+
+## plot all
+goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "all_stats"]), xlab = "rateMove", ylab = "rateJump", main = "all", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_all <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "all_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_all$xs, gridfromsample_all$ys, gridfromsample_all$zs, add = TRUE)
+
+## plot grid
+goodLL <- which(sim_ll[, "grid_stats"] > cutoff_ll["grid_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "grid_stats"]), xlab = "rateMove", ylab = "rateJump", main = "grid", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_grid <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "grid_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_grid$xs, gridfromsample_grid$ys, gridfromsample_grid$zs, add = TRUE)
+
+## plot circles
+goodLL <- which(sim_ll[, "circ_stats"] > cutoff_ll["circ_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "circ_stats"]), xlab = "rateMove", ylab = "rateJump", main = "circles", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_circ <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "circ_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_circ$xs, gridfromsample_circ$ys, gridfromsample_circ$zs, add = TRUE)
+
+## plot semivariance
+goodLL <- which(sim_ll[, "semivar_stats"] > cutoff_ll["semivar_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "semivar_stats"]), xlab = "rateMove", ylab = "rateJump", main = "semivariance", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_semivar <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "semivar_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_semivar$xs, gridfromsample_semivar$ys, gridfromsample_semivar$zs, add = TRUE)
+
+## plot num_inf_stats
+goodLL <- which(sim_ll[, "num_inf_stats"] > cutoff_ll["num_inf_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "num_inf_stats"]), xlab = "rateMove", ylab = "rateJump", main = "(density) number infested", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_ninf <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "num_inf_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_ninf$xs, gridfromsample_ninf$ys, gridfromsample_ninf$zs, add = TRUE)
+
+## plot normal_num_inf_stats 
+goodLL <- which(sim_ll[, "normal_num_inf_stats"] > cutoff_ll["normal_num_inf_stats"])
+
+plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, "normal_num_inf_stats"]), xlab = "rateMove", ylab = "rateJump", main = "(normal) number infested", xlim = xlim, ylim = ylim)
+abline(h = 0.1)
+abline(v = 0.04)
+
+gridfromsample_normninf <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "normal_num_inf_stats"], steps = 20, tr = 0.01)
+contour(gridfromsample_normninf$xs, gridfromsample_normninf$ys, gridfromsample_normninf$zs, add = TRUE)
