@@ -177,6 +177,8 @@ colnames(sim_stats) <- paste0("stats", 1:dim(sim_stats)[2]) #rename columns
 
 # assign which statistics are which (may have to be done manually if change statistics)
 grid_stats <- paste0("stats", 1:11)
+grid_var_stats <- paste0("stats", c((1:5) * 2, 11))
+grid_count_stats <- paste0("stats", (1:5) * 2 - 1)
 circ_stats <- paste0("stats", 12:25)
 semivar_stats <- paste0("stats", 26:43)
 num_inf_stats <- paste0("stats", 44)
@@ -196,10 +198,22 @@ for(draw in 1:num_draws){
 	ll[4] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
 	ll[5] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
 	ll[6] <- dnorm(sim_stats[draw, num_inf_stats], mean=mean(real_sims_stats[num_inf_stats, ]), sd=sd(real_sims_stats[num_inf_stats, ]), log=TRUE)
+	ll[7] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
+	ll[8] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
 	sim_ll <- rbind(sim_ll, ll)
 }
 
-names(sim_ll) <- c("all_stats", "grid_stats", "circ_stats", "semivar_stats", "num_inf_stats", "normal_num_inf_stats")
+sim_ll_addon <- data.frame()
+for(draw in 1:num_draws){
+	ll <- rep(0, 2)
+	ll[1] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
+	ll[2] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
+	sim_ll_addon <- rbind(sim_ll_addon, ll)
+}
+
+sim_ll <- cbind(sim_ll, sim_ll_addon)
+
+names(sim_ll) <- c("all_stats", "grid_stats", "circ_stats", "semivar_stats", "num_inf_stats", "normal_num_inf_stats", "grid_var_stats", "grid_count_stats")
 
 stop()
 
