@@ -238,11 +238,11 @@ print(q_ll)
 cutoff_ll <- q_ll["60%", ]
 
 ## 3D plotting
-library(rgl)
-
-goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
-plot3d(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "all_stats"], col = xtocolors(sim_ll[goodLL, "all_stats"]))
-
+## library(rgl)
+## 
+## goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
+## plot3d(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "all_stats"], col = xtocolors(sim_ll[goodLL, "all_stats"]))
+ 
 ## 2D plotting
 #uniform xlims, ylims
 xlim = c(0.01, 0.06)
@@ -253,8 +253,9 @@ par(mfrow = c(2, 4))
 
 for(stat in names(sim_ll)){
 	goodLL <- which(sim_ll[, stat] > cutoff_ll[stat])
+	orderLL <- order(sim_ll[goodLL, stat])
 
-	plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, stat], crp=colorRampPalette(c("black", "red", "orange", "yellow"))), xlab = "rateMove", ylab = "rateJump", main = stat, xlim = xlim, ylim = ylim)
+	plot(sim_params[goodLL, 1][orderLL], sim_params[goodLL, 2][orderLL], col = xtocolors(sim_ll[goodLL, stat][orderLL], crp=colorRampPalette(c("black", "red", "orange", "yellow"))), xlab = "rateMove", ylab = "rateJump", main = stat, xlim = xlim, ylim = ylim, pch = 1)
 	abline(h = realMeans["weightJumpInMove"])
 	abline(v = realMeans["rateMove"])
 }
@@ -265,8 +266,9 @@ par(mfrow = c(2, 4))
 
 for(stat in names(sim_ll)){
 	goodLL <- which(sim_ll[, stat] > cutoff_ll[stat])
+	orderLL <- order(sim_ll[goodLL, stat])
 
-	plot(sim_params[goodLL, 1], sim_params[goodLL, 2], col = xtocolors(sim_ll[goodLL, stat], crp=colorRampPalette(c("black", "red", "orange", "yellow"))), xlab = "rateMove", ylab = "rateJump", main = stat, xlim = xlim, ylim = ylim, pch = 1)
+	plot(sim_params[goodLL, 1][orderLL], sim_params[goodLL, 2][orderLL], col = xtocolors(sim_ll[goodLL, stat][orderLL], crp=colorRampPalette(c("black", "red", "orange", "yellow"))), xlab = "rateMove", ylab = "rateJump", main = stat, xlim = xlim, ylim = ylim, pch = 1)
 	abline(h = realMeans["weightJumpInMove"])
 	abline(v = realMeans["rateMove"])
 
@@ -304,11 +306,54 @@ abline(v = realMeans["rateMove"], col = "green")
 plot(rateJumps, density_rj, type = "l")
 abline(v = realMeans["weightJumpInMove"], col = "green")
 
+## x is the x coordinates
+## y is the density at the x coordinates
+## the density function must be normalized and sorted before passing
+density_crI <- function(x, y, alpha=0.05){
+
+	alpha <- signif(alpha, 5)
+	mid <- (1+length(y))/2
+
+	good <- mid:length(y)
+	area <- signif(trapz(x[good], y[good]), 5)
+	oldarea <- area
+	oldmid <- mid
+	newarea <- 1-alpha
+	newmid <- mid
+	print(area)
+
+	if(1-area == alpha)
+		return(quantile(x[good], 0:1))
+	if(1-area < alpha)
+		mid <- (mid+length(y))/2 
+	else
+		mid <- (mid+1)/2
+
+	while(mid >= 1 && mid <= length(y) && abs(1-oldarea-alpha) > abs(1-newarea-alpha)){
+
+		good <- mid:length(y) 
+		area <- signif(trapz(x[good], y[good]), 5)
+		print(area)
+		newarea <- area
+		newmid <- mid
+		if(1-area == alpha)
+			return(quantile(x[good], 0:1))
+		if(1-area < alpha)
+			mid <- (mid+length(y))/2 
+		else
+			mid <- (mid+oldmid)/2
+	}	
+
+	good <- oldmid:length(y) 
+	return(quantile(x[good], 0:1))
+}
+
 rm_post_stats <- data.frame()
 rj_post_stats <- data.frame()
 
 for(stat in names(sim_ll)){
 
+	print(stat)
 	##ratemove crI
 	order_rm <- order(sim_params$rateMove)
 	rateMoves <- sim_params$rateMove[order_rm]
@@ -316,7 +361,10 @@ for(stat in names(sim_ll)){
 	density_rm <- density_rm[order_rm]
 	area <- trapz(rateMoves, density_rm)
 	density_rm <- density_rm/area
-	
+	mean_rm <- trapz(rateMoves, density_rm*rateMoves)
+	var_rm <- trapz(rateMoves, density_rm*rateMoves*rateMoves) - mean_rm^2
+	cr_rm <- density_crI(rateMoves, density_rm)
+
 	##rateJump crI
 	order_rj <- order(sim_params$rateJump)
 	rateJumps <- sim_params$rateJump[order_rj]
@@ -324,14 +372,24 @@ for(stat in names(sim_ll)){
 	density_rj <- density_rj[order_rj]
 	area <- trapz(rateJumps, density_rj)
 	density_rj <- density_rj/area
-	
-	rmvals <- rep(0, 3)
-	rjvals <- rep(0, 3)
-	rmvals[1] <- weighted.mean(rateMoves, density_rm)
-	rjvals[1] <- weighted.mean(rateJumps, density_rj)
+	mean_rj <- trapz(rateJumps, density_rj*rateJumps)
+	var_rj <- trapz(rateJumps, density_rj*rateJumps*rateJumps) - mean_rj^2
+	cr_rj <- density_crI(rateJumps, density_rj)
+
+	rmvals <- rep(0, 4)
+	rjvals <- rep(0, 4)
+	rmvals[1] <- mean_rm
+	rmvals[2] <- sqrt(var_rm)
+	rmvals[3:4] <- cr_rm
+	rjvals[1] <- mean_rj
+	rjvals[2] <- sqrt(var_rj)
+	rjvals[3:4] <- cr_rj
 
 	rm_post_stats <- rbind(rm_post_stats, rmvals)	
 	rj_post_stats <- rbind(rj_post_stats, rjvals)	
 }
 
-
+colnames(rm_post_stats) <- c("mean", "sd", "2.5%", "97.5%")
+rownames(rm_post_stats) <- names(sim_ll)
+colnames(rj_post_stats) <- c("mean", "sd", "2.5%", "97.5%")
+rownames(rj_post_stats) <- names(sim_ll)
