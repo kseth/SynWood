@@ -193,7 +193,7 @@ for(daisyChainNumber in daisyChainSeeds){
 	     map.partitions = {if(!useBinLik && ("grid" %in% useStats)) map.partitions else NULL}, 
 	     conc.circs = {if(!useBinLik && ("circles" %in% useStats)) circles else NULL}, 
 	     useStats = useStats,
-	     infestH=startInfestH2,
+	     infestH=startingInfested,
 	     timeH=timeH,
 	     endTime=nbit,
 	     maps=maps,
@@ -234,3 +234,14 @@ for(daisyChainNumber in daisyChainSeeds){
 	# reset minLLever
 	source("models.R")
 }
+
+#random stuff for now
+load("byManzVig.img")
+
+# focus on Mariano Melgar/Paucarpata
+dat<-byManz[byManz$D %in% c(10,13),]
+
+posInit<-byManz$nbPos>0
+
+# distances: should be hops up to 600, jumps on all map
+

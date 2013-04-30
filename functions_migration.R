@@ -735,11 +735,13 @@ if(class(importOk)!="try-error"){
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
 	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1, rateIntro = 0){
 
-		haveBlocks <- TRUE		
+		if(is.null(infestH)){ #if unknown starting point, randomly pick a point to be the starting point
+			infestH <- round(runif(1, 1, dim(coords)[1]))
+		}
 
-		# no blockIndex passed, set haveBlocks to false	
-		if(is.null(blockIndex))
-			haveBlocks <- FALSE
+
+		# do we have blocks?
+		haveBlocks <- !is.null(blockIndex)
 
 		# set the weight of skips to 0 (no blocks)
 		# this should be done by default in function header

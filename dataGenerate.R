@@ -27,6 +27,8 @@ if(randominitdays == 0){ # no random init, seeding points are starting points
  
 }
 
+startingInfested <- startInfestH2 #better named
+
 plot_reel(maps$X, maps$Y, infested2, base = 0, top = 1)
 
 # run 1 gillespie simulation to give second timepoint data 
@@ -43,6 +45,9 @@ plot_reel(maps$X, maps$Y, binomEndInfested, base = 0, top = 1)
 binomEndInfested2 <- simulObserved(binomEndInfested, detectRate, 1)
 endInfestH2 <- which(binomEndInfested2 == 1)
 
+# binomial (1 or 0) for all units infested or not at the end
+binomialEndInfested <- binomEndInfested2 #better named
+
 # plot the results
 plot_reel(maps$X, maps$Y, binomEndInfested2, base = 0, top = 1)
 
@@ -55,9 +60,6 @@ if(!is.vector(secondTimePointStats2$statsTable)){
 }else{
 	statsData <- secondTimePointStats2$statsTable
 }
-
-# binomial (1 or 0) for all units infested or not
-binomialEndInfested <- binomEndInfested2
 
 # close the device so it prints
 dev.off()
