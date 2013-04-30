@@ -1,50 +1,67 @@
 library(testthat)
 library(verification)
-source("../spatcontrol/spatcontrol.R", chdir=TRUE) #has all the spatial analysis + convergence functions
-source("logLik.R") # override some sl functions and add synLik
-source("functions_sampling.R")
-source("functions_migration.R")
-source("models.R")
-source("MCMC.R")
+source("spatcontrol/spatcontrol.R", chdir=TRUE) #has all the spatial analysis + convergence functions
+source("SynWood/logLik.R", chdir = TRUE) # override some sl functions and add synLik
+source("SynWood/functions_sampling.R", chdir = TRUE)
+source("SynWood/functions_migration.R", chdir = TRUE)
+source("SynWood/models.R", chdir = TRUE)
+source("SynWood/MCMC.R", chdir = TRUE)
 
 #=====================
 # Seeding, Simulation management, and memory/saving options
 #=====================
 # name the simulation
-nameSimul <- "GRID_48x48_HopJump_SynLik_Grid_10:109*1000_J30_100_randInit_52"
+nameSimul <- "MarianaMelgar_Blocks_SynLik_Semivariance_seed109000_LLJ600"
 
 # the file to store the log of the simulation (i.e. which seed currently on, time of simulation, etc.)
 log.file <- "daisyChainLogFile.txt"
 
 # pick the seeds for the simulation
-daisyChainSeeds <- 10:109*1000
+daisyChainSeeds <- 109000 
  
 # set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
+# is this going to be random data generation
+generateData <- FALSE 
+
 #======================
 # Set details of grid (simulation environment)
 #====================== 
-# size of grid
+# size of simulated grid
 num.rows <- 48 
 num.cols <- 48
 row.dist <- 10
  
 ## make a grid map 
-maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+if(generateData){
+	maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+}else{ #using mariana melgar
+	
+	#random stuff for now
+	load("byManzVig.img")
+
+	# focus on Mariano Melgar/Paucarpata
+	dat<-byManz[byManz$D %in% c(10,13), ]
+	maps <- dat[, c("X", "Y")]
+	# distances: should be hops up to 600, jumps up to 15000 (all map)
+	
+}
 
 # parameters for uniform hop/skip/jump model
-limitHopSkip <- 30
-limitJump <- 100
-lowerLimitJump <- 30 
+limitHopSkip <- 600
+limitJump <- 15000
+lowerLimitJump <- 600 
 
 # set blockIndex to NULL
 # no blocks!
 blockIndex <- NULL
 
+start <- Sys.time()
 # make stratified matrix (no skips, set blockIndex to NULL)
 # matrix contains where each house can hop to, where can jump to
 stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, blockIndex=blockIndex)
+print(Sys.time() - start)
 
 #=======================
 # Pick spatial locations to seed the starting infestation
@@ -81,7 +98,7 @@ defaultRI <- 0 #RI assumed by multiGilStat (0 if rateIntro==0, can set to any va
 #=======================
 # Priors && Sampling Methodologies
 #=======================
-priorMeans<-c(0.03, 0.10, 0.80, 0.005) 
+priorMeans<-c(0.02, 0.10, 0.80, 0.005) 
 priorSd <- c(1, 0.5, 0.20, 1)
 priorType <- c("lnorm", "noPrior", "boundednorm", "lnorm")
 priorIntervals <- list(NULL, NULL, c(0, 1), NULL) # only considered if priorType is bounded
@@ -98,7 +115,7 @@ names(priorIntervals) <- names(priorMeans)
 
 # values with which to initialize the sampler
 initValues<-priorMeans
-initValues["rateMove"]<-0.03
+initValues["rateMove"]<-0.02
 initValues["weightJumpInMove"]<-0.10
 initValues["detectRate"]<-0.80
 initValues["rateIntro"]<-0.005
@@ -135,18 +152,19 @@ if(!sampleRI){ #if don't want to sample over rateIntro
 # What kind of grid, circles, distance classes?
 #=========================
 # how many gillespie repetitions per iteration
-Nrep <- 400 
+Nrep <- 100 
 
 # which likelihood to use? 
-useBinLik <- FALSE
+useBinLik <- FALSE 
 modelToUse<-{if(useBinLik) binomNoKernelModel else noKernelModel}
 
 # which statistics to use? 
 # choices: "grid", "circles", "semivariance"
-useStats <- c("grid") # disregarded if useBinLik
+useStats <- c("semivariance") # disregarded if useBinLik
 
 # distance classes for the general variogram
-genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+# genIntervals <- c(seq(10, 100, 15), seq(130, 250, 30))
+genIntervals <- c(0, cumsum(1:9*75))
 # genIntervals <- seq(10, 40, 15)  # if want to combine with grid
 
 # partition sizes for the map
@@ -182,7 +200,26 @@ for(daisyChainNumber in daisyChainSeeds){
 	monitor.file <- paste0("thetasamples_all", seedSimul, ".txt")
 	cat("current seed: ", daisyChainNumber, " monitor.file: ", monitor.file, "\n", file = log.file, append = TRUE)
 	ts <- Sys.time()
-	source("dataGenerate.R")
+
+	if(generateData)
+		source("SynWood/dataGenerate.R", chdir = TRUE)
+	else{
+		startingInfested <- NULL	
+		binomialEndInfested <- dat$nbPos>0	
+		endInfestH <- which(binomialEndInfested)
+		timeH <- -2
+		nbit <- 10*52 
+		secondTimePointStats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
+
+		# obtain stats from the second gillespie simulation now messed up via observation error
+		if(!is.vector(secondTimePointStats$statsTable)){
+			statsData <- secondTimePointStats$statsTable[, 1]
+		}else{
+			statsData <- secondTimePointStats$statsTable
+		}
+
+
+	}
 
 	#All the data to pass to the model + sampler
 	MyDataFullSample <- list(y={if(useBinLik) binomialEndInfested else statsData},
@@ -222,8 +259,6 @@ for(daisyChainNumber in daisyChainSeeds){
 	#good should be worse than best (ideally, need -4 because simulations may not be ideal)
 	#expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
 
-	stop()
-
 	#run the MCMC function
 	MCMC(MyDataFullSample, Model=modelToUse, sdprop=sdProposal, monitor.file=monitor.file)
 
@@ -232,16 +267,6 @@ for(daisyChainNumber in daisyChainSeeds){
 
 	# reset all global variables
 	# reset minLLever
-	source("models.R")
+	source("SynWood/models.R", chdir = TRUE)
 }
-
-#random stuff for now
-load("byManzVig.img")
-
-# focus on Mariano Melgar/Paucarpata
-dat<-byManz[byManz$D %in% c(10,13),]
-
-posInit<-byManz$nbPos>0
-
-# distances: should be hops up to 600, jumps on all map
 

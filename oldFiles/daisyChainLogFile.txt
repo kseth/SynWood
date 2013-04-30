@@ -1,0 +1,13 @@
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  10000  monitor.file:  thetasamples_all10000.txt 
+current seed:  109000  monitor.file:  thetasamples_all109000.txt 
+current seed:  109000  monitor.file:  thetasamples_all109000.txt 
