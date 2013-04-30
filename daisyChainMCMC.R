@@ -40,7 +40,7 @@ lowerLimitJump <- 30
 
 # set blockIndex to NULL
 # no blocks!
-blockIndex = NULL
+blockIndex <- NULL
 
 # make stratified matrix (no skips, set blockIndex to NULL)
 # matrix contains where each house can hop to, where can jump to
@@ -74,20 +74,20 @@ detectRate <- 1 # true detection rate (1 == don't remove data)
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
-rateIntro <- 0.05 # rate of new introductions into the map (1/rateIntro = time to random introduction)
+rateIntro <- 0.005 # rate of new introductions into the map (1/rateIntro = time to random introduction)
 sampleRI <- TRUE
 defaultRI <- 0 #RI assumed by multiGilStat (0 if rateIntro==0, can set to any value, only used if !sampleRI)
 
 #=======================
 # Priors && Sampling Methodologies
 #=======================
-priorMeans<-c(0.04, 0.05, 0.80, 0.001) 
+priorMeans<-c(0.03, 0.10, 0.80, 0.005) 
 priorSd <- c(1, 0.5, 0.20, 1)
 priorType <- c("lnorm", "noPrior", "boundednorm", "lnorm")
-priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if priorType is bounded
+priorIntervals <- list(NULL, NULL, c(0, 1), NULL) # only considered if priorType is bounded
 realMeans<-c(rateMove, weightJumpInMove, detectRate, rateIntro)
 sampling <- c("lnorm", "boundednorm", "boundednorm", "lnorm")
-sdProposal <- c(0.4, 0.2, 0.2)
+sdProposal <- c(0.4, 0.2, 0.2, 0.3)
 
 names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate", "rateIntro") 
 names(sampling)<-names(priorMeans)
@@ -98,30 +98,34 @@ names(priorIntervals) <- names(priorMeans)
 
 # values with which to initialize the sampler
 initValues<-priorMeans
-initValues["rateMove"]<-0.05
-initValues["weightJumpInMove"]<-0.15
-initValues["detectRate"]<-0.70
+initValues["rateMove"]<-0.03
+initValues["weightJumpInMove"]<-0.10
+initValues["detectRate"]<-0.80
+initValues["rateIntro"]<-0.005
 
 if(!sampleDR){ #if don't want to sample over detectRate
-	priorMeans<-priorMeans["detectRate"]
-	priorSd<-priorSd["detectRate"]
-	priorType<-priorType["detectRate"]
-	priorIntervals <- priorIntervals["detectRate"]
-	realMeans<-realMeans["detectRate"]
-	sampling<-sampling["detectRate"]
-	sdProposal<-sdProposal["detectRate"]
-	initValues<-initValues["detectRate"]
+	rem <- which(names(priorMeans) == "detectRate")
+	priorMeans<-priorMeans[-rem]
+	priorSd<-priorSd[-rem]
+	priorType<-priorType[-rem]
+	priorIntervals <- priorIntervals[-rem]
+	realMeans<-realMeans[-rem]
+	sampling<-sampling[-rem]
+	sdProposal<-sdProposal[-rem]
+	initValues<-initValues[-rem]
 }
 
 if(!sampleRI){ #if don't want to sample over rateIntro
-	priorMeans<-priorMeans["rateIntro"]
-	priorSd<-priorSd["rateIntro"]
-	priorType<-priorType["rateIntro"]
-	priorIntervals <- priorIntervals["rateIntro"]
-	realMeans<-realMeans["rateIntro"]
-	sampling<-sampling["rateIntro"]
-	sdProposal<-sdProposal["rateIntro"]
-	initValues<-initValues["rateIntro"]
+	rem <- which(names(priorMeans) == "rateIntro")
+	priorMeans<-priorMeans[-rem]
+	priorSd<-priorSd[-rem]
+	priorType<-priorType[-rem]
+	priorIntervals <- priorIntervals[-rem]
+	realMeans<-realMeans[-rem]
+	sampling<-sampling[-rem]
+	sdProposal<-sdProposal[-rem]
+	initValues<-initValues[-rem]
+
 }
 
 
@@ -135,6 +139,7 @@ Nrep <- 400
 
 # which likelihood to use? 
 useBinLik <- FALSE
+modelToUse<-{if(useBinLik) binomNoKernelModel else noKernelModel}
 
 # which statistics to use? 
 # choices: "grid", "circles", "semivariance"
@@ -177,7 +182,51 @@ for(daisyChainNumber in daisyChainSeeds){
 	monitor.file <- paste0("thetasamples_all", seedSimul, ".txt")
 	cat("current seed: ", daisyChainNumber, " monitor.file: ", monitor.file, "\n", file = log.file, append = TRUE)
 	ts <- Sys.time()
-	source("gridMCMC.R")
+	source("dataGenerate.R")
+
+	#All the data to pass to the model + sampler
+	MyDataFullSample <- list(y={if(useBinLik) binomialEndInfested else statsData},
+	     trans=NULL,
+	     stratHopSkipJump = stratHopSkipJump,
+	     blockIndex=blockIndex,
+	     dist_out = {if(!useBinLik && ("semivariance" %in% useStats)) bin_dist_out else NULL},
+	     map.partitions = {if(!useBinLik && ("grid" %in% useStats)) map.partitions else NULL}, 
+	     conc.circs = {if(!useBinLik && ("circles" %in% useStats)) circles else NULL}, 
+	     useStats = useStats,
+	     infestH=startInfestH2,
+	     timeH=timeH,
+	     endTime=nbit,
+	     maps=maps,
+	     nbit=nbit,
+	     Nrep=Nrep,
+	     priorMeans=priorMeans,
+	     priorSd=priorSd,
+	     priorType=priorType,
+	     priorIntervals=priorIntervals,
+	     initValues=initValues,
+	     defaultDR=defaultDR,
+	     defaultRI=defaultRI,
+	     genIntervals=genIntervals,
+	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+	     sampling=sampling
+		)
+	
+	#Test modelToUse to make sure something meaningful comes out
+	start<-Sys.time()
+	ModelOutGood<-modelToUse(priorMeans,MyDataFullSample)
+	cat(Sys.time()-start, "\n")
+	start<-Sys.time()
+	ModelOutBest<-modelToUse(realMeans,MyDataFullSample)
+	cat(Sys.time()-start, "\n")
+	#good should be worse than best (ideally, need -4 because simulations may not be ideal)
+	#expect_true(ModelOutGood$Dev>ModelOutBest$Dev-4)
+
+	stop()
+
+	#run the MCMC function
+	MCMC(MyDataFullSample, Model=modelToUse, sdprop=sdProposal, monitor.file=monitor.file)
+
 	te <- Sys.time()
 	cat("time: ", as.numeric(difftime(te, ts, unit = "mins")), " mins\n\n", file = log.file, append = TRUE)
 
