@@ -531,7 +531,7 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	// printf("final seed:%i",*seed);
 }
 
-void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, int* seed){
+void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
 	
 	jcong = (unsigned long)*seed;
 	// printf("seed: %li \n",jcong);
@@ -539,10 +539,15 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 	double rand = UNICONG;
 	
 	//nextEvent - the time to the nextEvent
-	double nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1));
+	double nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
+	double percentIntro = *movePerTunit * (*endIndex+1) + *introPerTunit;
+	percentIntro = *introPerTunit/percentIntro;
 
 	//set starting time to zero
 	double currentTime = 0;
+	
+	//variables used in loop
+	int index, house, dest, numHouses;
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
@@ -551,60 +556,74 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 		// fflush(stdout);
 		
 		currentTime+=nextEvent;
-
-		//pick a location to be infesting house
+		
+		//pick whether new move or new introduction
 		rand = UNICONG;
-		int index = (int)(rand* (*endIndex+1));
-		int house = *(indexInfest + index);
+		if(rand < percentIntro){ // new introduction
 
-		// printf("infesting: %i; ", house);
-		
-
-		//pick whether next move is hop/skip/jump
-		
-		int dest = -1;
-		rand = UNICONG;
-		
-		if(rand < *rateHopInMove){
-			// next move is hop
-			// pick new house to become infested
-			// printf("hop ");
 			rand = UNICONG;
-			int numHouses = hopRowPointer[house+1] - hopRowPointer[house];
-			dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)]; 
+			dest = (int)(rand* *L);	//the introduction location
 		}
-		else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
-			// next move is skip
-			// pick new house to become infested
-			// printf("skip ");
-			rand = UNICONG;
-			int numHouses = skipRowPointer[house+1] - skipRowPointer[house];
-			dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)]; 		
-		}
-		else{
-			// next move is jump
-			// pick new house to become infested
-			// printf("jump ");
-			rand = UNICONG;
-			int numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
-			dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)]; 
-		}
+		else{ // new move
 
+			//pick a location to be infesting house
+			rand = UNICONG;
+			index = (int)(rand* (*endIndex+1));
+			house = *(indexInfest + index);
 
-		// printf("new infested: %i\n", dest);
-		// ///fflush(stdout);
-		
-		if((*(infested+dest)) != 1){
+			// printf("infesting: %i; ", house);
+			
+	
+			//pick whether next move is hop/skip/jump
+			
+			dest = -1; //the move location
+			rand = UNICONG;
+			
+			if(rand < *rateHopInMove){
+				// next move is hop
+				// pick new house to become infested
+				// printf("hop ");
+				rand = UNICONG;
+				numHouses = hopRowPointer[house+1] - hopRowPointer[house];
+				dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)]; 
+			}
+			else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
+				// next move is skip
+				// pick new house to become infested
+				// printf("skip ");
+				rand = UNICONG;
+				numHouses = skipRowPointer[house+1] - skipRowPointer[house];
+				dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)]; 		
+			}
+			else{
+				// next move is jump
+				// pick new house to become infested
+				// printf("jump ");
+				rand = UNICONG;
+				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
+				dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)]; 
+			}
+	
+	
+			// printf("new infested: %i\n", dest);
+			// ///fflush(stdout);
+		}			
+
+		if((*(infested+dest)) != 1){ // if the destination is not already infested
 			*endIndex+=1;
 			*(infested+dest) = 1;
 			*(indexInfest + *endIndex) = dest;
 			*(age + *endIndex) = currentTime;
 		}
-
+	
 		//calculate time to next event again
 		rand = UNICONG;
-		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1));
+		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
+		percentIntro = *movePerTunit * (*endIndex+1) + *introPerTunit;
+		percentIntro = *introPerTunit/percentIntro;
+
 	}
+
 	*seed=(int)jcong;
 	// printf("final seed:%i",*seed);
 }
@@ -944,7 +963,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	
 }
 
-void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *scale, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* stats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats, double* detectRate){
+void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *rateMove, double* rateIntro, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *nbStats, int *sizeVvar, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats, double* detectRate){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
@@ -971,7 +990,7 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 
 	 	if(*simul==1){ // run a normal simulation
 	 		
-	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,scale,seed);
+	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
 
 			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data post gillespie
 
@@ -996,7 +1015,7 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 
 				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
 				switch(matchStats[stat]){
-	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, haveBlocks); break;
+	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, cbin, cbinas, cbinsb, sizeVvar, semivarstats, nbins, blockIndex, haveBlocks); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					default: printf("stat that isn't supported yet\n"); break;

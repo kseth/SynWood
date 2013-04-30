@@ -733,7 +733,7 @@ if(class(importOk)!="try-error"){
 	##		- conc.circs is a result of the call to conc.circles
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1){
+	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1, rateIntro = 0){
 
 		haveBlocks <- TRUE		
 
@@ -971,6 +971,7 @@ if(class(importOk)!="try-error"){
 			 indexInfest = as.integer(indexInfest),
 			 timeI = as.numeric(timeI),
 			 rateMove = as.numeric(rateMove),
+			 rateIntro = as.numeric(rateIntro),
 			 seed = as.integer(seed),
 			 Nrep = as.integer(Nrep),
 			 # stats

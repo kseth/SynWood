@@ -74,18 +74,22 @@ detectRate <- 1 # true detection rate (1 == don't remove data)
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
+rateIntro <- 0.05 # rate of new introductions into the map (1/rateIntro = time to random introduction)
+sampleRI <- TRUE
+defaultRI <- 0 #RI assumed by multiGilStat (0 if rateIntro==0, can set to any value, only used if !sampleRI)
+
 #=======================
 # Priors && Sampling Methodologies
 #=======================
-priorMeans<-c(0.04, 0.05, 0.80) 
-priorSd <- c(1, 0.5, 0.20)
-priorType <- c("lnorm", "noPrior", "boundednorm")
+priorMeans<-c(0.04, 0.05, 0.80, 0.001) 
+priorSd <- c(1, 0.5, 0.20, 1)
+priorType <- c("lnorm", "noPrior", "boundednorm", "lnorm")
 priorIntervals <- list(c(0, 1), c(0, 10), c(0, 1)) # only considered if priorType is bounded
-realMeans<-c(rateMove, weightJumpInMove, detectRate)
-sampling <- c("lnorm", "boundednorm", "boundednorm")
+realMeans<-c(rateMove, weightJumpInMove, detectRate, rateIntro)
+sampling <- c("lnorm", "boundednorm", "boundednorm", "lnorm")
 sdProposal <- c(0.4, 0.2, 0.2)
 
-names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate") 
+names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate", "rateIntro") 
 names(sampling)<-names(priorMeans)
 names(realMeans)<-names(priorMeans)
 names(priorSd)<-names(priorMeans)
@@ -99,15 +103,27 @@ initValues["weightJumpInMove"]<-0.15
 initValues["detectRate"]<-0.70
 
 if(!sampleDR){ #if don't want to sample over detectRate
-	priorMeans<-priorMeans[-3]
-	priorSd<-priorSd[-3]
-	priorType<-priorType[-3]
-	priorIntervals <- priorIntervals[-3]
-	realMeans<-realMeans[-3]
-	sampling<-sampling[-3]
-	sdProposal<-sdProposal[-3]
-	initValues<-initValues[-3]
+	priorMeans<-priorMeans["detectRate"]
+	priorSd<-priorSd["detectRate"]
+	priorType<-priorType["detectRate"]
+	priorIntervals <- priorIntervals["detectRate"]
+	realMeans<-realMeans["detectRate"]
+	sampling<-sampling["detectRate"]
+	sdProposal<-sdProposal["detectRate"]
+	initValues<-initValues["detectRate"]
 }
+
+if(!sampleRI){ #if don't want to sample over rateIntro
+	priorMeans<-priorMeans["rateIntro"]
+	priorSd<-priorSd["rateIntro"]
+	priorType<-priorType["rateIntro"]
+	priorIntervals <- priorIntervals["rateIntro"]
+	realMeans<-realMeans["rateIntro"]
+	sampling<-sampling["rateIntro"]
+	sdProposal<-sdProposal["rateIntro"]
+	initValues<-initValues["rateIntro"]
+}
+
 
 #=========================
 # Set fitting method

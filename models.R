@@ -34,6 +34,7 @@ minLLever=-10e6
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     defaultDR=defaultDR,
+###	     defaultRI=defaultRI,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
@@ -71,7 +72,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR))
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR),
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$defaultRI))
 
 	end <- Sys.time()
 
@@ -187,6 +189,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     defaultDR=defaultDR,
+###	     defaultRI=defaultRI,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
@@ -219,7 +222,8 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR))
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR),
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$defaultRI))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")

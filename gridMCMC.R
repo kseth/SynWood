@@ -85,6 +85,7 @@ MyDataFullSample <- list(y={if(useBinLik) binomEndInfested2 else statsData},
 	     priorIntervals=priorIntervals,
 	     initValues=initValues,
 	     defaultDR=defaultDR,
+	     defaultRI=defaultRI,
 	     genIntervals=genIntervals,
 	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
