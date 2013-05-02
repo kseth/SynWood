@@ -61,9 +61,9 @@ sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
 realMeans <- c(0.04, 0.1, 0.80)
-priorMeans<-c(0.04, 0.1, 0.80) #should be realMeans (unless want some sort of skewed prior) 
-priorSd <- c(0.5, 0.3, 0.20)
-priorType <- c("lnorm", "boundednorm", "boundednorm")
+priorMeans<-c(0.04, 0.5, 0.80) #should be realMeans (unless want some sort of skewed prior) 
+priorSd <- c(0.75, 0.25, 0.20)
+priorType <- c("lnorm", "unif", "boundednorm")
 priorIntervals <- list(NULL, c(0, 1), c(0, 1)) # only considered if priorType is bounded
 
 names(priorMeans)<-c("rateMove" , "weightJumpInMove", "detectRate") 
@@ -80,6 +80,18 @@ if(!sampleDR){ #if don't want to sample over detectRate
 	priorIntervals <- priorIntervals[-3]
 }
 
+#========================
+# get startInfestH
+#========================
+# use randominitdays to generate starting point
+if(randominitdays == 0){ # no random init, seeding points are starting points
+	startInfestH <- startInfestH
+}else{ # run gillespie to generate a random starting set from seeding points
+	randominitout <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = randominitdays, rateMove = realMeans["rateMove"], weightSkipInMove = 0, weightJumpInMove = realMeans["weightJumpInMove"], Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = NULL, simul=TRUE, getStats = FALSE, seed = seedSimul, dist_out = NULL, map.partitions = NULL, conc.circs = NULL)
+	startInfestH <- which(randominitout$infestedDens == 1) 
+}
+
+
 #=========================
 # Set fitting method
 #=========================
@@ -89,7 +101,7 @@ useStats <- c("grid", "circles", "semivariance")
 
 # distance classes for the general variogram
 # genIntervals <- c(seq(10, 190, 30), seq(240, 340, 50))
-genIntervals <- seq(0,72,9)
+genIntervals <- seq(0, 70, 9)
 genIntervals <- c(0, cumsum(genIntervals) + 15)
 
 # partition sizes for the map
@@ -117,23 +129,11 @@ for(part in 1:length(partitionSizes))
 # make the concentric circles
 circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
 
-#========================
-# get startInfestH
-#========================
-
-# use randominitdays to generate starting point
-if(randominitdays == 0){ # no random init, seeding points are starting points
-	startInfestH <- startInfestH
-}else{ # run gillespie to generate a random starting set from seeding points
-	randominitout <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startInfestH, timeH=timeH, endTime = randominitdays, rateMove = realMeans["rateMove"], weightSkipInMove = 0, weightJumpInMove = realMeans["weightJumpInMove"], Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=TRUE, getStats = FALSE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles)
-	startInfestH <- which(randominitout$infestedDens == 1) 
-	circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
-}
 
 #========================
 # 10,000 repetitions from real values
 #========================
-real_reps <- 10000
+real_reps <- 10000 
 
 ts <- Sys.time()
 
@@ -144,12 +144,11 @@ te <- Sys.time()
 print(te-ts)
 
 real_sims_stats <- real_sims$statsTable
-rownames(real_sims_stats) <- paste0("stats",1:dim(real_sims_stats)[1])
 
 #========================
 # Simulations and their statistics
 #========================
-num_draws <- 10000 #number iterations (draws from prior)
+num_draws <- 20000 #number iterations (draws from prior)
 sim_params <- data.frame() #data frame to hold simulated thetas
 sim_stats <- data.frame() #data frame to hold stats from simulated thetas
 
@@ -191,15 +190,17 @@ for(draw in 1:num_draws){
 
 names(sim_params) <- c("rateMove", "rateJump") #assign names
 sim_stats <- as.matrix(sim_stats) #convert dataframe to matrix
-colnames(sim_stats) <- paste0("stats", 1:dim(sim_stats)[2]) #rename columns
 
 # assign which statistics are which (may have to be done manually if change statistics)
-grid_stats <- paste0("stats", 2:(length(partitionSizes)*2)-1)
-grid_var_stats <- paste0("stats", c((1:5) * 2, 11))
-grid_count_stats <- paste0("stats", (1:5) * 2 - 1)
-circ_stats <- paste0("stats", length(partitionSizes)*2-1+1:(length(circleRadii)*2-2))
-semivar_stats <- paste0("stats", length(partitionSizes)*2-1+length(circleRadii)*2-2+1:(length(genIntervals)*2-2))
-num_inf_stats <- paste0("stats", dim(sim_stats)[2])
+grid_stats <- 1:(length(partitionSizes)*6)
+grid_var_stats <- grid_stats[which(grid_stats %% 6 == 1)]
+grid_count_stats <- grid_stats[which(grid_stats %% 6 == 2)]
+grid_regression_stats <- grid_stats[which(grid_stats %% 6 %in% c(3:5, 0))]
+circ_stats <- grid_stats[length(grid_stats)] + 1:((length(circleRadii)-1)*2)
+semivar_stats <- circ_stats[length(circ_stats)] + 1:((length(genIntervals)-1)*4)
+semivar_newnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% 1:2)] 
+semivar_oldnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% c(3, 0))] 
+num_inf_stats <- semivar_stats[length(semivar_stats)]+1
 
 #========================
 # Calculating likelihoods
@@ -209,19 +210,21 @@ for(draw in 1:num_draws){
 
 	print(draw)
 
-	ll <- rep(0, 8)
+	ll <- rep(0, 10)
 	ll[1] <- synLik(real_sims_stats, sim_stats[draw, c(grid_stats, circ_stats, semivar_stats, num_inf_stats)], trans = NULL)
 	ll[2] <- synLik(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
-	ll[3] <- synLik(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
-	ll[4] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
-	ll[5] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
-	ll[6] <- dnorm(sim_stats[draw, num_inf_stats], mean=mean(real_sims_stats[num_inf_stats, ]), sd=sd(real_sims_stats[num_inf_stats, ]), log=TRUE)
-	ll[7] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
-	ll[8] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
+	ll[3] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
+	ll[4] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
+	ll[5] <- synLik(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
+	ll[6] <- synLik(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
+	ll[7] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
+	ll[8] <- synLik(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
+	ll[9] <- synLik(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)	
+	ll[10] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
 	sim_ll <- rbind(sim_ll, ll)
 }
 
-names(sim_ll) <- c("all_stats", "grid_stats", "circ_stats", "semivar_stats", "num_inf_stats", "normal_num_inf_stats", "grid_var_stats", "grid_count_stats")
+names(sim_ll) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "semivar_stats", "semivar_new-new_stats", "semivar_old-new_stats", "num_inf_stats") 
 
 stop()
 
@@ -237,12 +240,6 @@ print(q_ll)
 ## 60% cut off means keep the top 2/5ths of results
 cutoff_ll <- q_ll["60%", ]
 
-## 3D plotting
-## library(rgl)
-## 
-## goodLL <- which(sim_ll[, "all_stats"] > cutoff_ll["all_stats"])
-## plot3d(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, "all_stats"], col = xtocolors(sim_ll[goodLL, "all_stats"]))
- 
 ## 2D plotting
 #uniform xlims, ylims
 xlim = c(0.01, 0.06)
@@ -274,8 +271,6 @@ for(stat in names(sim_ll)){
 
 	gridfromsample <- grid.from.sample(sim_params[goodLL, 1], sim_params[goodLL, 2], sim_ll[goodLL, stat], steps = 20, tr = 0.01)
 	contour(gridfromsample$xs, gridfromsample$ys, gridfromsample$zs, add = TRUE)
-
-
 }
 
 #======================
@@ -283,73 +278,67 @@ for(stat in names(sim_ll)){
 #======================
 library(pracma)
 
-##ratemove crI
-order_rm <- order(sim_params$rateMove)
-rateMoves <- sim_params$rateMove[order_rm]
-density_rm <- exp(sim_ll$all_stats)
-density_rm <- density_rm[order_rm]
-area <- trapz(rateMoves, density_rm)
-density_rm <- density_rm/area
-
-##rateJump crI
-order_rj <- order(sim_params$rateJump)
-rateJumps <- sim_params$rateJump[order_rj]
-density_rj <- exp(sim_ll$all_stats)
-density_rj <- density_rj[order_rj]
-area <- trapz(rateJumps, density_rj)
-density_rj <- density_rj/area
-
-dev.new()
-par(mfrow = c(2, 1))
-plot(rateMoves, density_rm, type = "l")
-abline(v = realMeans["rateMove"], col = "green")
-plot(rateJumps, density_rj, type = "l")
-abline(v = realMeans["weightJumpInMove"], col = "green")
-
 ## x is the x coordinates
 ## y is the density at the x coordinates
-## the density function must be normalized and sorted before passing
-density_crI <- function(x, y, alpha=0.05){
+## all y >= 0
+density_crI <- function(x, y, alpha=0.05, sigfig=5){
 
-	alpha <- signif(alpha, 5)
-	mid <- (1+length(y))/2
+	#sort (x, y) such that <x> is in order
+	orderx <- order(x)
+	x <- x[orderx]
+	y <- y[orderx]
 
-	good <- mid:length(y)
-	area <- signif(trapz(x[good], y[good]), 5)
+	alpha <- signif(alpha, sigfig)
+
+	hi <- max(y)
+	lo <- min(y)
+	mid <- (hi+lo)/2
+
+	ycheck <- y
+	ycheck[y < mid] <- 0
+
+	area <- signif(trapz(x, ycheck), sigfig)
 	oldarea <- area
-	oldmid <- mid
 	newarea <- 1-alpha
-	newmid <- mid
 	print(area)
 
 	if(1-area == alpha)
-		return(quantile(x[good], 0:1))
-	if(1-area < alpha)
-		mid <- (mid+length(y))/2 
-	else
-		mid <- (mid+1)/2
-
-	while(mid >= 1 && mid <= length(y) && abs(1-oldarea-alpha) > abs(1-newarea-alpha)){
-
-		good <- mid:length(y) 
-		area <- signif(trapz(x[good], y[good]), 5)
-		print(area)
+		return(list(crI=quantile(x[y > mid], 0:1), ll=mid))
+	if(1-area < alpha){
+		mid <- c(mid, (mid+hi)/2)
+		lo <- mid[length(mid)-1]
+	}else{
+		mid <- c(mid, (mid+lo)/2)
+		hi <- mid[length(mid)-1]
+	}
+	while(lo < hi && abs(1-oldarea-alpha) != abs(1-newarea-alpha)){
+	
+		oldarea <- area
+		ycheck <- y
+		ycheck[y < mid[length(mid)]] <- 0
+		area <- signif(trapz(x, ycheck), sigfig)
 		newarea <- area
-		newmid <- mid
+		print(area)
+
 		if(1-area == alpha)
-			return(quantile(x[good], 0:1))
-		if(1-area < alpha)
-			mid <- (mid+length(y))/2 
-		else
-			mid <- (mid+oldmid)/2
+			return(list(crI=quantile(x[y > mid[length(mid)]], 0:1), ll=mid[length(mid)]))
+		if(1-area < alpha){
+			mid <- c(mid, (mid[length(mid)]+hi)/2)
+			lo <- mid[length(mid)-1]
+		}else{
+			mid <- c(mid, (mid[length(mid)]+lo)/2)
+			hi <- mid[length(mid)-1]
+		}
 	}	
 
-	good <- oldmid:length(y) 
-	return(quantile(x[good], 0:1))
+	return(list(crI=quantile(x[y > mid[length(mid)-1]], 0:1), ll=mid[length(mid)-1]))
 }
 
 rm_post_stats <- data.frame()
 rj_post_stats <- data.frame()
+
+dev.new()
+par(mfrow = c(4, 4))
 
 for(stat in names(sim_ll)){
 
@@ -359,31 +348,51 @@ for(stat in names(sim_ll)){
 	rateMoves <- sim_params$rateMove[order_rm]
 	density_rm <- exp(sim_ll[, stat])
 	density_rm <- density_rm[order_rm]
-	area <- trapz(rateMoves, density_rm)
-	density_rm <- density_rm/area
-	mean_rm <- trapz(rateMoves, density_rm*rateMoves)
-	var_rm <- trapz(rateMoves, density_rm*rateMoves*rateMoves) - mean_rm^2
-	cr_rm <- density_crI(rateMoves, density_rm)
+	smooth_rm <- smooth.spline(rateMoves, density_rm, spar=0.2)
+	smooth_rm$y[smooth_rm$y < 0] <- 0
+	area <- trapz(smooth_rm$x, smooth_rm$y)
+	smooth_rm$y <- smooth_rm$y/area
+	mean_rm <- trapz(smooth_rm$x, smooth_rm$y*smooth_rm$x)
+	var_rm <- trapz(smooth_rm$x, smooth_rm$y*smooth_rm$x*smooth_rm$x) - mean_rm^2
+	cr_rm <- density_crI(smooth_rm$x, smooth_rm$y)
 
 	##rateJump crI
 	order_rj <- order(sim_params$rateJump)
 	rateJumps <- sim_params$rateJump[order_rj]
 	density_rj <- exp(sim_ll[, stat])
 	density_rj <- density_rj[order_rj]
-	area <- trapz(rateJumps, density_rj)
-	density_rj <- density_rj/area
-	mean_rj <- trapz(rateJumps, density_rj*rateJumps)
-	var_rj <- trapz(rateJumps, density_rj*rateJumps*rateJumps) - mean_rj^2
-	cr_rj <- density_crI(rateJumps, density_rj)
+	smooth_rj <- smooth.spline(rateJumps, density_rj, spar=0.2)
+	smooth_rj$y[smooth_rj$y < 0] <- 0
+	area <- trapz(smooth_rj$x, smooth_rj$y)
+	smooth_rj$y <- smooth_rj$y/area
+	mean_rj <- trapz(smooth_rj$x, smooth_rj$y*smooth_rj$x)
+	var_rj <- trapz(smooth_rj$x, smooth_rj$y*smooth_rj$x*smooth_rj$x) - mean_rm^2
+	cr_rj <- density_crI(smooth_rj$x, smooth_rj$y)
 
 	rmvals <- rep(0, 4)
 	rjvals <- rep(0, 4)
 	rmvals[1] <- mean_rm
 	rmvals[2] <- sqrt(var_rm)
-	rmvals[3:4] <- cr_rm
+	rmvals[3:4] <- cr_rm$crI
+	rmvals[5] <- cr_rm$ll
 	rjvals[1] <- mean_rj
 	rjvals[2] <- sqrt(var_rj)
-	rjvals[3:4] <- cr_rj
+	rjvals[3:4] <- cr_rj$crI
+	rjvals[5] <- cr_rj$ll
+
+	plot(smooth_rm, main = paste0("ratemove ", stat), type = "l")
+	abline(v=rmvals[1], col = "blue")
+	abline(v=rmvals[1]+rmvals[2], col = "blue")
+	abline(v=rmvals[1]-rmvals[2], col = "blue")
+	abline(h=rmvals[5], col = "red")
+	abline(v=realMeans["rateMove"], col = "green")
+
+	plot(smooth_rj, main = paste0("ratejump ", stat), type = "l")
+	abline(v=rjvals[1], col = "blue")
+	abline(v=rjvals[1]+rjvals[2], col = "blue")
+	abline(v=rjvals[1]-rjvals[2], col = "blue")
+	abline(h=rjvals[5], col = "red")
+	abline(v=realMeans["weightJumpInMove"], col = "green")
 
 	rm_post_stats <- rbind(rm_post_stats, rmvals)	
 	rj_post_stats <- rbind(rj_post_stats, rjvals)	

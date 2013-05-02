@@ -852,13 +852,15 @@ if(class(importOk)!="try-error"){
 					# stats selection
 					###===================================
 					## CURRENT STATS:
-					## General Semivariance
-					## General Semivariance Std. Dev.
-					##	= 2 * length(cbin)
+					## General Semivariance (new - new)
+					## General Semivariance Std. Dev. (new - new)
+					## General Semivariance (old - new)
+					## General Semivariance Std. Dev (old - new)
+					##	= 4 * length(cbin)
 					## Number Infested Houses
-					##	= 2 * length(cbin) + 1
+					##	= 4 * length(cbin) + 1
 					###===================================
-					sizeVvar <- 2*length(cbin)
+					sizeVvar <- 4*length(cbin)
 					semivar.nbStats <- sizeVvar + 1
 				}
 
@@ -899,21 +901,16 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by grid system):
-				## NOT IMPLEMENTED 25% quantile
-				## NOT IMPLEMENTED 50% quantile (median)
-				## NOT IMPLEMENTED 75% quantile
 				## Variance of % positive per cell
 				## Number Cells with at least 1 positive 
-				##	= 2 * numDiffGrids
+				## Fit quantile distribution to polynomial
+				## a + bx + cx^2 + d (4 stats) 
+				##	= 6 * numDiffGrids
 				## (overall)
 				## Number Infested Houses
-				##	= 2 * numDiffGrids + 1
-				## if haveBlocks also
-				## 	Number Infested Blocks
-				## 	(Infested Houses)/(Infested Blocks)
-				##	= 2 * numDiffGrids + 3
+				##	= 6 * numDiffGrids + 1
 				###===================================
-				grid.nbStats <- 2*numDiffGrids+1
+				grid.nbStats <- 6*numDiffGrids+1
 				
 				if(haveBlocks) ## add two more block stats computations
 					grid.nbStats <- grid.nbStats + 2
@@ -1034,7 +1031,7 @@ if(class(importOk)!="try-error"){
 		# for now, remove stat #11 
 		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
 		# will cause issues in variance, covariance matrix
-		out$grid.statsTable <- out$grid.statsTable[-11, ]
+		# out$grid.statsTable <- out$grid.statsTable[-11, ]
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
