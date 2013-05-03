@@ -60,8 +60,8 @@ detectRate <- 1 # true detection rate (1 == don't remove data)
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
-realMeans <- c(0.04, 0.1, 0.80)
-priorMeans<-c(0.04, 0.5, 0.80) #should be realMeans (unless want some sort of skewed prior) 
+realMeans <- c(0.035, 0.500, 0.80)
+priorMeans<-c(0.035, 0.5, 0.80) #should be realMeans (unless want some sort of skewed prior) 
 priorSd <- c(0.75, 0.25, 0.20)
 priorType <- c("lnorm", "unif", "boundednorm")
 priorIntervals <- list(NULL, c(0, 1), c(0, 1)) # only considered if priorType is bounded
@@ -131,9 +131,9 @@ circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH)
 
 
 #========================
-# 10,000 repetitions from real values
+# 5000 repetitions from real values
 #========================
-real_reps <- 10000 
+real_reps <- 5000 
 
 ts <- Sys.time()
 
@@ -148,7 +148,7 @@ real_sims_stats <- real_sims$statsTable
 #========================
 # Simulations and their statistics
 #========================
-num_draws <- 20000 #number iterations (draws from prior)
+num_draws <- 2000 #number iterations (draws from prior)
 sim_params <- data.frame() #data frame to hold simulated thetas
 sim_stats <- data.frame() #data frame to hold stats from simulated thetas
 
@@ -202,29 +202,58 @@ semivar_newnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% 1:2)]
 semivar_oldnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% c(3, 0))] 
 num_inf_stats <- semivar_stats[length(semivar_stats)]+1
 
+stop()
 #========================
 # Calculating likelihoods
 #========================
 sim_ll <- data.frame()
+sim_ll2 <- data.frame()
+tll1 <- 0
+tll2 <- 0
 for(draw in 1:num_draws){
 
 	print(draw)
-
+	
 	ll <- rep(0, 10)
-	ll[1] <- synLik(real_sims_stats, sim_stats[draw, c(grid_stats, circ_stats, semivar_stats, num_inf_stats)], trans = NULL)
-	ll[2] <- synLik(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
+	#ll[1] <- synLik(real_sims_stats, sim_stats[draw, ], trans = NULL)
+	#ll[2] <- synLik(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
 	ll[3] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
 	ll[4] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
-	ll[5] <- synLik(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
+	#ll[5] <- synLik(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
+
+	start1 <- Sys.time()
 	ll[6] <- synLik(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
 	ll[7] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
 	ll[8] <- synLik(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
 	ll[9] <- synLik(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)	
+	end1 <- Sys.time()
 	ll[10] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
 	sim_ll <- rbind(sim_ll, ll)
+
+
+	ll2 <- rep(0, 10)
+	ll2[1] <- synLik.modified(real_sims_stats, sim_stats[draw, ], trans = NULL)
+	ll2[2] <- synLik.modified(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
+	ll2[3] <- synLik.modified(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
+	ll2[4] <- synLik.modified(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
+	ll2[5] <- synLik.modified(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
+	start2 <- Sys.time()
+	ll2[6] <- synLik.modified(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
+	ll2[7] <- synLik.modified(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
+	ll2[8] <- synLik.modified(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
+	ll2[9] <- synLik.modified(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)
+	end2 <- Sys.time()
+	ll2[10] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
+
+	tll1 <- tll1 + difftime(end1, start1, units = "secs")
+	tll2 <- tll2 + difftime(end2, start2, units = "secs")
+
+	sim_ll2 <- rbind(sim_ll2, ll2)
+
 }
 
 names(sim_ll) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "semivar_stats", "semivar_new-new_stats", "semivar_old-new_stats", "num_inf_stats") 
+names(sim_ll2) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "semivar_stats", "semivar_new-new_stats", "semivar_old-new_stats", "num_inf_stats") 
 
 stop()
 
@@ -246,7 +275,7 @@ xlim = c(0.01, 0.06)
 ylim = c(0, 1)
 
 dev.new()
-par(mfrow = c(2, 4))
+par(mfrow = c(2, 5))
 
 for(stat in names(sim_ll)){
 	goodLL <- which(sim_ll[, stat] > cutoff_ll[stat])
@@ -259,7 +288,7 @@ for(stat in names(sim_ll)){
 
 ## 2D contour plotting
 dev.new()
-par(mfrow = c(2, 4))
+par(mfrow = c(2, 5))
 
 for(stat in names(sim_ll)){
 	goodLL <- which(sim_ll[, stat] > cutoff_ll[stat])
@@ -311,7 +340,7 @@ density_crI <- function(x, y, alpha=0.05, sigfig=5){
 		mid <- c(mid, (mid+lo)/2)
 		hi <- mid[length(mid)-1]
 	}
-	while(lo < hi && abs(1-oldarea-alpha) != abs(1-newarea-alpha)){
+	while(lo < hi &&  oldarea!=newarea){
 	
 		oldarea <- area
 		ycheck <- y
@@ -336,9 +365,8 @@ density_crI <- function(x, y, alpha=0.05, sigfig=5){
 
 rm_post_stats <- data.frame()
 rj_post_stats <- data.frame()
-
-dev.new()
-par(mfrow = c(4, 4))
+smoothed_rm <- list()
+smoothed_rj <- list()
 
 for(stat in names(sim_ll)){
 
@@ -380,25 +408,38 @@ for(stat in names(sim_ll)){
 	rjvals[3:4] <- cr_rj$crI
 	rjvals[5] <- cr_rj$ll
 
-	plot(smooth_rm, main = paste0("ratemove ", stat), type = "l")
-	abline(v=rmvals[1], col = "blue")
-	abline(v=rmvals[1]+rmvals[2], col = "blue")
-	abline(v=rmvals[1]-rmvals[2], col = "blue")
-	abline(h=rmvals[5], col = "red")
-	abline(v=realMeans["rateMove"], col = "green")
-
-	plot(smooth_rj, main = paste0("ratejump ", stat), type = "l")
-	abline(v=rjvals[1], col = "blue")
-	abline(v=rjvals[1]+rjvals[2], col = "blue")
-	abline(v=rjvals[1]-rjvals[2], col = "blue")
-	abline(h=rjvals[5], col = "red")
-	abline(v=realMeans["weightJumpInMove"], col = "green")
-
 	rm_post_stats <- rbind(rm_post_stats, rmvals)	
-	rj_post_stats <- rbind(rj_post_stats, rjvals)	
+	rj_post_stats <- rbind(rj_post_stats, rjvals)
+	smoothed_rm[[stat]] <- smooth_rm
+	smoother_rj[[stat]] <- smooth_rj	
 }
 
 colnames(rm_post_stats) <- c("mean", "sd", "2.5%", "97.5%")
 rownames(rm_post_stats) <- names(sim_ll)
 colnames(rj_post_stats) <- c("mean", "sd", "2.5%", "97.5%")
 rownames(rj_post_stats) <- names(sim_ll)
+
+##plot rate moves
+dev.new()
+par(mfrow = c(5, 2))
+for(stat in names(sim_ll)){
+	plot(smoothed_rm[[stat]], main = paste0("ratemove ", stat), type = "l")
+	abline(v=rm_post_stats[stat, 1], col = "blue")
+	abline(v=rm_post_stats[stat, 1]+rm_post_stats[stat, 2], col = "blue")
+	abline(v=rm_post_stats[stat, 1]-rm_post_stats[stat, 2], col = "blue")
+	abline(h=rm_post_stats[stat, 5], col = "red")
+	abline(v=realMeans["rateMove"], col = "green")
+}
+
+##plot rate jumps
+dev.new()
+par(mfrow = c(5, 2))
+for(stat in names(sim_ll)){
+	plot(smooth_rj[[stat]], main = paste0("ratejump ", stat), type = "l")
+	abline(v=rj_post_stats[stat, 1], col = "blue")
+	abline(v=rj_post_stats[stat, 1]+rm_post_stats[stat, 2], col = "blue")
+	abline(v=rj_post_stats[stat, 1]-rm_post_stats[stat, 2], col = "blue")
+	abline(h=rj_post_stats[stat, 5], col = "red")
+	abline(v=realMeans["weightJumpInMove"], col = "green")
+}
+

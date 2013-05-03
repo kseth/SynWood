@@ -187,6 +187,50 @@ robust.vcov <- function(sY,alpha=2,beta=1.25) {
 }
 
 ## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
+## But adds pre-conditioning for stable computation....
+## modified by KS
+#### avoid the QR decomposition used for preconditioning in robust.vcov which seems to be acting up
+#### instead, use the eigendecomposition provided in robust.vcov.old
+robust.vcov.modified <- function(sY,alpha=2,beta=1.25) {
+ 
+  mY <- rowMeans(sY)
+  sY1 <- sY - mY 
+  ## use pre-conditioning to stabilize computation
+  D <- rowMeans(sY1*sY1)^.5 
+  Di <- 1/D  ## diagonal pre-conditioner
+  
+  sY1 <- Di*sY1 ## pre-conditioned for better scaling
+  Va <- sY1%*%t(sY1)/(ncol(sY1)-1) #var-cov matrix
+  ev <- eigen(Va,symmetric=TRUE) #eigendecomp
+  zz <- t(ev$vectors)%*%sY1
+  ival <- ev$values
+  ind <- ival > ival[1]*.Machine$double.eps^.9
+  ival[ind] <- 1/sqrt(ival[ind])
+  ival[!ind] <- 0
+  d <- sqrt(colSums((ival*zz)^2)) ## mahalanobis distance (arrived at without using QR decomposition) 
+
+  ## create Campbell weight vector...
+  d0 <- sqrt(nrow(sY)) + alpha/sqrt(2)
+  w <- d*0 + 1
+  ind <- d>d0
+  w[ind] <- exp(-.5*(d[ind]-d0)^2/beta)*d0/d[ind] 
+  mY <- colSums(w*t(sY))/sum(w)
+  sY1 <- sY - mY
+
+  ## preconditioning...
+  D <- rowMeans(sY1*sY1)^.5
+  Di <- 1/D  ## diagonal pre-conditioner
+  sY1 <- Di*sY1 ## pre-conditioned for better scaling
+  
+  R <- qr.R(qr(w*t(sY1)))/sqrt(sum(w*w)-1) ## Va = DR'RD
+  sd <- rowSums((D*t(R))^2)^.5
+  E <- t(Di*backsolve(R,diag(nrow(R))))                   ## V^{-1} = E'E 
+  half.ldet.V <- sum(log(abs(diag(R)))) + sum(log(D))
+
+  list(E=E,half.ldet.V=half.ldet.V,mY=mY,sd=sd)
+}
+
+## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
 robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
 
   mY <- rowMeans(sY)
@@ -236,6 +280,37 @@ synLik<-function(sY,sy,trans=NULL){
   ## commented out because we don't want to robustify! KS
 
   er <- robust.vcov(sY)
+
+  rss <- sum((er$E%*%(sy-er$mY))^2)
+  ll <- -rss/2 - er$half.ldet.V
+
+  attr(ll,"rss") <- rss
+  attr(ll,"sy") <- sy
+  attr(ll,"sY") <- sY
+
+  return(ll)
+}
+
+## get the log synthetic likelihood
+## modified by KS to use robust.vcov.modified
+  # sY: matrix with stats for theta
+  # sy: vector with stats in data
+  # trans: a result of call get.trans
+  #	   contains piecewise transform to normality (is interactive)
+synLik.modified<-function(sY,sy,trans=NULL){
+
+  ## extreme transform to normality
+  if (!is.null(trans)){
+    sY <- trans.stat(sY,trans)
+    sy <- trans.stat(sy,trans)
+  }
+
+  sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
+
+  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
+  ## commented out because we don't want to robustify! KS
+
+  er <- robust.vcov.modified(sY) ##KS
 
   rss <- sum((er$E%*%(sy-er$mY))^2)
   ll <- -rss/2 - er$half.ldet.V
