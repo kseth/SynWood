@@ -375,6 +375,9 @@ for(stat in names(sim_ll)){
 	order_rm <- order(sim_params$rateMove)
 	rateMoves <- sim_params$rateMove[order_rm]
 	density_rm <- exp(sim_ll[, stat])
+	if(max(density_rm) < 1){ #if all sim_lls are too small, the log will need to be transformed
+		density_rm <- exp(sim_ll[, stat] - max(sim_ll[, stat]))
+	}
 	density_rm <- density_rm[order_rm]
 	smooth_rm <- smooth.spline(rateMoves, density_rm, spar=0.2)
 	smooth_rm$y[smooth_rm$y < 0] <- 0
@@ -388,6 +391,9 @@ for(stat in names(sim_ll)){
 	order_rj <- order(sim_params$rateJump)
 	rateJumps <- sim_params$rateJump[order_rj]
 	density_rj <- exp(sim_ll[, stat])
+	if(max(density_rj) < 1e-1){ #if all sim_lls are too small, the log will need to be transformed
+		density_rj <- exp(sim_ll[, stat] - max(sim_ll[, stat]))
+	}
 	density_rj <- density_rj[order_rj]
 	smooth_rj <- smooth.spline(rateJumps, density_rj, spar=0.2)
 	smooth_rj$y[smooth_rj$y < 0] <- 0
@@ -411,7 +417,7 @@ for(stat in names(sim_ll)){
 	rm_post_stats <- rbind(rm_post_stats, rmvals)	
 	rj_post_stats <- rbind(rj_post_stats, rjvals)
 	smoothed_rm[[stat]] <- smooth_rm
-	smoother_rj[[stat]] <- smooth_rj	
+	smoothed_rj[[stat]] <- smooth_rj	
 }
 
 colnames(rm_post_stats) <- c("mean", "sd", "2.5%", "97.5%")
@@ -423,7 +429,7 @@ rownames(rj_post_stats) <- names(sim_ll)
 dev.new()
 par(mfrow = c(5, 2))
 for(stat in names(sim_ll)){
-	plot(smoothed_rm[[stat]], main = paste0("ratemove ", stat), type = "l")
+	plot(smoothed_rm[[stat]], main = paste0("ratemove ", stat), type = "l", xlim = c(0, 0.2))
 	abline(v=rm_post_stats[stat, 1], col = "blue")
 	abline(v=rm_post_stats[stat, 1]+rm_post_stats[stat, 2], col = "blue")
 	abline(v=rm_post_stats[stat, 1]-rm_post_stats[stat, 2], col = "blue")
@@ -435,7 +441,7 @@ for(stat in names(sim_ll)){
 dev.new()
 par(mfrow = c(5, 2))
 for(stat in names(sim_ll)){
-	plot(smooth_rj[[stat]], main = paste0("ratejump ", stat), type = "l")
+	plot(smoothed_rj[[stat]], main = paste0("ratejump ", stat), type = "l")
 	abline(v=rj_post_stats[stat, 1], col = "blue")
 	abline(v=rj_post_stats[stat, 1]+rm_post_stats[stat, 2], col = "blue")
 	abline(v=rj_post_stats[stat, 1]-rm_post_stats[stat, 2], col = "blue")
