@@ -2,14 +2,17 @@ library(testthat)
 library(verification)
 library(msm)
 source("../spatcontrol/spatcontrol.R", chdir=TRUE) #has all the spatial analysis + convergence functions
-source("logLik.R") # override some sl functions and add synLik
-source("functions_migration.R")
+source("logLik.R", chdir=TRUE) # override some sl functions and add synLik
+source("functions_migration.R", chdir=TRUE)
+
+# name the simulation
+nameSimul <- "grid48x48_preAnalysis_geary_moran_gridregression_oldnew_5000by5000_loinit"
 
 # set spam memory options
 spam.options(nearestdistnnz=c(13764100,400))
 
 # set seed
-seedSimul <- 100000
+seedSimul <- 123456789
 
 #======================
 # Set details of grid (simulation environment)
@@ -42,7 +45,7 @@ stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHop
 startInfestH <- ceiling(num.rows*(num.rows/2) + num.rows/2)
 startInfestH <- c(startInfestH + 1, startInfestH - 1) 
 
-randominitdays <- 52
+randominitdays <- 52 #if >0, will generate a starting infestation with model from startInfestH
 
 #=======================
 # Pick length of simulation
@@ -60,8 +63,8 @@ detectRate <- 1 # true detection rate (1 == don't remove data)
 sampleDR <- FALSE # if true, MCMC will sample over error rates
 defaultDR <- 1 # DR assumed by multiGilStat (1 if detectRate==1, can set to 0.7, only used if !sampleDR)
 
-realMeans <- c(0.035, 0.500, 0.80)
-priorMeans<-c(0.035, 0.5, 0.80) #should be realMeans (unless want some sort of skewed prior) 
+realMeans <- c(0.04, 0.100, 0.80)
+priorMeans<-c(0.04, 0.100, 0.80) #should be realMeans (unless want some sort of skewed or uniform prior) 
 priorSd <- c(0.75, 0.25, 0.20)
 priorType <- c("lnorm", "unif", "boundednorm")
 priorIntervals <- list(NULL, c(0, 1), c(0, 1)) # only considered if priorType is bounded
@@ -129,11 +132,10 @@ for(part in 1:length(partitionSizes))
 # make the concentric circles
 circles <- conc.circles(maps$X, maps$Y, circleRadii, startInfestH) 
 
-
 #========================
-# 5000 repetitions from real values
+# 2000 repetitions from real values
 #========================
-real_reps <- 5000 
+real_reps <- 2000 
 
 ts <- Sys.time()
 
@@ -144,7 +146,6 @@ te <- Sys.time()
 print(te-ts)
 
 real_sims_stats <- real_sims$statsTable
-
 #========================
 # Simulations and their statistics
 #========================
@@ -190,71 +191,50 @@ for(draw in 1:num_draws){
 
 names(sim_params) <- c("rateMove", "rateJump") #assign names
 sim_stats <- as.matrix(sim_stats) #convert dataframe to matrix
+dim(sim_stats)
 
 # assign which statistics are which (may have to be done manually if change statistics)
-grid_stats <- 1:(length(partitionSizes)*6)
-grid_var_stats <- grid_stats[which(grid_stats %% 6 == 1)]
-grid_count_stats <- grid_stats[which(grid_stats %% 6 == 2)]
-grid_regression_stats <- grid_stats[which(grid_stats %% 6 %in% c(3:5, 0))]
+grid_stats <- 1:(length(partitionSizes)*7)
+grid_var_stats <- grid_stats[which(grid_stats %% 7 == 1)]
+grid_count_stats <- grid_stats[which(grid_stats %% 7 == 2)]
+grid_regression_stats <- grid_stats[which(grid_stats %% 7 %in% c(3:6, 0))]
 circ_stats <- grid_stats[length(grid_stats)] + 1:((length(circleRadii)-1)*2)
-semivar_stats <- circ_stats[length(circ_stats)] + 1:((length(genIntervals)-1)*4)
-semivar_newnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% 1:2)] 
-semivar_oldnew_stats <- semivar_stats[which(semivar_stats %% 4 %in% c(3, 0))] 
-num_inf_stats <- semivar_stats[length(semivar_stats)]+1
+pairwise_stats <- circ_stats[length(circ_stats)] + 1:((length(genIntervals)-1)*6)
+semivar_newnew_stats <- pairwise_stats[which(floor(0:(length(pairwise_stats)-1)/(length(genIntervals)-1)) %in% 0:1)]
+semivar_oldnew_stats <- pairwise_stats[which(floor(0:(length(pairwise_stats)-1)/(length(genIntervals)-1)) %in% 2:3)]
+moran_stats <- pairwise_stats[which(floor(0:(length(pairwise_stats)-1)/(length(genIntervals)-1)) == 4)]
+geary_stats <- pairwise_stats[which(floor(0:(length(pairwise_stats)-1)/(length(genIntervals)-1)) == 5)]
+num_inf_stats <- pairwise_stats[length(pairwise_stats)]+1
 
-stop()
 #========================
 # Calculating likelihoods
 #========================
 sim_ll <- data.frame()
-sim_ll2 <- data.frame()
-tll1 <- 0
-tll2 <- 0
 for(draw in 1:num_draws){
 
 	print(draw)
-	
-	ll <- rep(0, 10)
-	#ll[1] <- synLik(real_sims_stats, sim_stats[draw, ], trans = NULL)
-	#ll[2] <- synLik(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
-	ll[3] <- synLik(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
-	ll[4] <- synLik(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
-	#ll[5] <- synLik(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
 
-	start1 <- Sys.time()
-	ll[6] <- synLik(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
-	ll[7] <- synLik(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
-	ll[8] <- synLik(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
-	ll[9] <- synLik(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)	
-	end1 <- Sys.time()
-	ll[10] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
+	ll <- rep(0, 12)
+	ll[1] <- synLik.modified(real_sims_stats, sim_stats[draw, ], trans = NULL)
+	ll[2] <- synLik.modified(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
+	ll[3] <- synLik.modified(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
+	ll[4] <- synLik.modified(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
+	ll[5] <- synLik.modified(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
+	ll[6] <- synLik.modified(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
+	ll[7] <- synLik.modified(real_sims_stats[pairwise_stats, ], sim_stats[draw, pairwise_stats], trans = NULL)
+	ll[8] <- synLik.modified(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
+	ll[9] <- synLik.modified(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)
+	ll[10] <- synLik.modified(real_sims_stats[moran_stats, ], sim_stats[draw, moran_stats], trans = NULL)
+	ll[11] <- synLik.modified(real_sims_stats[geary_stats, ], sim_stats[draw, geary_stats], trans = NULL)
+	ll[12] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
+
 	sim_ll <- rbind(sim_ll, ll)
-
-
-	ll2 <- rep(0, 10)
-	ll2[1] <- synLik.modified(real_sims_stats, sim_stats[draw, ], trans = NULL)
-	ll2[2] <- synLik.modified(real_sims_stats[grid_stats, ], sim_stats[draw, grid_stats], trans = NULL)
-	ll2[3] <- synLik.modified(real_sims_stats[grid_var_stats, ], sim_stats[draw, grid_var_stats], trans = NULL)
-	ll2[4] <- synLik.modified(real_sims_stats[grid_count_stats, ], sim_stats[draw, grid_count_stats], trans = NULL)
-	ll2[5] <- synLik.modified(real_sims_stats[grid_regression_stats, ], sim_stats[draw, grid_regression_stats], trans=NULL)
-	start2 <- Sys.time()
-	ll2[6] <- synLik.modified(real_sims_stats[circ_stats, ], sim_stats[draw, circ_stats], trans = NULL)
-	ll2[7] <- synLik.modified(real_sims_stats[semivar_stats, ], sim_stats[draw, semivar_stats], trans = NULL)
-	ll2[8] <- synLik.modified(real_sims_stats[semivar_newnew_stats, ], sim_stats[draw, semivar_newnew_stats], trans = NULL)	
-	ll2[9] <- synLik.modified(real_sims_stats[semivar_oldnew_stats, ], sim_stats[draw, semivar_oldnew_stats], trans = NULL)
-	end2 <- Sys.time()
-	ll2[10] <- log(density(real_sims_stats[num_inf_stats, ], from=sim_stats[draw, num_inf_stats], to=sim_stats[draw, num_inf_stats], n=1)$y)
-
-	tll1 <- tll1 + difftime(end1, start1, units = "secs")
-	tll2 <- tll2 + difftime(end2, start2, units = "secs")
-
-	sim_ll2 <- rbind(sim_ll2, ll2)
 
 }
 
-names(sim_ll) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "semivar_stats", "semivar_new-new_stats", "semivar_old-new_stats", "num_inf_stats") 
-names(sim_ll2) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "semivar_stats", "semivar_new-new_stats", "semivar_old-new_stats", "num_inf_stats") 
+names(sim_ll) <- c("all_stats", "grid_stats", "grid_var_stats", "grid_count_stats", "grid_regression_stats", "circ_stats", "pairwise_stats", "semivar_new-new_stats", "semivar_old-new_stats", "moran_stats", "geary_stats", "num_inf_stats") 
 
+save.image("env.RData")
 stop()
 
 #==================
@@ -400,7 +380,7 @@ for(stat in names(sim_ll)){
 	area <- trapz(smooth_rj$x, smooth_rj$y)
 	smooth_rj$y <- smooth_rj$y/area
 	mean_rj <- trapz(smooth_rj$x, smooth_rj$y*smooth_rj$x)
-	var_rj <- trapz(smooth_rj$x, smooth_rj$y*smooth_rj$x*smooth_rj$x) - mean_rm^2
+	var_rj <- trapz(smooth_rj$x, smooth_rj$y*smooth_rj$x*smooth_rj$x) - mean_rj^2
 	cr_rj <- density_crI(smooth_rj$x, smooth_rj$y)
 
 	rmvals <- rep(0, 4)
@@ -443,8 +423,8 @@ par(mfrow = c(5, 2))
 for(stat in names(sim_ll)){
 	plot(smoothed_rj[[stat]], main = paste0("ratejump ", stat), type = "l")
 	abline(v=rj_post_stats[stat, 1], col = "blue")
-	abline(v=rj_post_stats[stat, 1]+rm_post_stats[stat, 2], col = "blue")
-	abline(v=rj_post_stats[stat, 1]-rm_post_stats[stat, 2], col = "blue")
+	abline(v=rj_post_stats[stat, 1]+rj_post_stats[stat, 2], col = "blue")
+	abline(v=rj_post_stats[stat, 1]-rj_post_stats[stat, 2], col = "blue")
 	abline(h=rj_post_stats[stat, 5], col = "red")
 	abline(v=realMeans["weightJumpInMove"], col = "green")
 }

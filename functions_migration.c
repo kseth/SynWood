@@ -351,15 +351,22 @@ void generateProbMat(double* halfDistJ,
 	}
 }
 
-void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins){  
+void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex){  
 
 	int ind=0;
+	double prevalence = *endIndex + 1;
+	prevalence /= *n;
+	double sq_residual_prevalence = 0;
 	double v=0.;
 	double v_on=0.;
+	double v_moran=0.;
+	double v_geary=0.;
   	double *vbin = stats; //new new global semivar
   	double *sdbin = stats+ *nbins -1; //new new global sd
 	double *vbin_on = sdbin + *nbins -1; //new old global semivar 
 	double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
+	double *vbin_moran = sdbin_on + *nbins-1; //moran's I
+	double *vbin_geary = vbin_moran + *nbins-1; //geary's C
 
 	// this loop covers only unique i,j pairs
 	for (int i=0; i< *n; i++){  // loop on all points
@@ -368,12 +375,14 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			// general variogram
 			ind = *(dist_index + (i* *n) + j);
 
-			if (ind != -1){   
+			if (ind != -1){
+			        //(new-new) semivariance	
 				v = inf_data[i] - inf_data[j];
 				v = v*v;
 				vbin[ind]+= v; 
 				sdbin[ind] += v*v;
 
+				//(old-new) semivariance
 				//need to go both ways (since i->j is not symmetric anymore)
 				v_on = start_inf_data[i] - inf_data[j];
 				v_on = v_on*v_on;
@@ -384,20 +393,34 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				v_on = v_on*v_on;
 				vbin_on[ind]+=v_on;
 				sdbin_on[ind]+=v_on*v_on;
+			
+				//moran's I
+				v_moran = (inf_data[i] - prevalence) * (inf_data[j] - prevalence);
+				vbin_moran[ind] += v_moran;
+
+				//geary's C
+				v_geary = inf_data[i] - inf_data[j];
+				v_geary = v_geary*v_geary;
+				vbin_geary[ind] += v_geary;	
 			}
 		}
+
+		sq_residual_prevalence += (inf_data[i] - prevalence) * (inf_data[i] - prevalence); //normalizing factor for geary + moran
 	}
 
 	// for each dist class finalize the computation of semi-variance
 	for (int class=0; class < (*nbins-1); class++) 
 	{
+
 		if (cbin[class]>0)
 		{
+			//remember cbin[class]=half number pairs in distance class 
 			sdbin[class] = sqrt((sdbin[class] - ((vbin[class] * vbin[class])/cbin[class]))/(4*(cbin[class] - 1)));
-			vbin[class] = vbin[class]/(2*cbin[class]);
-			sdbin_on[class] = sqrt((sdbin_on[class] - ((vbin_on[class] * vbin_on[class])/cbin[class]))/(4*(cbin[class] - 1)));
-			vbin_on[class] = vbin_on[class]/(2*cbin[class]);
-
+			vbin[class] = vbin[class]/(2*cbin[class]); 
+			sdbin_on[class] = sqrt((sdbin_on[class] - ((vbin_on[class] * vbin_on[class])/(2*cbin[class])))/(16*(cbin[class] - 1)));
+			vbin_on[class] = vbin_on[class]/(4*cbin[class]);
+			vbin_moran[class] = (vbin_moran[class] * *n)/(cbin[class] * sq_residual_prevalence);
+			vbin_geary[class] = (vbin_geary[class] * (*n - 1))/(2*cbin[class] * sq_residual_prevalence);
 		}
 		else
 		{
@@ -405,7 +428,10 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin[class]=NAN;
 			sdbin_on[class]=NAN;
 			vbin_on[class]=NAN;
+			vbin_moran[class]=NAN;
+			vbin_geary[class]=NAN;
 		}
+
 	}
 
 }
@@ -756,7 +782,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//create *dx and *dy and *coeff (used in regression)
 	double *dx, *dy;
-	double coeff[4];
+	double coeff[5];
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
@@ -786,20 +812,20 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		//calculate the regression coefficients
 		//sort so that we have a "quantile like distribution"
 		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);		
-		polynomialfit(*(gridNumCells+grid), 4, dx, dy, coeff);
+		polynomialfit(*(gridNumCells+grid), 5, dx, dy, coeff);
 
 		//store positive count in gridstats
-		stats[grid*6] = positivecount; 
+		stats[grid*7] = positivecount; 
 		//store the variance of the percent positive
-		stats[grid*6+1] = varPP;
+		stats[grid*7+1] = varPP;
 		//store the regression coefficients
-		stats[grid*6+2] = coeff[0];
-		stats[grid*6+3] = coeff[1];
-		stats[grid*6+4] = coeff[2];
-		stats[grid*6+5] = coeff[3];
+		stats[grid*7+2] = coeff[0];
+		stats[grid*7+3] = coeff[1];
+		stats[grid*7+4] = coeff[2];
+		stats[grid*7+5] = coeff[3];
+		stats[grid*7+6] = coeff[4];
 	
-		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);
-			
+		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);	
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
@@ -809,7 +835,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 
 	// the last statistic is number of positive houses
-	stats[*numDiffGrids*6] = *endIndex + 1;
+	stats[*numDiffGrids*7] = *endIndex + 1;
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
@@ -868,7 +894,7 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 	
 } 
 
-void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* startInfested, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks){  
+void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* startInfested, int* cbin, int* cbinas, int* cbinsb, int* sizeVvar, double* stats, int* nbins, int* blockIndex, int* haveBlocks, int* endIndex){  
 	
 	// cast infestedInit, startInfested from integer to double
   	double semivarianceData[*L];
@@ -890,18 +916,15 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 		//now calculate 3 more stats:
 		//number infested houses, number infested blocks, number infested houses/number infested blocks
 		
-		int infCount = 0;
 		int currentBlock = 0;
 		int maxBlock = -1;
 		int minBlock = *L + 1;
 	
 	    	int infBlockCount = 0;
 		for(int spot = 0; spot < *L; spot++){
-			if(infestedInit[spot] == 1){
-				infCount++; // infested houses
-	            
-	            // to count the infested blocks
-	            // find the maximum number of infested blocks
+			if(infestedInit[spot] == 1){ 
+	           	 // to count the infested blocks
+	            	 // find the maximum number of infested blocks
 				currentBlock = blockIndex[spot];
 				if(currentBlock > maxBlock)
 					maxBlock = currentBlock;
@@ -928,29 +951,21 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 				infBlockCount++;
 	
 	    // save the corresponding stats
-		*(stats + startGVar) = (double)infCount;
+		*(stats + startGVar) = *endIndex + 1;
 		*(stats + startGVar + 1) = (double)infBlockCount;
-		*(stats + startGVar + 2) = ((double)infCount)/((double)infBlockCount);
+		*(stats + startGVar + 2) = ((double)(*endIndex + 1))/((double)infBlockCount);
 	}else{ // don't have blocks
 
 		// calculate semi-variance stats
 		int startGVar=*rep* *nbStats;
-		modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins); 
+		modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins, endIndex); 
 	
 		// move position over by that many stats	
 		startGVar += *sizeVvar;
 	
 		//now calculate 1 more stat:
 		//number infested houses		
-		int infCount = 0;
-		for(int spot = 0; spot < *L; spot++){
-			if(infestedInit[spot] == 1){
-				infCount++; // infested houses
-	           	}
-		} 
-
-		// save the corresponding stats
-		*(stats + startGVar) = (double)infCount;
+		*(stats + startGVar) = *endIndex + 1;
 	}
 }
 
@@ -1041,7 +1056,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	 	}
 
 	 	if(*getStats==1){
-	 		get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, &haveBlocks);
+	 		get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, sizeVvar, stats, nbins, blockIndex, &haveBlocks, endIndex);
 	 	}
 
 	 	if(*simul==0){ // no simulations, just stats 
@@ -1104,7 +1119,7 @@ void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColInde
 
 				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
 				switch(matchStats[stat]){
-	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, sizeVvar, semivarstats, nbins, blockIndex, haveBlocks); break;
+	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, sizeVvar, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					default: printf("stat that isn't supported yet\n"); break;

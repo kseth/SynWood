@@ -221,7 +221,7 @@ robust.vcov.modified <- function(sY,alpha=2,beta=1.25) {
   D <- rowMeans(sY1*sY1)^.5
   Di <- 1/D  ## diagonal pre-conditioner
   sY1 <- Di*sY1 ## pre-conditioned for better scaling
-  
+
   R <- qr.R(qr(w*t(sY1)))/sqrt(sum(w*w)-1) ## Va = DR'RD
   sd <- rowSums((D*t(R))^2)^.5
   E <- t(Di*backsolve(R,diag(nrow(R))))                   ## V^{-1} = E'E 

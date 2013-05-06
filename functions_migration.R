@@ -856,11 +856,13 @@ if(class(importOk)!="try-error"){
 					## General Semivariance Std. Dev. (new - new)
 					## General Semivariance (old - new)
 					## General Semivariance Std. Dev (old - new)
-					##	= 4 * length(cbin)
+					## Moran's I
+					## Geary's C
+					##	= 6 * length(cbin)
 					## Number Infested Houses
-					##	= 4 * length(cbin) + 1
+					##	= 6 * length(cbin) + 1
 					###===================================
-					sizeVvar <- 4*length(cbin)
+					sizeVvar <- 6*length(cbin)
 					semivar.nbStats <- sizeVvar + 1
 				}
 
@@ -904,19 +906,14 @@ if(class(importOk)!="try-error"){
 				## Variance of % positive per cell
 				## Number Cells with at least 1 positive 
 				## Fit quantile distribution to polynomial
-				## a + bx + cx^2 + d (4 stats) 
-				##	= 6 * numDiffGrids
+				## a + bx + cx^2 + dx^3 + ex^4 (4 stats) 
+				##	= 7 * numDiffGrids
 				## (overall)
 				## Number Infested Houses
-				##	= 6 * numDiffGrids + 1
+				##	= 7 * numDiffGrids + 1
 				###===================================
-				grid.nbStats <- 6*numDiffGrids+1
-				
-				if(haveBlocks) ## add two more block stats computations
-					grid.nbStats <- grid.nbStats + 2
-				
-				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
-						
+				grid.nbStats <- 7*numDiffGrids+1		
+				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)			
 			}
 
 			if("circles" %in% typeStat){
@@ -942,7 +939,6 @@ if(class(importOk)!="try-error"){
 				###===================================
 				circle.nbStats <- 2*numDiffCircles + 1
 				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
-
 			}
 
 		}
@@ -1032,6 +1028,7 @@ if(class(importOk)!="try-error"){
 		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
 		# will cause issues in variance, covariance matrix
 		# out$grid.statsTable <- out$grid.statsTable[-11, ]
+		# no longer removing stat 11
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
