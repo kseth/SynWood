@@ -1286,6 +1286,19 @@ predictBasicModel<-function(maps,infestInitName,model=basicModel,timePredictOver
   return(predicted)
 }
 
+# group the nodes that are within tr of each others
+# Nodes: 
+percolation_circle<-function(dists,tr){
+  n<-dim(dists)[1]
+  Groups<-rep(-1,n)
+  out<-.C("percolation_circle",
+	  Nodes=as.integer(Groups),
+	  n=as.integer(n),
+	  dists=as.numeric(dists),
+	  tr=as.numeric(tr))
+  return(out$Nodes)
+}
+
 # Tests
 # test_file("test-functions_migration.R")
 

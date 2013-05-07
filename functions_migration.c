@@ -974,13 +974,16 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 // Functions for percolation stat
 //=======================================
 // int remonte_liens2(int *Grille,int num_case){
-int follow_link(int *Grille,int num_case){
+int follow_link(int *Grille,int sizeGrille, int num_case){
+	// sizeGrille, for security of the while loop: stop if more than sizeGrille iterations
 	// remonte les liens de Grille
 	// et retourne le numéro de la case initiale 
 	// printf("num_case_init %i Grille[num_case] %i \n",num_case,Grille[num_case]);
-	while (Grille[num_case]!=num_case){
+	int nbit=0;
+	while (Grille[num_case]!=num_case || nbit>sizeGrille){
 		num_case=Grille[num_case];// passe a la case suivante
 		// printf("num_case %i\n",num_case);
+		nbit++;
 	}
 	// printf("num_case_final %i\n",num_case);
 
@@ -993,34 +996,39 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// and corresponding 0 within tr
 	// return Nodes with 0: not in a group
 	// other integers correspond to cliques
+	printf("entering_perc_circles\n");
 	
 	// different integer in all non 0 node
 	int toUpdate[*n]; // vector with neighbors to update
 	int minFlag=0;
 	int itu=0;
-	int z=0;
-	for ( z = 1; z < *n+1; z += 1 ) { 
-	  Nodes[z]=z;
+	for ( int z = 0; z < *n; z += 1 ) { 
+	  *(Nodes+z)=z;
 	}
-	printf("debut_percolation\n");
+	printf("debut_percolation for %d items\n",*n);
 	// create the links
 	for (int i = 0; i < *n; i += 1 ){ 
+	  printf("item: %d\n",i);
 	  minFlag = Nodes[i];
 	  itu = 0;
 	  for(int di = 0; di < i; di+=1){
+	    printf("i %d,n %d;",i,di);
 	    int neigh = i* *n+di;
 	    if(dists[neigh]<*tr){
-	      int flag = follow_link(Nodes,neigh);
+	      int flag = follow_link(Nodes,*n,di);
+	      printf("flag found: %d\n",flag);
 	      if(flag<minFlag){
-		minFlag= flag;
+	         minFlag= flag;
 	      }
-	      toUpdate[itu] = neigh; // add neigh to correct
+	      toUpdate[itu] = di; // add neigh to correct
 	      itu++;
 	    }
 	  }
+
+	  printf("found: %d neighbors minimum flag %d\n",itu,minFlag);
 	  toUpdate[itu] = -1; // set stop flag
-	  for(int i = 0; i<itu;i++){
-	    Nodes[toUpdate[i]] = minFlag;
+	  for(int k = 0; k<itu;k++){
+	    Nodes[toUpdate[k]] = minFlag;
 	  }
 	  Nodes[i] = minFlag;
 	}
@@ -1028,34 +1036,13 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// affiche_tableau(Nodes,h,l);
 	// affectation de tous les liens
 	for (int k = 0; k < *n; k += 1 ) { 
-	    Nodes[k]=follow_link(Nodes,k);
+	    Nodes[k]=follow_link(Nodes,*n,k);
 	}
 	printf("percolateur filled\n");
+
 	// affiche_tableau(Percolateur,h,l);
-
-	// teste si il y a percolation
-	// il y percolation si au moins l'un des chiffres du haut a atteint le bas
-	// vu que les chiffres du haut sont croissants et petits
-	// il suffit de comparer le plus petit du bas et le plus grand du haut
-	// // Here we don't care about the percolation high to low
-	// int max_haut=-2341532;
-	// int min_bas=*n+1;
-	// for ( j = 0; j < l; j += 1 ) { 
-	// 	int val_haut=Percolateur[j];
-	// 	max_haut=(max_haut>val_haut)?max_haut:val_haut;
-	// 
-	// 	int val_bas=Percolateur[(h-1)*l+j];
-	// 	val_bas=(-1==val_bas)?min_bas:val_bas; // évite les cases grain
-	// 	min_bas=(min_bas<val_bas)?min_bas:val_bas;
-	// }
-	// if(max_haut>=min_bas){
-	// 	passe=1;
-	// }else{
-	// 	passe=0;
-	// }
-	// printf("max_haut %i min_bas %i passe %i \n",max_haut,min_bas,passe);
-
 }
+
 void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate, int* seed){
 
 	if(*detectRate<1){ //if we have some error
