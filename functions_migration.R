@@ -858,11 +858,13 @@ if(class(importOk)!="try-error"){
 					## General Semivariance Std. Dev (old - new)
 					## Moran's I
 					## Geary's C
-					##	= 6 * length(cbin)
+					## Ripley's K
+					## Ripley's L
+					##	= 8 * length(cbin)
 					## Number Infested Houses
-					##	= 6 * length(cbin) + 1
+					##	= 8 * length(cbin) + 1
 					###===================================
-					sizeVvar <- 6*length(cbin)
+					sizeVvar <- 8*length(cbin)
 					semivar.nbStats <- sizeVvar + 1
 				}
 

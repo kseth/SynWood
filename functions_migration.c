@@ -368,6 +368,8 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 	double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
 	double *vbin_moran = sdbin_on + *nbins-1; //moran's I
 	double *vbin_geary = vbin_moran + *nbins-1; //geary's C
+	double *vbin_ripleyk = vbin_geary + *nbins-1; //ripley's K
+	double *vbin_ripleyl = vbin_ripleyk + *nbins-1; //ripley's L
 
 	// this loop covers only unique i,j pairs
 	for (int i=0; i< *n; i++){  // loop on all points
@@ -402,7 +404,13 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				//geary's C
 				v_geary = inf_data[i] - inf_data[j];
 				v_geary = v_geary*v_geary;
-				vbin_geary[ind] += v_geary;	
+				vbin_geary[ind] += v_geary;
+
+				//ripley's K and L functions
+				if(inf_data[i] == 1 && inf_data[j] == 1){
+					vbin_ripleyk[ind] += 1;
+					vbin_ripleyl[ind] += 1;
+				}		
 			}
 		}
 
@@ -422,6 +430,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_on[class] = vbin_on[class]/(4*cbin[class]);
 			vbin_moran[class] = (vbin_moran[class] * *n)/(cbin[class] * sq_residual_prevalence);
 			vbin_geary[class] = (vbin_geary[class] * (*n - 1))/(2*cbin[class] * sq_residual_prevalence);
+			vbin_ripleyl[class] = sqrt(vbin_ripleyl[class]);
 		}
 		else
 		{
@@ -431,6 +440,8 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_on[class]=NAN;
 			vbin_moran[class]=NAN;
 			vbin_geary[class]=NAN;
+			vbin_ripleyk[class]=NAN;
+			vbin_ripleyl[class]=NAN;
 		}
 
 	}
