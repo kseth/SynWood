@@ -2,7 +2,7 @@
 source("functions_migration.R")
 source("param.r")
 
-# test_that("percolation computations",{
+test_that("percolation computations",{
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -14,39 +14,60 @@ xs<-rep(seq(1,cote),cote)
 ys<-rep(seq(1,cote),each=cote)
 dists<-as.matrix(dist(cbind(xs,ys))) # matrix of distances between points
 # plot(xs,ys)
-## starting point 
+
+basicSimulation<-function(xs,ys,zs,dists){
+  ## simulation
+  nEnd<-50
+  for(i in 1:nEnd){
+    # draw an init
+    alreadyPos<-which(zs==1)
+    if(length(alreadyPos)>1){
+      init<-sample(alreadyPos,1)
+    }else{
+      init<-alreadyPos
+    }
+    # draw a final
+    zs[sample(which(dists[init,]<limDist),1)]<-1
+    # plot_reel(xs,ys,zs,base=0)
+  }
+
+  ## stats
+  pos<-which(zs==1)
+  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
+
+  percGroups<-percolation_circle(dists[pos,pos],3)
+
+  # par(mfrow=c(1,2))
+  # plot(xs,ys,col=zs+2,type="n")
+  # text(xs[pos],ys[pos],0:(length(pos)-1))
+  # plot(xs,ys,pch=".")
+  # text(xs[pos],ys[pos],percGroups)
+
+  return(list(zs=zs,pos=pos,percGroups=percGroups))
+}
+
+## tests with != starting points 
+# basic one cluster
 zs<-0*xs
 zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 # plot_reel(xs,ys,zs,base=0)
 
-## simulation
-nEnd<-50
-for(i in 1:nEnd){
-  # draw an init
-  alreadyPos<-which(zs==1)
-  if(length(alreadyPos)>1){
-    init<-sample(alreadyPos,1)
-  }else{
-    init<-alreadyPos
-  }
-  # draw a final
-  zs[sample(which(dists[init,]<limDist),1)]<-1
-  # plot_reel(xs,ys,zs,base=0)
-}
-par(mfrow=c(1,2))
-plot(xs,ys,col=zs+2)
+out<-basicSimulation(xs,ys,zs,dists)
+expect_equal(out$percGroups,rep(0,length(out$pos)))
 
-## stats
-pos<-which(zs==1)
-# ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
-
-percGroups<-percolation_circle(dists[pos,pos],3)
-plot(xs,ys,pch=".")
-text(xs[pos],ys[pos],percGroups)
-
-
-
-# } # end test_that
+# three clusters
+# seed<-sample(10000,1)
+# cat("seed:",seed,"\n")
+# set.seed(seed)
+set.seed(3853)
+zs<-0*xs
+zs[1]<-1
+zs[length(zs)]<-1
+zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
+out<-basicSimulation(xs,ys,zs,dists)
+correct<-c(rep(0,6),rep(6,22),rep(28,15))
+expect_equal(out$percGroups,correct)
+}) # end test_that
 
 ## was broken by missing maps, to restore
 # test_that("semi-variogram computations",{

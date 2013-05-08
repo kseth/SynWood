@@ -1007,7 +1007,7 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// and corresponding 0 within tr
 	// return Nodes with 0: not in a group
 	// other integers correspond to cliques
-	printf("entering_perc_circles\n");
+	// printf("entering_perc_circles\n");
 	
 	// different integer in all non 0 node
 	int toUpdate[*n]; // vector with neighbors to update
@@ -1016,40 +1016,40 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	for ( int z = 0; z < *n; z += 1 ) { 
 	  *(Nodes+z)=z;
 	}
-	printf("debut_percolation for %d items\n",*n);
+	// printf("debut_percolation for %d items\n",*n);
 	// create the links
 	for (int i = 0; i < *n; i += 1 ){ 
-	  printf("item: %d\n",i);
+	  // printf("item: %d\n",i);
 	  minFlag = Nodes[i];
 	  itu = 0;
 	  for(int di = 0; di < i; di+=1){
-	    printf("i %d,n %d;",i,di);
+	    // printf("i %d,n %d;",i,di);
 	    int neigh = i* *n+di;
 	    if(dists[neigh]<*tr){
 	      int flag = follow_link(Nodes,*n,di);
-	      printf("flag found: %d\n",flag);
+	      // printf("flag found: %d\n",flag);
 	      if(flag<minFlag){
 	         minFlag= flag;
 	      }
-	      toUpdate[itu] = di; // add neigh to correct
+	      toUpdate[itu] = flag; // add neigh to correct
 	      itu++;
 	    }
 	  }
 
-	  printf("found: %d neighbors minimum flag %d\n",itu,minFlag);
+	  // printf("found: %d neighbors minimum flag %d\n",itu,minFlag);
 	  toUpdate[itu] = -1; // set stop flag
 	  for(int k = 0; k<itu;k++){
 	    Nodes[toUpdate[k]] = minFlag;
 	  }
 	  Nodes[i] = minFlag;
 	}
-	printf("calcul perco ok\n");
+	// printf("calcul perco ok\n");
 	// affiche_tableau(Nodes,h,l);
 	// affectation de tous les liens
 	for (int k = 0; k < *n; k += 1 ) { 
 	    Nodes[k]=follow_link(Nodes,*n,k);
 	}
-	printf("percolateur filled\n");
+	// printf("percolateur filled\n");
 
 	// affiche_tableau(Percolateur,h,l);
 }
