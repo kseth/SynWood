@@ -28,23 +28,14 @@ basicSimulation<-function(xs,ys,zs,dists){
     zs[sample(which(dists[init,]<limDist),1)]<-1
     # plot_reel(xs,ys,zs,base=0)
   }
-
-  ## stats
   pos<-which(zs==1)
-  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
-
-  percGroups<-percolation_circle(dists[pos,pos],3)
-
-  # par(mfrow=c(1,2))
-  # plot(xs,ys,col=zs+2,type="n")
-  # text(xs[pos],ys[pos],0:(length(pos)-1))
-  # plot(xs,ys,pch=".")
-  # text(xs[pos],ys[pos],percGroups)
-
-  return(list(zs=zs,pos=pos,percGroups=percGroups))
+  return(list(zs=zs,pos=pos))
 }
 
+  ## stats
+  
 test_that("percolation computations",{
+	  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
 
 ## tests with != starting points 
 # basic one cluster
@@ -53,7 +44,14 @@ zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 # plot_reel(xs,ys,zs,base=0)
 
 out<-basicSimulation(xs,ys,zs,dists)
-expect_equal(out$percGroups,rep(0,length(out$pos)))
+percGroups<-percolation_circle(dists[out$pos,out$pos],3)
+# par(mfrow=c(1,2))
+# plot(xs,ys,col=zs+2,type="n")
+# text(xs[pos],ys[pos],0:(length(pos)-1))
+# plot(xs,ys,pch=".")
+# text(xs[pos],ys[pos],percGroups)
+
+expect_equal(percGroups,rep(0,length(out$pos)))
 
 # three clusters
 # seed<-sample(10000,1)
@@ -66,7 +64,9 @@ zs[length(zs)]<-1
 zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 out<-basicSimulation(xs,ys,zs,dists)
 correct<-c(rep(0,6),rep(6,22),rep(28,15))
-expect_equal(out$percGroups,correct)
+percGroups<-percolation_circle(dists[out$pos,out$pos],3)
+# par(mfrow=c(1,2))
+expect_equal(percGroups,correct)
 }) # end test_that
 
 ## was broken by missing maps, to restore
