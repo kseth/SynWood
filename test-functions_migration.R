@@ -1,8 +1,6 @@
 # tests
 source("functions_migration.R")
-source("param.r")
-
-test_that("percolation computations",{
+# source("param.r")
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -45,6 +43,8 @@ basicSimulation<-function(xs,ys,zs,dists){
 
   return(list(zs=zs,pos=pos,percGroups=percGroups))
 }
+
+test_that("percolation computations",{
 
 ## tests with != starting points 
 # basic one cluster
