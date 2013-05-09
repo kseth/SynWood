@@ -353,6 +353,7 @@ void generateProbMat(double* halfDistJ,
 }
 
 void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex){  
+  // Calculate all the pair-wise statistics
 
 	int ind=0;
 	double prevalence = *endIndex + 1;
@@ -397,16 +398,16 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				vbin_on[ind]+=v_on;
 				sdbin_on[ind]+=v_on*v_on;
 			
-				//moran's I
+				// Moran's I
 				v_moran = (inf_data[i] - prevalence) * (inf_data[j] - prevalence);
 				vbin_moran[ind] += v_moran;
 
-				//geary's C
+				// Geary's C
 				v_geary = inf_data[i] - inf_data[j];
 				v_geary = v_geary*v_geary;
 				vbin_geary[ind] += v_geary;
 
-				//ripley's K and L functions
+				// Ripley's K and L functions
 				if(inf_data[i] == 1 && inf_data[j] == 1){
 					vbin_ripleyk[ind] += 1;
 					vbin_ripleyl[ind] += 1;
@@ -980,6 +981,32 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 		*(stats + startGVar) = *endIndex + 1;
 	}
 }
+//=======================================
+// At risk stat
+// - according to dist give the number of points 
+//   within dist of infested
+//=======================================
+void at_risk_stat(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
+  // in at_risk (n*nTr) return for each tr and each node if at risk
+  // the distances must be increasing in trs
+  
+  for(int node =0;node<*n;node++){ 
+    int lnode = node * *nTr; // line for the node with != tr
+    int atRisk = 0; // indicator that at risk with at least one tr
+    for(int itr=0;itr< *nTr;itr++){ 
+      int ipos = 0;
+      while(ipos<*nPosnodes && atRisk ==0){ 
+	int neigh = posnodes[ipos];
+	if(dists[node* *n + neigh]<trs[itr]){ 
+	  atRisk = 1; // if at risk with smal tr, at risk with bigger tr
+	}
+	ipos++;
+      }
+      at_risk[lnode+itr]=atRisk;
+    }
+  }
+}
+
 
 //=======================================
 // Functions for percolation stat

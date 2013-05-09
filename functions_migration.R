@@ -1301,6 +1301,28 @@ percolation_circle<-function(dists,tr){
   return(out$Nodes)
 }
 
+# flag at risk nodes according to a vector of threshold distances
+# and a matrix of distances
+at_risk_stat<-function(posnodes,dists,trs){
+  # posnodes: nodes generating the risk
+  # dists: square distance matrix for all the nodes
+  # trs: increasing threshold distances
+  n <- dim(dists)[1]
+  at_risk<-rep(0,length(trs)*n)
+  posnodes<- posnodes-1 # to correspond to C numering
+
+  out<-.C("at_risk_stat",
+	  at_risk = as.integer(at_risk),
+	  n = as.integer(n),
+	  posnodes = as.integer(posnodes),
+	  nPosnodes = as.integer(length(posnodes)),
+	  dists = as.numeric(dists),
+	  trs = as.numeric(trs),
+	  nTr = as.integer(length(trs))
+	  )
+  return(matrix(out$at_risk,ncol=length(trs),byrow=TRUE))
+}
+
 # Tests
 # test_file("test-functions_migration.R")
 

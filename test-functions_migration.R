@@ -6,7 +6,6 @@ source("functions_migration.R")
 ## parameters
 cote<-50
 limDist<-3
-set.seed(1234)
 ## grid definition
 xs<-rep(seq(1,cote),cote)
 ys<-rep(seq(1,cote),each=cote)
@@ -31,12 +30,53 @@ basicSimulation<-function(xs,ys,zs,dists){
   pos<-which(zs==1)
   return(list(zs=zs,pos=pos))
 }
+# test_that("at_risk computation",{
+trs<-cumsum(1:10)
 
-  ## stats
-  
+set.seed(1234)
+# one center
+zs<-0*xs
+zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
+out<-basicSimulation(xs,ys,zs,dists)
+expect_equal(sum(out$zs),38)
+at_risk<-at_risk_stat(out$pos,dists,trs)
+
+par(mfcol=c(2,5))
+for(i in 1:length(trs)){
+plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)
+points(xs[out$pos],ys[out$pos],pch=3)
+}
+
+stat<-apply(at_risk,2,sum)
+plot(stat)
+correct<- c(38,180,382,722,1295,2067,2465,2500,2500,2500)
+expect_equal(stat,correct)
+
+# three centers
+set.seed(1234)
+zs<-0*xs
+zs[1]<-1
+zs[length(zs)]<-1
+zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
+out<-basicSimulation(xs,ys,zs,dists)
+expect_equal(sum(out$zs),30)
+at_risk3<-at_risk_stat(out$pos,dists,trs)
+# par(mfcol=c(3,4))
+# for(i in 1:length(trs)){
+# plot(xs,ys,col=at_risk3[,i]+2,asp=1,pch=19,cex=0.2)
+# points(xs[out$pos],ys[out$pos],pch=3)
+# }
+lines(apply(at_risk3,2,sum))
+stat<-apply(at_risk3,2,sum)
+correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
+expect_equal(stat,correct)
+
+# })
+
 test_that("percolation computations",{
 	  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
 
+set.seed(1234)
 ## tests with != starting points 
 # basic one cluster
 zs<-0*xs
