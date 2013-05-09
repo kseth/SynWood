@@ -1,6 +1,5 @@
 # tests
 source("functions_migration.R")
-# source("param.r")
 
 ### make a basic simulation of dispersal
 ## parameters
