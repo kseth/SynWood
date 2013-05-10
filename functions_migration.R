@@ -733,7 +733,27 @@ if(class(importOk)!="try-error"){
 	##		- conc.circs is a result of the call to conc.circles
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
-	noKernelMultiGilStat <- function(stratHopSkipJump, blockIndex, infestH, timeH, endTime, rateMove, weightSkipInMove, weightJumpInMove, Nrep, coords, breaksGenVar, seed=1, simul=TRUE, getStats=TRUE, dist_out = NULL, map.partitions = NULL, conc.circs = NULL, typeStat = "semivariance", detectRate = 1, rateIntro = 0){
+	noKernelMultiGilStat <- function(
+		stratHopSkipJump, 
+		blockIndex, 
+		infestH, 
+		timeH, 
+		endTime, 
+		rateMove, 
+		weightSkipInMove, 
+		weightJumpInMove, 
+		Nrep, 
+		coords, 
+		breaksGenVar, 
+		seed=1, 
+		simul=TRUE, 
+		getStats=TRUE, 
+		dist_out = NULL, 
+		map.partitions = NULL, 
+		conc.circs = NULL, 
+		typeStat = "semivariance", 
+		detectRate = 1, 
+		rateIntro = 0){
 
 		if(is.null(infestH)){ #if unknown starting point, randomly pick a point to be the starting point
 			infestH <- round(runif(1, 1, dim(coords)[1]))
@@ -772,7 +792,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid", "circles")
+		implStats <- c("semivariance", "grid", "circles","at_risk")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -797,6 +817,7 @@ if(class(importOk)!="try-error"){
 		circleCounts <- 0
 		circle.nbStats <- 0
 		circle.statsTable <- 0
+		# at_risk
 
 		if(getStats){
 
@@ -971,6 +992,7 @@ if(class(importOk)!="try-error"){
 			 rateIntro = as.numeric(rateIntro),
 			 seed = as.integer(seed),
 			 Nrep = as.integer(Nrep),
+
 			 # stats
 			 getStats=as.integer(getStats),
 			 matchStats=as.integer(matchStats),
@@ -997,6 +1019,9 @@ if(class(importOk)!="try-error"){
 			 circleCounts = as.integer(circleCounts),
 			 circle.nbStats = as.integer(circle.nbStats),
 			 circle.statsTable = as.numeric(circle.statsTable),
+			 xs = as.numeric(coords$X),
+			 ys = as.numeric(coords$Y),
+
 			 detectRate = as.numeric(detectRate) 
 			 )
 
