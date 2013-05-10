@@ -1,5 +1,7 @@
 # include <stdlib.h>
 # include <stdio.h>
+# include <R_ext/Utils.h>
+//allows R_CheckUserInterrupt()
 # include "kmeans.h"
 
 /******************************************************************************/
@@ -51,7 +53,13 @@
     which any cluster is allowed to have.
 
     Input, int K, the maximum number of clusters. */
-void clustr ( double x[], double d[], double dev[], int b[], double f[], int e[], int i, int j, int n, int nz, int k ){
+void clustr ( double x[], double d[], double dev[], int b[], double f[], int e[], int* i_star, int* j_star, int* n_star, int* nz_star, int* k_star){
+
+  int i = *i_star;
+  int j = *j_star;
+  int n = *n_star;
+  int nz = *nz_star;
+  int k = *k_star;
   double big = 1.0E+10;
   double da;
   double db;
@@ -167,6 +175,7 @@ void clustr ( double x[], double d[], double dev[], int b[], double f[], int e[]
 */
   for ( ; ; )
   {
+    R_CheckUserInterrupt();
     iw = 0;
 
     for ( ik = 1; ik <= i; ik++ )
@@ -253,10 +262,4 @@ void clustr ( double x[], double d[], double dev[], int b[], double f[], int e[]
     }
   }
   return;
-}
-
-//this function interfaces with R to generate a partition scheme based on clustr
-void kmeans_partition(){
-
-
 }

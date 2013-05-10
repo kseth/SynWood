@@ -195,28 +195,6 @@ fast_prob_mat <- function(halfDistJ,
 
 	probMat<-jumpMat+hopMat
 
-	# # normalize hops
-	# rsumQ<- hopMat %*% rep(1,num_obs)
-	# probMatH <- as.matrix(hopMat * as.vector(1/rsumQ))
-
-	# # normalize skips
-	# rsumQ <- skipMat %*% rep(1,num_obs)
-	# probMatS <- as.matrix(skipMat * as.vector(1/rsumQ))
-
-	# # normalize jumps
-	# rsumQ<- jumpMat %*% rep(1,num_obs)
-	# probMatJ <- as.matrix(jumpMat * as.vector(1/rsumQ))
-
-	# #======================
-	# # put together
-	# #======================
-	# probMat <- rateHopInMove*probMatH + rateSkipInMove*probMatS + rateJumpInMove*probMatJ
-	# diag(probMat) <- rep(0, dim(probMat)[1]) # emigrants; can't go from house to same house
-
-	# #multiply the probMat by the probability that the infestations spreads
-	# #rateMove from param.r
-	# probMat <- probMat*rateMove
-
 	if(cumul){
 		#redefine probMat as the cumulative sum on each line
 		for(col in 1:L){
@@ -224,17 +202,12 @@ fast_prob_mat <- function(halfDistJ,
 		}
 	}
 
-	# # transpose so that redeable by lines in C
-	# probMat<-t(cumulProbMat)
-	# }
-
 	return(probMat)
 }
 
 
 #=============================
 # Simple grid definition
-# And partitioning of map into grid 
 #=============================
 # num.row, num.col - number rows, number cols
 # row.dist, col.dist - distance between adjacent rows, adjacent columns
@@ -253,6 +226,27 @@ makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist){
 
 	return(maps)	
 }
+
+#==========================
+# Partition of map (with grid or kmeans)
+#==========================
+## divides the map according to the partitionSizes and the type of divide under consideration
+divideMap <- function(partitionSizes, typeDivide = "grid"){
+
+	map.partitions <- list()
+	length(map.partitions) <- length(partitionSizes) #number different grid partitions will be used
+	
+	if(typeDivide == "grid"){
+		for(part in 1:length(partitionSizes))
+			map.partitions[[part]] <- partitionMap(maps$X, maps$Y, partitionSizes[part]) 
+	}else if(typeDivide == "kmeans"){
+		for(part in 1:length(partitionSizes))
+			map.partitions[[part]] <- kmeans(maps$X, maps$Y, partitionSizes[part]) 
+	}
+
+
+	return(map.partitions)
+}	
 
 # partition.rows == number of rows in final grid
 # partition.cols == number of cols in final grid
@@ -313,6 +307,83 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 	return(list(index = indexXY, num_cells = length(uniqXY),  housesPerCell = housesPerCell))
 
+}
+
+importkmeans_Ok <- try(dyn.load("~/Desktop/synwood_control/SynWood/kmeans.so"), silent=FALSE)
+if(class(importkmeans_Ok) != "try-error"){
+	kmeans <- function(X, Y, num_clusts){
+
+		# XY positions converted to c format
+		x <- as.vector((matrix(c(X, Y), ncol = 2))) 
+		# choose random centers
+		# converted to c format
+		clust_centers <- runif(num_clusts, 1, length(X)) # choose random cluster centers
+		d <- as.vector((matrix(c(X[clust_centers], Y[clust_centers]), ncol = 2))) 	
+
+		# stores final deviation per cluster
+		dev <- rep(0, num_clusts)
+
+		# stores index of each XY at the end
+		b <- rep(0, length(X))
+
+		# workspace
+		f <- rep(0, length(X))
+
+		# stores observations per cluster
+		e <- rep(0, num_clusts)
+
+		# number of observations 
+		i <- length(X)
+
+		# number of dimensions
+		j <- 2
+
+		# minimum size of each cluster
+		nz <- floor(i/num_clusts)
+		print(nz)
+		out <- .C("clustr",
+	   	  		 x=as.numeric(x), 
+		  		 d=as.numeric(d),
+		  		 dev=as.numeric(dev),
+		  		 b=as.integer(b),
+		  		 f=as.numeric(f),
+		  		 e=as.integer(e),
+		  		 i=as.integer(i),
+		  		 j=as.integer(j),
+		  		 n=as.integer(num_clusts),
+		  		 nz=as.integer(1),
+		  		 k=as.integer(num_clusts))
+
+		housesPerCell <- out$e
+
+		while(any(housesPerCell == 0)){ ## if the partitioning messed up, redo!
+
+			out <- .C("clustr",
+	   	  			 x=as.numeric(x), 
+		  			 d=as.numeric(d),
+			  		 dev=as.numeric(dev),
+			  		 b=as.integer(b),
+			  		 f=as.numeric(f),
+			  		 e=as.integer(e),
+			  		 i=as.integer(i),
+			  		 j=as.integer(j),
+			  		 n=as.integer(num_clusts),
+			  		 nz=as.integer(nz*.85),
+			  		 k=as.integer(num_clusts))
+     	
+			housesPerCell <- out$e
+		}
+     	
+		index <- out$b
+		num_cells <- num_clusts
+
+		## plot the output
+		colors <- rainbow(7)
+		colors <- rep(colors, ceiling(num_clusts/7))
+		plot(X, Y, col = colors[index])
+
+		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))		
+	}
 }
 
 #=============================
@@ -459,7 +530,7 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 #==========================
 
 # import C functions if possible
-importOk<-try(dyn.load("functions_migration.so"), silent=TRUE)
+importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
 
 # define migration functions and 
 # change all entries in A bigger than maxtobesetnull to 0
