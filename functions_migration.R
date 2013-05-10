@@ -1134,26 +1134,6 @@ if(class(importOk)!="try-error"){
 		return(matrix(out$prob_mat, L, L, byrow = byrow))
 	}
 
-	generate_prob_mat_Grant_C <- function(limitHopSkips,  weightSkip, weightJump, dist_mat, blockIndex, L=sqrt(length(dist_mat)), cumul=TRUE){
-		prob_mat <- mat.or.vec(L, L)
-		out <- .C("generateProbMatGrant",DUP=FALSE,NAOK=TRUE,
-			 limitHopSkips = as.numeric(limitHopSkips),
-			 weightSkip = as.numeric(weightSkip), 
-			 weightJump = as.numeric(weightJump), 
-			 dist_mat = as.numeric(dist_mat),
-			 prob_mat = as.numeric(prob_mat),
-			 blockIndex = as.integer(blockIndex),
-			 L = as.integer(L),
-			 cumul = as.integer(cumul)
-			 )
-		if(cumul){
-			byrow<-FALSE
-		}else{
-			byrow<-TRUE
-		}
-
-		return(matrix(out$prob_mat, L, L, byrow = byrow))
-	}
 }
 
 #=====================

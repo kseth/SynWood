@@ -22,20 +22,21 @@
 #include <R_ext/Utils.h>
 // allows the use of R_CheckUserInterrupt()
 
+#include "functions_migration.h"
 /********************************/
 //    Random number generator
 /********************************/
 unsigned long jcong=123124312;
-/***** déclaration CONG********	*/
+
+/***** declare CONG*********/
 // UNICONG is a draw of 0<= x < 1
-// équivalent à ran() de C mais en 4 fois plus rapide
-// sur le code ici, on gagne 26% de temps de calcul
+// equivalent to rand() in C but 4x as fast (save 26% comp. time)
 #define TAUS88_MASK   0xffffffffUL /* required on 64 bit machines */
 #define CONGMAX 4294967295.
 #define CONG  (jcong=69069*jcong+1234567)
 #define UNICONG ((CONG & TAUS88_MASK)*1/((double)CONGMAX+1.)) 
-// le plus +1 permet d'éviter d'avoir 1 ce qui serait embétant dans le pg
-/***** fin déclaration CONG****	*/
+// +1 in the denominator guarantees <1
+/***** end declaration CONG*****/
 
 /********************************/
 //    Binary search
@@ -188,68 +189,6 @@ void makeDistClassesWithStreets(double *xc // x of objects
 			}
 			// printf("i %i j %i dist %.2f index %i cbin %i\n",i,j,distance,index,cbin[index]);
 		} 
-	}
-}
-// compute only cumulative matrix
-// not normalized: will need to draw between 0 and max when drawing
-void generateProbMatGrant(
-			double* limitHopSkips, 
-			// double* weightHop, // the ref, is 1
-			double* weightSkip, 
-			double* weightJump, 
-			double* dist_mat,
-			double* prob_mat,
-			int* blockIndex,
-			int* L,
-			int* cumul
-			){
-
-	// Generating hop, skip, jump matrices
-	double weight = 0.0;
-	double baseWeight = 0.0;
-	double distance = 0.0;
-	
-	// decreasing spatial link hop/skip
-	
-	for(int i=0; i<*L; i++){
-		// set self cell to proba=0
-		if(i>0 && *cumul){
-			*(prob_mat + i* *L+i) = *(prob_mat + i* *L+i-1);
-		}else{
-			*(prob_mat + i* *L+i) = 0;
-		}
-
-		// set other cells
-		for(int j=i+1; j<*L; j++){	
-			
-			distance = *(dist_mat + i* *L+j);
-
-			// baseWeight=exp(distance/ *limitHopSkips);
-			baseWeight=1;
-			if(distance<*limitHopSkips){
-				if(*(blockIndex+i) == *(blockIndex + j)){
-					weight = baseWeight;
-				}else{
-					weight = baseWeight* *weightSkip;
-				}
-			}else{
-				weight = baseWeight * *weightJump;
-			}
-			if(*cumul){
-				*(prob_mat + i* *L+j) = weight+*(prob_mat + i* *L+j-1); // current line is directly filled up
-				if(i>0){
-					// transpose of current Line can be 
-					// summed to left column only if 
-					// not first column
-					*(prob_mat + j* *L+i) = weight+*(prob_mat + j* *L+i-1); 
-				}else{
-					*(prob_mat + j* *L+i) = weight;
-				}
-			}else{
-				*(prob_mat + j* *L+i) = weight;
-				*(prob_mat + i* *L+j) = weight;
-			}
-		}
 	}
 }
 
@@ -984,6 +923,7 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 		*(stats + startGVar) = *endIndex + 1;
 	}
 }
+
 //=======================================
 // At risk stat
 // - according to dist give the number of points 
@@ -1030,6 +970,7 @@ int follow_link(int *Grille,int sizeGrille, int num_case){
 
 	return num_case;
 }
+
 void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// Nodes has n nodes 0 (should select only the "1" before
 	// dists: distance between the nodes
