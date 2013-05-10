@@ -60,5 +60,5 @@ SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclid
 SB@entries<-rep(1,length(SB@entries))
 SB<-as.spam(SB);
 
-source("spam_complement.r")
+# source("spam_complement.r")
 
