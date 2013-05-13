@@ -310,8 +310,11 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 }
 
 importkmeans_Ok <- try(dyn.load("~/Desktop/synwood_control/SynWood/kmeans.so"), silent=FALSE)
-if(class(importkmeans_Ok) != "try-error"){
-	kmeans <- function(X, Y, num_clusts){
+partitionKMeans <- function(X, Y, num_clusts, language = "R"){
+	
+	if(language == "C" && class(importkmeans_Ok) != "try-error"){
+
+		cat("using C kmeans partitioning\n")
 
 		# XY positions converted to c format
 		x <- as.vector((matrix(c(X, Y), ncol = 2))) 
@@ -370,10 +373,10 @@ if(class(importkmeans_Ok) != "try-error"){
 			  		 n=as.integer(num_clusts),
 			  		 nz=as.integer(nz*.85),
 			  		 k=as.integer(num_clusts))
-     	
+     
 			housesPerCell <- out$e
 		}
-     	
+     
 		index <- out$b
 		num_cells <- num_clusts
 
@@ -382,9 +385,27 @@ if(class(importkmeans_Ok) != "try-error"){
 		colors <- rep(colors, ceiling(num_clusts/7))
 		plot(X, Y, col = colors[index])
 
-		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))		
-	}
+		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))
+
+	} else {
+		cat("using R kmeans partitioning\n")
+
+		points <- matrix(c(x, y), ncol = 2)
+		out <- kmeans(points, centers = num_clusts, iter = 100, nstart = 2)
+
+		index <- out$cluster
+		num_cells <- num_clusts
+		housesPerCell <- out$size
+				
+		## plot the output
+		colors <- rainbow(7)
+		colors <- rep(colors, ceiling(num_clusts/7))
+		plot(X, Y, col = colors[index])
+
+		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))
+	}		
 }
+
 
 #=============================
 # Concentric Circles
