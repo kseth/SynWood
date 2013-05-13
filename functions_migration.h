@@ -1,7 +1,5 @@
 #ifndef FUNCTIONS_MIGRATION_H   /* Include guard */
 #define FUNCTIONS_MIGRATION_H
-unsigned long jcong;
-
 int fulldichot (double *coord,double rand,int first,int last);
 
 int findIndex(double distance, int nbins, double* breaks, double maxdist);

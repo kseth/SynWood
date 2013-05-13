@@ -855,7 +855,6 @@ if(class(importOk)!="try-error"){
 			infestH <- round(runif(1, 1, dim(coords)[1]))
 		}
 
-
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
