@@ -896,7 +896,6 @@ if(class(importOk)!="try-error"){
 		cbin <- 0
 		cbinas <- 0
 		cbinsb <- 0
-		sizeVvar <- 0
 		semivar.nbStats <- 0
 		matchStats <- 0
 		semivar.statsTable <- 0
@@ -918,6 +917,10 @@ if(class(importOk)!="try-error"){
 		circle.nbStats <- 0
 		circle.statsTable <- 0
 
+		# num_inf statistics
+		inf.nbStats <- 0
+		inf.statsTable <- 0
+
 		# at_risk statistics
 
 		if(getStats){
@@ -928,6 +931,11 @@ if(class(importOk)!="try-error"){
 			if(any(is.na(matchStats))){ #throw an error regarding stats not yet implemented
 				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
 			}
+
+			# always calculate inf statistics
+			# 1 if no blocks, 3 if blocks
+			inf.nbStats <- 1 + haveBlocks*2
+			inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)	
 
 			# if want to calculate semivariance stats
 			if("semivariance" %in% typeStat){
@@ -961,13 +969,8 @@ if(class(importOk)!="try-error"){
 					## By block Semivariance
 					## By block Semivariance Std. Dev.
 					##	= 8 * length(cbin)
-					## Number Infested Houses
-					## Number Infested Blocks
-					## (Infested Houses)/(Infested Blocks)
-					##	= 8 * length(cbin) + 3
 					###===================================
-       					sizeVvar<-8*length(cbin)
-					semivar.nbStats<- sizeVvar + 3
+					semivar.nbStats<- 8*length(cbin) 
 				}else{
 					cbinas <- 0
 					cbinsb <- 0
@@ -983,11 +986,8 @@ if(class(importOk)!="try-error"){
 					## Ripley's K
 					## Ripley's L
 					##	= 8 * length(cbin)
-					## Number Infested Houses
-					##	= 8 * length(cbin) + 1
 					###===================================
-					sizeVvar <- 8*length(cbin)
-					semivar.nbStats <- sizeVvar + 1
+					semivar.nbStats <- 8*length(cbin)
 				}
 
 				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
@@ -1032,11 +1032,8 @@ if(class(importOk)!="try-error"){
 				## Fit quantile distribution to polynomial
 				## a + bx + cx^2 + dx^3 + ex^4 (4 stats) 
 				##	= 7 * numDiffGrids
-				## (overall)
-				## Number Infested Houses
-				##	= 7 * numDiffGrids + 1
 				###===================================
-				grid.nbStats <- 7*numDiffGrids+1		
+				grid.nbStats <- 7*numDiffGrids		
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)			
 			}
 
@@ -1057,11 +1054,8 @@ if(class(importOk)!="try-error"){
 				## Variance of % positive (across initInfested)
 				## Mean of % positive (across initInfested) 
 				##	= 2 * numDiffCircles
-				## (overall)
-				## Number Infested Houses
-				##	= 2 * numDiffCircles + 1
 				###===================================
-				circle.nbStats <- 2*numDiffCircles + 1
+				circle.nbStats <- 2*numDiffCircles
 				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
 			}
 
@@ -1120,9 +1114,10 @@ if(class(importOk)!="try-error"){
 			 circleCounts = as.integer(circleCounts),
 			 circle.nbStats = as.integer(circle.nbStats),
 			 circle.statsTable = as.numeric(circle.statsTable),
+			 inf.nbStats = as.integer(inf.nbStats),
+			 inf.statsTable = as.numeric(inf.statsTable), 
 			 xs = as.numeric(coords$X),
 			 ys = as.numeric(coords$Y),
-
 			 detectRate = as.numeric(detectRate) 
 			 )
 
@@ -1161,6 +1156,9 @@ if(class(importOk)!="try-error"){
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
+		# make matrix out of inf.statsTable
+		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
+
 		statsTable <- 0
 		degenerateStats <- integer(0)
 
@@ -1171,24 +1169,22 @@ if(class(importOk)!="try-error"){
 
 			if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
 			{
-				numInfested <- allStats[[matchStats[1]]][length(allStats[[matchStats[1]]])]
-				statsTable <- c()
+				numInfested <- out$inf.statsTable
 				for(statsWant in matchStats)
-			 		statsTable <- c(statsTable, allStats[[statsWant]][-length(allStats[[statsWant]])]) # don't include the last statistic
+			 		statsTable <- c(statsTable, allStats[[statsWant]])
 
 				statsTable <- c(statsTable, numInfested)
 			}else{
 
-				numInfested <- allStats[[matchStats[1]]][dim(allStats[[matchStats[1]]])[1], ]
+				numInfested <- out$inf.statsTable 
 				statsTable <- matrix(0, 1, Nrep)
 				for(statsWant in matchStats)
-					statsTable <- rbind(statsTable, allStats[[statsWant]][-dim(allStats[[statsWant]])[1], ])
+					statsTable <- rbind(statsTable, allStats[[statsWant]])
 				statsTable <- rbind(statsTable[-1, ], numInfested)
 
 				#figure out which stats are degenerate (important to do prestats removal!)
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)
-
 			}
 
 		}
