@@ -231,19 +231,22 @@ makeGrid <- function(num.rows, num.cols, row.dist, col.dist = row.dist){
 # Partition of map (with grid or kmeans)
 #==========================
 ## divides the map according to the partitionSizes and the type of divide under consideration
-divideMap <- function(partitionSizes, typeDivide = "grid"){
+divideMap <- function(maps, partitionSizes, typeDivide = "grid", language = "R"){
 
 	map.partitions <- list()
 	length(map.partitions) <- length(partitionSizes) #number different grid partitions will be used
 	
-	if(typeDivide == "grid"){
+	if(typeDivide == "grid"){ ## if grid
+
 		for(part in 1:length(partitionSizes))
 			map.partitions[[part]] <- partitionMap(maps$X, maps$Y, partitionSizes[part]) 
-	}else if(typeDivide == "kmeans"){
-		for(part in 1:length(partitionSizes))
-			map.partitions[[part]] <- kmeans(maps$X, maps$Y, partitionSizes[part]) 
-	}
+	
+	}else if(typeDivide == "kmeans"){ ## if kmeans
 
+		for(part in 1:length(partitionSizes))
+			map.partitions[[part]] <- partitionKMeans(maps$X, maps$Y, partitionSizes[part], language = language) 
+
+	}
 
 	return(map.partitions)
 }	
@@ -272,11 +275,10 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 	matchY <- match(Y, uniqY)
 	indexY <- outY[matchY]
-
 	
 	xBreaks <- seq(from = minX, to = maxX, length.out = partition.cols+1)
 	uniqX <- unique(X)
-	outX <- unlist(lapply(uniqY, function(insert, breaks){
+	outX <- unlist(lapply(uniqX, function(insert, breaks){
 								breaks <- (breaks > insert)
 								comparison <- xor(breaks[1:(length(breaks)-1)], breaks[2:length(breaks)])
 								if(any(comparison))
@@ -296,8 +298,7 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 	indexXY	<- match(combXY, uniqXY)
 
 	## plot the output
-	## colors <- rainbow(7)
-	## colors <- rep(colors, ceiling(length(uniqXY)/7))
+	## colors <- rainbow(length(uniqXY))
 	## plot(X, Y, col = colors[indexXY])
 
 	## calculate the number of houses in each cell
@@ -310,6 +311,12 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 }
 
 importkmeans_Ok <- try(dyn.load("~/Desktop/synwood_control/SynWood/kmeans.so"), silent=FALSE)
+
+## X the x coords of the points
+## Y the y coords of the points
+## num_clusts - the number of clusters to make
+## language (whether to do it in R or in C) 
+##	 C better for smaller clusters, R more stable for larger clusters
 partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 	
 	if(language == "C" && class(importkmeans_Ok) != "try-error"){
@@ -342,8 +349,7 @@ partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 		j <- 2
 
 		# minimum size of each cluster
-		nz <- floor(i/num_clusts)
-		print(nz)
+		nz <- floor(i/num_clusts)*0.85
 		out <- .C("clustr",
 	   	  		 x=as.numeric(x), 
 		  		 d=as.numeric(d),
@@ -354,7 +360,7 @@ partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 		  		 i=as.integer(i),
 		  		 j=as.integer(j),
 		  		 n=as.integer(num_clusts),
-		  		 nz=as.integer(1),
+		  		 nz=as.integer(nz),
 		  		 k=as.integer(num_clusts))
 
 		housesPerCell <- out$e
@@ -381,16 +387,15 @@ partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 		num_cells <- num_clusts
 
 		## plot the output
-		colors <- rainbow(7)
-		colors <- rep(colors, ceiling(num_clusts/7))
-		plot(X, Y, col = colors[index])
+		## colors <- rainbow(num_clusts)
+		## plot(X, Y, col = colors[index])
 
 		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))
 
 	} else {
 		cat("using R kmeans partitioning\n")
 
-		points <- matrix(c(x, y), ncol = 2)
+		points <- matrix(c(X, Y), ncol = 2)
 		out <- kmeans(points, centers = num_clusts, iter = 100, nstart = 2)
 
 		index <- out$cluster
@@ -398,9 +403,8 @@ partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 		housesPerCell <- out$size
 				
 		## plot the output
-		colors <- rainbow(7)
-		colors <- rep(colors, ceiling(num_clusts/7))
-		plot(X, Y, col = colors[index])
+		## colors <- rainbow(num_clusts)
+		## plot(X, Y, col = colors[index])
 
 		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))
 	}		
@@ -877,7 +881,6 @@ if(class(importOk)!="try-error"){
 		infested[infestH] <- 1
 		infestedDens<-rep(0,length(infested))
 
-
 		# if stratHopSkipJump, throw error 	
 		if(is.null(stratHopSkipJump)){
 			stop("need to pass a stratified hop/skip/jump matrix; see generate_stratifed_mat")
@@ -888,6 +891,7 @@ if(class(importOk)!="try-error"){
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
+		# semivariance statistics
 		dist_indices <- 0
 		cbin <- 0
 		cbinas <- 0
@@ -896,6 +900,8 @@ if(class(importOk)!="try-error"){
 		semivar.nbStats <- 0
 		matchStats <- 0
 		semivar.statsTable <- 0
+
+		# grid/partition statistics
 		numDiffGrids <- 0
 		gridIndexes <- 0
 		gridNumCells <- 0
@@ -903,13 +909,16 @@ if(class(importOk)!="try-error"){
 		gridCountCells <- 0
 		grid.nbStats <- 0
 		grid.statsTable <- 0
+
+		#circle statistics
 		numDiffCircles <- 0
 		numDiffCenters <- 0
 		circleIndexes <- 0
 		circleCounts <- 0
 		circle.nbStats <- 0
 		circle.statsTable <- 0
-		# at_risk
+
+		# at_risk statistics
 
 		if(getStats){
 

@@ -29,7 +29,7 @@
 unsigned long jcong=123124312;
 
 /***** declare CONG*********/
-// UNICONG is a draw of 0<= x < 1
+// UNICONG is a draw of 0<=x<1
 // equivalent to rand() in C but 4x as fast (save 26% comp. time)
 #define TAUS88_MASK   0xffffffffUL /* required on 64 bit machines */
 #define CONGMAX 4294967295.
