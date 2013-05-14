@@ -12,64 +12,86 @@ library(testthat)
 # returns matrixes hopMat, skipMat, jumpMat
 # with 1 if can hop/skip/jump there
 # only need to pass the @colindices and @rowpointers to the c methods
-##
-
-##
-# tests, add to test-functions_migration when have time
-# length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
-# diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
-##
-generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump = 0, blockIndex=NULL)
+# coords - X, Y coords
+# limitHopSkip - the limit for local movement
+# limitJump - the upper limit for long distance movement
+# lowerLimitJump - the lower limit for long distance movement
+# blockIndex - should blocks be used to make skips (upper distance class), pass blockIndices (same length as coords)
+# lowerLimitSkip - if no blocks but still want skips, pass a lower limit for skips
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump=0, blockIndex=NULL, lowerLimitSkip=NULL)
 {
 
-	# make same block matrix of households in the same block
-	if(!is.null(blockIndex))
-	{
-		SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
-		SB@entries <- rep(1,length(SB@entries))
-		SB<-as.spam(SB)
-	}
-
-	# make distance matrixes for two thresholds: limitHopSkip, limitJump
-	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
+	###=====================
+       	## make the jump  matrix
+	###=====================
+	# upper limit for jumps
 	dist_mat_jump <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitJump, upper = NULL)
+	dist_mat_jump <- cleanup(dist_mat_jump)
 
 	# if we also have a lower limit for the jumps
 	if(lowerLimitJump > 0)
 	{
 		dist_mat_jump_low <- nearest.dist(coords, y=NULL, method = "euclidian", delta = lowerLimitJump, upper = NULL)
+		dist_mat_jump_low <- cleanup(dist_mat_jump_low)
+
 		dist_mat_jump <- dist_mat_jump - dist_mat_jump_low #subtract lower values from total
 		dist_mat_jump <- as.spam(dist_mat_jump) #respam the matrix
 	}
 	
-	# remove diagonal values by cleaning up distances of zero
-	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)
-	dist_mat_jump <- cleanup(dist_mat_jump)
-	
-	#define hopMat
-	hopMat <- dist_mat_hop_skip
-	hopMat@entries <- rep(1, length(hopMat@entries))
-	hopMat <- as.spam(hopMat)
-
-	# if blockIndices are passed
-	# define skipMat as across blocks
-	# hopMat as within blocks
-	if(!is.null(blockIndex))
-	{	
-		skipMat <- dist_mat_hop_skip
-		skipMat@entries <- rep(1, length(skipMat@entries))
-		hopMat <- hopMat * SB
-		hopMat <- as.spam(hopMat)
-		skipMat <- skipMat - hopMat
-		skipMat <- as.spam(skipMat)
-	}
-
 	#define jumpMat
 	jumpMat <- dist_mat_jump
 	jumpMat@entries <- rep(1, length(jumpMat@entries))
 	jumpMat <- as.spam(jumpMat)
 
-	if(is.null(blockIndex))
+	###=====================
+	## make the hop/skip matrices
+	###=====================
+	# upper limit for hops + skips
+	dist_mat_hop_skip <- nearest.dist(coords, y=NULL, method = "euclidian", delta = limitHopSkip, upper = NULL)
+	dist_mat_hop_skip <- cleanup(dist_mat_hop_skip)
+	
+	#define hopMat (definition modified if blockIndices or lowerLimitSkip passed)
+	hopMat <- dist_mat_hop_skip
+	hopMat@entries <- rep(1, length(hopMat@entries))
+	hopMat <- as.spam(hopMat)
+
+	if(!is.null(blockIndex)){
+		# if blockIndices are passed
+		# make SameBlock (SB) matrix of households in same block
+		# define skipMat as across blocks
+		# hopMat as within blocks
+
+		SB <- nearest.dist(x=cbind(blockIndex,rep(0,length(blockIndex))), method="euclidian", upper=NULL, delta=0.1)
+		SB@entries <- rep(1,length(SB@entries))
+		SB<-as.spam(SB)
+
+		skipMat <- dist_mat_hop_skip
+		skipMat@entries <- rep(1, length(skipMat@entries))
+
+		hopMat <- hopMat * SB
+		hopMat <- as.spam(hopMat)
+
+		skipMat <- skipMat - hopMat
+		skipMat <- as.spam(skipMat)
+
+	}else if(!is.null(lowerLimitSkip)){
+			# if lowerLimitSkip is passed
+			# skip from lowerLimitSkip to limitHopSkip
+			# hop from 0 to lowerLimitSkip
+
+			dist_mat_hopskip_low <- nearest.dist(coords, y=NULL, method = "euclidian", delta = lowerLimitSkip, upper = NULL)
+			dist_mat_hopskip_low <- cleanup(dist_mat_hopskip_low)
+
+			hopMat <- dist_mat_hopskip_low
+			hopMat@entries <- rep(1, length(hopMat@entries))
+			hopMat <- as.spam(hopMat)
+
+			skipMat <- dist_mat_hop_skip
+			skipMat@entries <- rep(1, length(skipMat@entries))
+			skipMat <- skipMat - hopMat
+			skipMat <- as.spam(skipMat)
+		}
+	if(!exists("skipMat"))
 		return(list(hopMat = hopMat, jumpMat = jumpMat))
 	else
 		return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
@@ -858,19 +880,11 @@ if(class(importOk)!="try-error"){
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
-		# set the weight of skips to 0 (no blocks)
-		# this should be done by default in function header
-		if(!haveBlocks)
-			weightSkipInMove <- 0
-
 		# convert weightSkipInMove, weightJumpInMove to rates by nested multiplications (rates needed by c code)
 		rateJumpInMove <- weightJumpInMove
 		rateSkipInMove <- (1-weightJumpInMove)*weightSkipInMove
 		rateHopInMove <- (1-weightJumpInMove)*(1-weightSkipInMove)	
 	
-		# seed <- runif(1, 1, 2^31-1)
-		# for random seeding of stochastic simulation	
-
 	  	L<-dim(coords)[1]
 		indexInfest <- rep(-1, L)
 		timeI <- rep(-1, L)
@@ -1058,8 +1072,8 @@ if(class(importOk)!="try-error"){
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
-			 skipColIndex = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@colindices-1, 0)), # if no blocks, pass dummy skip
-			 skipRowPointer = as.integer(ifelse(haveBlocks, stratHopSkipJump$skipMat@rowpointers-1, 0)), # if no blocks, pass dummy skip
+			 skipColIndex = as.integer(ifelse(!is.null(stratHopSkipJump$skipMat), stratHopSkipJump$skipMat@colindices-1, 0)), # if no skips, pass dummy skip
+			 skipRowPointer = as.integer(ifelse(!is.null(stratHopSkipJump$skipMat), stratHopSkipJump$skipMat@rowpointers-1, 0)), # if no skips, pass dummy skip
 			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
 			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
 			 rateHopInMove = as.numeric(rateHopInMove), 

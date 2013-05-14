@@ -33,8 +33,7 @@ minLLever=-10e6
 ###	     priorType=priorType,
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
-###	     defaultDR=defaultDR,
-###	     defaultRI=defaultRI,
+###	     default=default,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
@@ -63,17 +62,17 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = theta["rateMove"],
-			    weightSkipInMove = theta["weightSkipInMove"],
-			    weightJumpInMove = theta["weightJumpInMove"], 
+			    rateMove = ifelse("rateMove" %in% Data$parm.names, theta["rateMove"], Data$default["rateMove"]),
+			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parm.names, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parm.names,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$defaultRI))
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]))
 
 	end <- Sys.time()
 
@@ -188,8 +187,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorType=priorType,
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
-###	     defaultDR=defaultDR,
-###	     defaultRI=defaultRI,
+###	     default=default,
 ###	     genIntervals=genIntervals,
 ###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
 ###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
@@ -213,17 +211,17 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = theta["rateMove"],
-			    weightSkipInMove = theta["weightSkipInMove"],
-			    weightJumpInMove = theta["weightJumpInMove"], 
+			    rateMove = ifelse("rateMove" %in% Data$parm.names, theta["rateMove"], Data$default["rateMove"]),
+			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parm.names, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parm.names,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    breaksGenVar = Data$genIntervals,
 			    seed=seed,
 			    getStats=getStats,
-			    dist_out = Data$dist_out, map.partitions = Data$map.partitions, conc.circs = Data$conc.circs, typeStat = Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$defaultDR),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$defaultRI))
+			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
+			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")

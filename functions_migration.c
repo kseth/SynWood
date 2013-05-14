@@ -905,15 +905,14 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 	}
 
 	int startGVar=*rep* *nbStats;
+	modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins, endIndex, haveBlocks, blockIndex, cbinsb, cbinas);
 
-	// if block data is passed
-	if(*haveBlocks == 1){
-		// calculate semi-variance stats
-		modBinItWithStreets(L, dist_index, semivarianceData, startinfestData, cbin, cbinsb, cbinas, (stats+startGVar), nbins, blockIndex); 
-	
-	}else{ // don't have blocks
-		modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins, endIndex, haveBlocks, blockIndex, cbinsb, cbinas);
-	}
+	// if block data is passed (old blocks treatment)
+	//	if(*haveBlocks == 1){
+	//		// calculate semi-variance stats
+	//		modBinItWithStreets(L, dist_index, semivarianceData, startinfestData, cbin, cbinsb, cbinas, (stats+startGVar), nbins, blockIndex); 
+	//	
+	//	}
 }
 
 void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int* infestedInit, int* endIndex, int* blockIndex, int* haveBlocks){

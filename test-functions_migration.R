@@ -1,6 +1,55 @@
 # tests
 source("functions_migration.R")
 
+test_that("making hop skip jumps correctly",{
+
+num.rows <- 3 
+num.cols <- 3
+row.dist <- 1
+maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+limitHopSkip <- 2 
+lowerLimitSkip <- 1 
+limitJump <- 3
+lowerLimitJump <- 2
+
+##
+# tests, add to test-functions_migration when have time
+# length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
+# diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
+##
+stratmat <- generate_stratified_mat(maps, limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, lowerLimitSkip=lowerLimitSkip)
+
+# all diagonals must be zero
+expect_true(sum(diag(stratmat$hopMat)) == 0)
+expect_true(sum(diag(stratmat$skipMat)) == 0)
+expect_true(sum(diag(stratmat$jumpMat)) == 0)
+
+
+# corners can hop to 2 spots
+expect_true(sum(stratmat$hopMat[1, ]) == 2)
+expect_true(sum(stratmat$hopMat[9, ]) == 2)
+
+# corners can skip to 3 spots
+expect_true(sum(stratmat$skipMat[1, ]) == 3)
+expect_true(sum(stratmat$skipMat[9, ]) == 3)
+
+# corners can jump to 3 spots
+expect_true(sum(stratmat$jumpMat[1, ]) == 3)
+expect_true(sum(stratmat$jumpMat[9, ]) == 3)
+
+# no hop, skip, jump overlap
+totalmat <- stratmat$hopMat + stratmat$skipMat + stratmat$jumpMat
+expect_true(sum(diag(totalmat)) == 0)
+
+test_mat <- spam(rep(1, 81), ncol = 9)
+diag(test_mat) <- 0
+test_mat <- as.spam(test_mat)
+
+expect_equal(totalmat, test_mat)
+})
+
+stop()
+
 ### make a basic simulation of dispersal
 ## parameters
 cote<-50
