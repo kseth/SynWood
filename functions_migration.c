@@ -984,15 +984,15 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 }
 
 // use at_risk_stat and polynomial fitting to return the at_risk stats
-void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat,int* ncoefs){
-	int sizeLine = *ncoefs + *ntr_at_risk; // line in at_risk_stat
+void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs, int* ntrs, double* at_risk_stat,int* ncoefs){
+	int sizeLine = *ncoefs + *ntrs; // line in at_risk_stat
 	double* at_risk_current = at_risk_stat+ sizeLine * *rep;
 	// compute raw stats
-	get_at_risk_stat(at_risk_current,L,pos,npos,dists,trs_at_risk,ntr_at_risk);
+	get_at_risk_stat(at_risk_current,L,pos,npos,dists,trs,ntrs);
 
 	// fit of the stats with polynomial regression
 	double coefs[*ncoefs];
-	polynomialfit(*ntr_at_risk, *ncoefs, trs_at_risk, at_risk_current, at_risk_current+ *ntr_at_risk);
+	polynomialfit(*ntrs, *ncoefs, trs, at_risk_current, at_risk_current+ *ntrs);
 }
 
 //=======================================
@@ -1243,8 +1243,8 @@ void noKernelMultiGilStat(
 	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, double* gridstats, 
 	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats,
 	int* infnbStats, double* infstats,	
-	double* trs_at_risk, int* ntr_at_risk, // thresholds area at Risk stat
-	double* at_riskStats, // results area at Risk stat, size (*ntr_at_risk+*ncoefsAtRisk) * (*Nrep)
+	double* atRisk_trs, int* atRisk_ntrs, // thresholds area at Risk stat
+	double* at_riskStats, // results area at Risk stat, size (*atRisk_ntrs+*ncoefsAtRisk) * (*Nrep)
 	int* ncoefsAtRisk, // number of coefs in poly fit of at_risk
     	double* xs, // Xs of the nodes
     	double* ys, // Ys of the nodes
@@ -1270,6 +1270,7 @@ void noKernelMultiGilStat(
 	}
 	
 	// makeDistMat(xs,L,ys,dists);
+ 	printf("3");
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
@@ -1319,7 +1320,7 @@ void noKernelMultiGilStat(
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, numCoeffs, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, trs_at_risk, ntr_at_risk, at_riskStats, ncoefsAtRisk); break; 
+					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}

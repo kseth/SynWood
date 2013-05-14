@@ -889,6 +889,8 @@ if(class(importOk)!="try-error"){
 		dist_out = NULL, 
 		map.partitions = NULL, 
 		conc.circs = NULL, 
+		atRisk.trs = NULL,
+		atRisk.ncoefs = NULL,
 		typeStat = "semivariance", 
 		detectRate = 1, 
 		rateIntro = 0){
@@ -917,7 +919,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid", "circles", "at_risk")
+		implStats <- c("semivariance", "grid", "circles", "atRisk")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -953,6 +955,8 @@ if(class(importOk)!="try-error"){
 		inf.statsTable <- 0
 
 		# at_risk statistics
+		atRisk.nbCoefs<-0
+		atRisk.statsTable<-0
 
 		if(getStats){
 
@@ -1081,7 +1085,11 @@ if(class(importOk)!="try-error"){
 				circle.nbStats <- 2*numDiffCircles
 				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
 			}
-
+			if("atRisk" %in% typeStat){
+				atRisk.nbCoefs<-atRisk.ncoefs
+				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
+				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
+			}
 		}
 
 		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
@@ -1138,6 +1146,10 @@ if(class(importOk)!="try-error"){
 			 circle.statsTable = as.numeric(circle.statsTable),
 			 inf.nbStats = as.integer(inf.nbStats),
 			 inf.statsTable = as.numeric(inf.statsTable), 
+			 atRisk.trs = as.numeric(atRisk.trs),
+			 atRisk.ntrs = as.integer(length(atRisk.trs)),
+			 atRisk.statsTable = as.numeric(atRisk.statsTable),
+			 atRisk.nbCoefs = as.integer(atRisk.nbCoefs),
 			 xs = as.numeric(coords$X),
 			 ys = as.numeric(coords$Y),
 			 detectRate = as.numeric(detectRate) 
