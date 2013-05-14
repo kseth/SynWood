@@ -29,22 +29,40 @@ basicSimulation<-function(xs,ys,zs,dists){
   pos<-which(zs==1)
   return(list(zs=zs,pos=pos))
 }
+### test of distance matrix
+# test_that("dist matrix in C ok",{ # for some reason expect_error doesn't like it
+expect_error(makeDistMat(c(1,2,3),c(1,2)))
+distsNoRowNames<-dists
+attributes(distsNoRowNames)<-NULL
+attributes(distsNoRowNames)$dim<-attributes(dists)$dim
+expect_equal(distsNoRowNames,makeDistMat(xs,ys))
+# })
 
-test_that("at_risk computation",{
-trs<-cumsum(1:10)
+### test of at_risk
+# test_that("at_risk computation",{
+	  trs<-cumsum(1:10)
 
 set.seed(1234)
+ncoefsAtRisk<-5
 # one center
 zs<-0*xs
 zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 out<-basicSimulation(xs,ys,zs,dists)
 expect_equal(sum(out$zs),38)
+## simple stat
 at_risk<-at_risk_stat(out$pos,dists,trs)
+## overall with fit
+atRiskStats<-mat.or.vec(2,length(trs))
+
+at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
+expect_equal(at_risk_fit[1,],rep(1,length(trs)+ncoefs))
+expect_equal(at_risk_fit[2,],rep(0,length(trs)+ncoefs))
+
 
 par(mfcol=c(2,5))
 for(i in 1:length(trs)){
-plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)
-points(xs[out$pos],ys[out$pos],pch=3)
+	plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)
+	points(xs[out$pos],ys[out$pos],pch=3)
 }
 
 stat<-apply(at_risk,2,sum)
@@ -71,8 +89,10 @@ stat<-apply(at_risk3,2,sum)
 correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
 expect_equal(stat,correct)
 
-})
+# })
 
+
+### test of percolation computations
 test_that("percolation computations",{
 	  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
 

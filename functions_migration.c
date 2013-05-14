@@ -986,7 +986,11 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 }
 
 // use at_risk_stat and polynomial fitting to return the at_risk stats
-void get_stats_at_risk(int* rep, int* L, int* endInfest, int* endIndex, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat){
+void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat,int* ncoefs){
+
+	// fit
+
+	// put result into at_risk_stat
 
 }
 
@@ -1213,7 +1217,8 @@ void noKernelMultiGilStat(
 	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats,
 	int* infnbStats, double* infstats,	
 	double* trs_at_risk, int* ntr_at_risk, // thresholds area at Risk stat
-	double* at_riskStats, // results area at Risk stat, size ntr_at_risk
+	double* at_riskStats, // results area at Risk stat, size (*ntr_at_risk+*ncoefsAtRisk) * (*Nrep)
+	int* ncoefsAtRisk, // number of coefs in poly fit of at_risk
     	double* xs, // Xs of the nodes
     	double* ys, // Ys of the nodes
     	double* detectRate){
@@ -1274,11 +1279,13 @@ void noKernelMultiGilStat(
 			for(int stat=0;stat<*lengthStats; stat++){
 
 				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
+				int npos[1];
+				npos[1] = *endIndex + 1;
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: get_stats_at_risk(&rep, L, indexInfestInit, endIndex, dists, trs_at_risk, ntr_at_risk, at_riskStats); break; 
+					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, trs_at_risk, ntr_at_risk, at_riskStats,ncoefsAtRisk); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}

@@ -30,7 +30,7 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 
 void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int* infestedInit, int* endIndex, int* blockIndex, int* haveBlocks);
 
-void get_stats_at_risk(int* rep, int* L, int* endInfest, int* endIndex, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat);
+void get_stats_at_risk(int* rep, int* L, int* endInfest, int* endIndex, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat,int* ncoefs);
 
 void at_risk_stat(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists, double *trs, int *nTr);
 
@@ -45,5 +45,6 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 void noKernelMultiGilStat(int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* blockIndex, int *simul, int *infested, double *infestedDens, int *endIndex, int *L, double *endTime, int *indexInfest, double *age, double *rateMove, double* rateIntro, int *seed, int *Nrep, int* getStats, int* matchStats, int* lengthStats, int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *nbStats, int* haveBlocks, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats, int* infnbstats, double* infstats, 
 	double* trs_at_risk, int* ntr_at_risk, // thresholds area at Risk stat
 	double* at_riskStats, // results area at Risk stat, size ntr_at_risk
+	int* ncoefsAtRisk, // number of coefs in poly fit of at_risk
 	double* xs, double* ys, double* detectRate);
 #endif
