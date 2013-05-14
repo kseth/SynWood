@@ -780,7 +780,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		//printf("\n");
 		currentCellStartingPoint += *(gridNumCells+grid);
 	}
-  
+
 	//the first stat inserted will be num positive cells
 	//the second stat inserted will be variance of %positive 
 	//the third-sixth stats will be regression coefficients
@@ -825,7 +825,6 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 			count++;
 		}
 
-
 		//divide variance by number of cells and then subtract (mean percent positive)^2
 		varPP = varPP/ *(gridNumCells+grid) - meanPP*meanPP;
 
@@ -834,9 +833,8 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		// actually making a "weibull plot"
 		// dx: the number of the cell in the partition  
 		// dy: the number of positive per cell
-		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);		
+		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);
 		polynomialfit(*(gridNumCells+grid), *numCoeffs, dx, dy, coeff);
-
 		//store positive count in gridstats
 		stats[grid* *gridnbStats] = positivecount; 
 		//store the variance of the percent positive
@@ -845,8 +843,8 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		for(int c=0; c<*numCoeffs; c++){
 			stats[grid* *gridnbStats + 2+c] = coeff[c];
 		}
-	
-		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);	
+		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);
+
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
@@ -1256,14 +1254,13 @@ void noKernelMultiGilStat(
   	int indexInfestInit[*L];
 
 	// make the distances matrix
-	double* dists = NULL;
-	// double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
-	// if(dists == NULL){
-	//	printf("cannot (c)allocate memory");
-	//	return;
-	// }
+	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+	if(dists == NULL){
+		printf("cannot (c)allocate memory");
+		return;
+	}
 	
-	// makeDistMat(xs,L,ys,dists);
+	makeDistMat(xs,L,ys,dists);
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c

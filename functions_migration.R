@@ -1172,13 +1172,16 @@ if(class(importOk)!="try-error"){
 		# make matrix out of inf.statsTable
 		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
 
+		# make matrix out of atRisk.statsTable
+		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
+
 		statsTable <- 0
 		degenerateStats <- integer(0)
 
 		if(getStats){ ## if want to get statistics, need to make the statsTable
 	
 			# put all the stats into one list for making statsTable
-			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable)
+			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable,out$atRisk.statsTable)
 
 			if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
 			{
@@ -1200,7 +1203,6 @@ if(class(importOk)!="try-error"){
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)
 			}
-
 		}
 
 		infestH <- out$indexInfest
