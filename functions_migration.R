@@ -1129,7 +1129,6 @@ if(class(importOk)!="try-error"){
 			 indices = as.integer(dist_indices),
 			 semivar.statsTable = as.numeric(semivar.statsTable),
 			 semivar.nbStats = as.integer(semivar.nbStats),
-             		 sizeVvar = as.integer(sizeVvar),
 			 haveBlocks = as.integer(haveBlocks),
 			 numDiffGrids = as.integer(numDiffGrids),
 			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed

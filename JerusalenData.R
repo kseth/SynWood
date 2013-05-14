@@ -9,10 +9,11 @@ match <- match(jerusalen_encuesta$Unicode, encuesta_melgar[keep, "unicode"])
 jer_dat <- cbind(jerusalen_encuesta[, -which(names(jerusalen_encuesta) %in% c("EASTING", "NORTHING"))], OLDSTATUS = encuesta_melgar[keep, "status"][match])
 jer_dat <- cbind(jer_dat, X = jerusalen_encuesta[, "EASTING"], Y = jerusalen_encuesta[, "NORTHING"])
 maps <- jer_dat[, c("X", "Y")]
+plot(maps)
 ## fields now contained in jer_dat:
 ## "Unicode","POINT_X","POINT_Y", "STATUS","D.x","L.x","V.x","BLOCK_NUM","TOTAL_C","TOTAL_P", "OLDSTATUS", "X", "Y"
 
-startingInfested <- which(maps$OLDSTATUS == 1)
-endInfestedHouses <- which(maps$STATUS == 1)
+startingInfested <- which(jer_dat$OLDSTATUS == 1)
+endInfestedHouses <- which(jer_dat$STATUS == 1)
 binomialEndInfested <- rep(0, length(maps$X))
 binomialEndInfested[endInfestedHouses] <- 1

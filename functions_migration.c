@@ -136,7 +136,7 @@ void makeDistMat(double *xc // x of objects
 			*(dists + i* *L+j) = distance;
 			*(dists + j* *L+i) = distance;
 			// printf("i %i j %i dist %.2f \n",i,j,distance);
-		} 
+		}
 	}
 }
 
@@ -1246,7 +1246,8 @@ void noKernelMultiGilStat(
     	double* detectRate){
 
 	// if no blocks but still pass a rate skip
-	// passing rateskip = 0 will prevent gillespie from skipping 
+	// passing rateskip = 0 will prevent gillespie from skipping
+	printf("0"); 
 	if(*skipColIndex == 0 && *skipRowPointer==0 && *rateSkipInMove != 0){
 		printf("no skips given but rateSkipInMove!=0");
 		return;
@@ -1257,14 +1258,18 @@ void noKernelMultiGilStat(
 	int infestedInit[*L];
   	int indexInfestInit[*L];
 
+	printf("1");
 	// make the distances matrix
-	double* dists = (double *) malloc(sizeof(double)* (*L * *L));  //malloc dists
+	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
 	if(dists == NULL){
-		printf("cannot (m)allocate memory");
+		printf("cannot (c)allocate memory");
 		return;
 	}
-	makeDistMat(xs,L,ys,dists);
- 
+	
+	printf("2");
+	// makeDistMat(xs,L,ys,dists);
+ 	printf("3");
+
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
