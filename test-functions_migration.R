@@ -1,5 +1,6 @@
 # tests
 source("functions_migration.R")
+library("spam")
 
 test_that("making hop skip jumps correctly",{
 
@@ -47,8 +48,6 @@ test_mat <- as.spam(test_mat)
 
 expect_equal(totalmat, test_mat)
 })
-
-stop()
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -101,11 +100,12 @@ expect_equal(sum(out$zs),38)
 ## simple stat
 at_risk<-at_risk_stat(out$pos,dists,trs)
 ## overall with fit
-atRiskStats<-mat.or.vec(2,length(trs))
+ncolAtRiskStats<-length(trs)+ncoefsAtRisk
+atRiskStats<-mat.or.vec(2,ncolAtRiskStats)
 
 at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
-expect_equal(at_risk_fit[1,],rep(1,length(trs)+ncoefs))
-expect_equal(at_risk_fit[2,],rep(0,length(trs)+ncoefs))
+expect_equal(at_risk_fit[1,],rep(1,ncolAtRiskStats))
+expect_equal(at_risk_fit[2,],rep(0,ncolAtRiskStats))
 
 
 par(mfcol=c(2,5))

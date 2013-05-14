@@ -1438,7 +1438,7 @@ get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
 		trs_at_risk = as.numeric(trs),
 		ntr_at_risk = as.integer(length(trs)),
 		at_risk_stat = as.double(currentAtRiskStat),
-		ncoefsA
+		ncoefsAtRisk = as.integer(ncoefs)
 		)
 
 	at_risk_stats<-matrix(out$at_risk_stat,ncol=dim(currentAtRiskStat)[2],byrow=TRUE)
