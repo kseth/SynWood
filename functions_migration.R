@@ -931,8 +931,14 @@ if(class(importOk)!="try-error"){
 				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
 			}
 
-			# always calculate inf statistics
+			# always calculate inf stats
 			# 1 if no blocks, 3 if blocks
+			# stats selection
+			##===============
+			# Number Infested
+			# If haveBlocks:
+			#	Number Blocks Infested
+			#	Number Infested / Number Blocks Infested
 			inf.nbStats <- 1 + haveBlocks*2
 			inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)	
 
@@ -950,43 +956,29 @@ if(class(importOk)!="try-error"){
 
 				dist_indices <- dist_out$CClassIndex
 				cbin <- dist_out$classSize
-
-				if(haveBlocks){
+				# stats selection
+				###===================================
+				## CURRENT STATS:
+				## General Semivariance (new - new)
+				## General Semivariance Std. Dev. (new - new)
+				## General Semivariance (old - new)
+				## General Semivariance Std. Dev (old - new)
+				## Moran's I
+				## Geary's C
+				## Ripley's K
+				## Ripley's L
+				##	= 8 * length(cbin)
+				## if haveBlocks
+				##	By block Semivariance (same block - across streets)
+				##	By block Semivariance Std. Dev
+				## 	= 10 * length(cbin)
+				###===================================
+				if(!haveBlocks)
+					semivar.nbStats <- 8*length(cbin)
+				else{
+					semivar.nbStats <- 10*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
-
-					# stats selection
-					# need to implement system where we can add and remove stats
-					###===================================
-					## CURRENT STATS:
-					## General Semivariance
-					## General Semivariance Std. Dev.
-					## Interblock Semivariance
-					## Interblock Semivariance Std. Dev.
-					## Intrablock Semivariance
-					## Intrablock Semivariance Std. Dev.
-					## By block Semivariance
-					## By block Semivariance Std. Dev.
-					##	= 8 * length(cbin)
-					###===================================
-					semivar.nbStats<- 8*length(cbin) 
-				}else{
-					cbinas <- 0
-					cbinsb <- 0
-					# stats selection
-					###===================================
-					## CURRENT STATS:
-					## General Semivariance (new - new)
-					## General Semivariance Std. Dev. (new - new)
-					## General Semivariance (old - new)
-					## General Semivariance Std. Dev (old - new)
-					## Moran's I
-					## Geary's C
-					## Ripley's K
-					## Ripley's L
-					##	= 8 * length(cbin)
-					###===================================
-					semivar.nbStats <- 8*length(cbin)
 				}
 
 				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
@@ -1086,7 +1078,6 @@ if(class(importOk)!="try-error"){
 			 rateIntro = as.numeric(rateIntro),
 			 seed = as.integer(seed),
 			 Nrep = as.integer(Nrep),
-
 			 # stats
 			 getStats=as.integer(getStats),
 			 matchStats=as.integer(matchStats),
@@ -1124,33 +1115,12 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
-
-		if(haveBlocks){		
-			# remove interblock and intrablock stats
-			# keep:
-			# general semivar + stdev
-			# sameblock - acrossstreets semivar + stdev
-			# inf.house, inf.block, and inf.house/inf.block count
-			keepable<-c(1:(2*length(cbin)), 6*length(cbin)+1:(2*length(cbin)), sizeVvar+(1:3))
-			# clean away NANs introduced in C
-			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-			
-			keep<-intersect(notNAN,keepable)
-			out$semivar.statsTable<-out$semivar.statsTable[keep, ]
-		}else{		
-			#now only need to remove the ones that are NAN
-			notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-			out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
-		}
+		# need to remove the ones that are NAN
+		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
+		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-
-		# for now, remove stat #11 
-		# stat 11 is removed because for iterations < 1000, may have possibility that all values are the same
-		# will cause issues in variance, covariance matrix
-		# out$grid.statsTable <- out$grid.statsTable[-11, ]
-		# no longer removing stat 11
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)

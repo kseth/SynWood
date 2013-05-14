@@ -348,10 +348,10 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				sdbin[ind] += v*v;
 				
 				if(*haveBlocks == 1){ //finding sb-as semivariance
-					if(*(blockIndex + i) == *(blockIndex + j)){//same blocks variogram
+					if(*(blockIndex + i) == *(blockIndex + j)){//same blocks
 						vbinsb[ind] += v;
 						sdbinsb[ind] += v*v;	
-					} else {//across streets variogram
+					}else{//across streets
 						vbinas[ind] += v;
 						sdbinas[ind] += v*v;	
 					}
@@ -432,7 +432,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 
 	}
 
-	if(*haveBlocks == 1){ //free allocated vectors
+	if(*haveBlocks == 1){ //free allocated vectors used only for blocks
 		free(vbinsb);
 		free(vbinas);
 		free(sdbinsb);
@@ -519,8 +519,8 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, double* star
 			vbinas[class]=NAN;
 			sdbinsb[class]=NAN;
 			vbinsb[class]=NAN;
-			vbin_s_d[class] = NAN;
-			sdbin_s_d[class] = NAN;
+			vbin_s_d[class]=NAN;
+			sdbin_s_d[class]=NAN;
 		}
 	}
 }
