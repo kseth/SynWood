@@ -1440,8 +1440,8 @@ get_at_risk_stat<-function(pos,dists,trs){
 		pos = as.integer(pos),
 		npos = as.integer(length(pos)),
 		dists = as.numeric(dists),
-		trs_at_risk = as.numeric(trs_at_risk),
-		ntr_at_risk = as.integer(length(trs_at_risk))
+		trs_at_risk = as.numeric(trs),
+		ntr_at_risk = as.integer(length(trs))
 		)
 	rawstat<-out$at_risk_current
 	return(rawstat)
