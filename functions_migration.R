@@ -893,9 +893,6 @@ if(class(importOk)!="try-error"){
 		detectRate = 1, 
 		rateIntro = 0){
 
-		if(is.null(infestH)){ #if unknown starting point, randomly pick a point to be the starting point
-			infestH <- round(runif(1, 1, dim(coords)[1]))
-		}
 
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
