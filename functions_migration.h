@@ -10,7 +10,7 @@ void makeDistClassesWithStreets(double *xc, int *L, double *yc, int *cbin, int *
 
 void generateProbMat(double* halfDistJ, double* halfDistH, int* useDelta, double* delta, double* rateHopInMove,double* rateSkipInMove, double* rateJumpInMove, double* dist_mat, double* prob_mat, int* blockIndex, int* cumul, int* L);
 
-void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex);
+void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex, int* haveBlocks, int* blockIndex, int* cbinsb, int* cbinas);
 
 void modBinItWithStreets(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, int* cbinsb, int* cbinas, double* stats, int* nbins, int* blockIndex);
 

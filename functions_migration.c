@@ -291,7 +291,7 @@ void generateProbMat(double* halfDistJ,
 	}
 }
 
-void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex){  
+void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex, int* haveBlocks, int* blockIndex, int* cbinsb, int* cbinas){  
   // Calculate all the pair-wise statistics
 
 	int ind=0;
@@ -310,6 +310,28 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 	double *vbin_geary = vbin_moran + *nbins-1; //geary's C
 	double *vbin_ripleyk = vbin_geary + *nbins-1; //ripley's K
 	double *vbin_ripleyl = vbin_ripleyk + *nbins-1; //ripley's L
+	double *vbin_sb_as; //sameblock - acrossstreets semivar
+	double *sdbin_sb_as; //sameblock - acrossstreets sd
+	double *vbinsb;
+	double *vbinas;
+	double *sdbinsb;
+	double *sdbinas;
+
+	if(*haveBlocks == 1){ //if have blocks, init sb-as machinery
+		vbin_sb_as = vbin_ripleyl + *nbins-1;
+		sdbin_sb_as = vbin_sb_as + *nbins-1; //sameblock - acrossstreets
+		vbinsb = (double *) malloc(sizeof(double)* (*nbins-1));
+		vbinas = (double *) malloc(sizeof(double)* (*nbins-1));
+		sdbinsb = (double *) malloc(sizeof(double)* (*nbins-1));
+		sdbinas = (double *) malloc(sizeof(double)* (*nbins-1));
+
+		for (int class=0; class < (*nbins-1); class++){
+			vbinsb[class] = 0;
+			vbinas[class] = 0;
+			sdbinsb[class] = 0;
+			sdbinas[class] = 0;
+		}
+	}
 
 	// this loop covers only unique i,j pairs
 	for (int i=0; i< *n; i++){  // loop on all points
@@ -324,6 +346,16 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				v = v*v;
 				vbin[ind]+= v; 
 				sdbin[ind] += v*v;
+				
+				if(*haveBlocks == 1){ //finding sb-as semivariance
+					if(*(blockIndex + i) == *(blockIndex + j)){//same blocks variogram
+						vbinsb[ind] += v;
+						sdbinsb[ind] += v*v;	
+					} else {//across streets variogram
+						vbinas[ind] += v;
+						sdbinas[ind] += v*v;	
+					}
+				}
 
 				//(old-new) semivariance
 				//need to go both ways (since i->j is not symmetric anymore)
@@ -361,8 +393,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 	for (int class=0; class < (*nbins-1); class++) 
 	{
 
-		if (cbin[class]>0)
-		{
+		if (cbin[class]>0){
 			//remember cbin[class]=half number pairs in distance class 
 			sdbin[class] = sqrt((sdbin[class] - ((vbin[class] * vbin[class])/cbin[class]))/(4*(cbin[class] - 1)));
 			vbin[class] = vbin[class]/(2*cbin[class]); 
@@ -371,9 +402,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_moran[class] = (vbin_moran[class] * *n)/(cbin[class] * sq_residual_prevalence);
 			vbin_geary[class] = (vbin_geary[class] * (*n - 1))/(2*cbin[class] * sq_residual_prevalence);
 			vbin_ripleyl[class] = sqrt(vbin_ripleyl[class]);
-		}
-		else
-		{
+		} else {
 			sdbin[class]=NAN;
 			vbin[class]=NAN;
 			sdbin_on[class]=NAN;
@@ -384,6 +413,30 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_ripleyl[class]=NAN;
 		}
 
+		if(*haveBlocks == 1){ //calculate final sb-as statistic
+			if(cbinas[class] > 0 && cbinsb[class] > 0){
+				sdbinas[class] = sqrt((sdbinas[class] - ((vbinas[class] * vbinas[class])/cbinas[class]))/(4*(cbinas[class] - 1)));
+				vbinas[class] = vbinas[class]/(2*cbinas[class]);
+
+				sdbinsb[class] = sqrt((sdbinsb[class] - ((vbinsb[class] * vbinsb[class])/cbinsb[class]))/(4*(cbinsb[class] - 1)));
+				vbinsb[class] = vbinsb[class]/(2*cbinsb[class]);
+
+				vbin_sb_as[class] = vbinsb[class] - vbinas[class];
+				sdbin_sb_as[class] = sqrt(sdbinsb[class]*sdbinsb[class] + sdbinas[class]*sdbinas[class]);
+			}else{
+				vbin_sb_as[class] = NAN;
+				sdbin_sb_as[class] = NAN;
+			}
+		}
+
+
+	}
+
+	if(*haveBlocks == 1){ //free allocated vectors
+		free(vbinsb);
+		free(vbinas);
+		free(sdbinsb);
+		free(sdbinas);		
 	}
 
 }
@@ -859,7 +912,7 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 		modBinItWithStreets(L, dist_index, semivarianceData, startinfestData, cbin, cbinsb, cbinas, (stats+startGVar), nbins, blockIndex); 
 	
 	}else{ // don't have blocks
-		modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins, endIndex);
+		modBinIt(L, dist_index, semivarianceData, startinfestData, cbin, (stats+startGVar), nbins, endIndex, haveBlocks, blockIndex, cbinsb, cbinas);
 	}
 }
 
@@ -867,10 +920,11 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 
 	//store the stats in the right place
 	double* stats = infstats + (*rep * *infnbstats);	
+	*(stats + 0) = *endIndex + 1;
 
 	if(*haveBlocks == 1){	
-		//now calculate 3 more stats:
-		//number infested houses, number infested blocks, number infested houses/number infested blocks
+		//now calculate 2 more stats:
+		//number infested blocks, number infested houses/number infested blocks
 			
 		int currentBlock = 0;
 		int maxBlock = -1;
@@ -907,14 +961,9 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 				infBlockCount++;
 		
 		// save the corresponding stats
-		*(stats + 0) = *endIndex + 1;
 		*(stats + 1) = (double)infBlockCount;
 		*(stats + 2) = ((double)(*endIndex + 1))/((double)infBlockCount);
-	} else {
-
-		*(stats + 0) = *endIndex + 1;
-	}
-
+	}	
 }
 
 //=======================================
