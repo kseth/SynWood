@@ -310,7 +310,7 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 }
 
-importkmeans_Ok <- try(dyn.load("~/Desktop/synwood_control/SynWood/kmeans.so"), silent=FALSE)
+importkmeans_Ok <- try(dyn.load("kmeans.so"), silent=TRUE)
 
 ## X the x coords of the points
 ## Y the y coords of the points

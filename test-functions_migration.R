@@ -29,7 +29,8 @@ basicSimulation<-function(xs,ys,zs,dists){
   pos<-which(zs==1)
   return(list(zs=zs,pos=pos))
 }
-# test_that("at_risk computation",{
+
+test_that("at_risk computation",{
 trs<-cumsum(1:10)
 
 set.seed(1234)
@@ -70,7 +71,7 @@ stat<-apply(at_risk3,2,sum)
 correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
 expect_equal(stat,correct)
 
-# })
+})
 
 test_that("percolation computations",{
 	  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it
