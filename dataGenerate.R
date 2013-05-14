@@ -32,12 +32,18 @@ endingInfested_noisy <- which(binomEndInfested_noisy == 1)
 # plot the results
 plot_reel(maps$X, maps$Y, binomEndInfested_noisy, base = 0, top = 1)
 
+# close the device so it prints
+dev.off()
+
 # binomial (1 or 0) for all units infested or not at the end
 binomialEndInfested <- binomEndInfested_noisy
 
-# calculate statistics
-secondTimePointStats2 <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endingInfested_noisy, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
+#final endInfestedHouses
+endInfestedHouses <- endingInfested_noisy
 
+# calculate statistics
+secondTimePointStats2 <- noKernelMultiGilStat(stratHopSkipJump=stratHopSkipJump, blockIndex=blockIndex, infestH =endInfestedHouses, timeH=timeH, endTime=nbit, rateMove=rateMove, weightSkipInMove=weightSkipInMove, weightJumpInMove=weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
+	
 # obtain stats from the second gillespie simulation now messed up via observation error
 if(!is.vector(secondTimePointStats2$statsTable)){
 	statsData <- secondTimePointStats2$statsTable[, 1]
@@ -45,5 +51,4 @@ if(!is.vector(secondTimePointStats2$statsTable)){
 	statsData <- secondTimePointStats2$statsTable
 }
 
-# close the device so it prints
-dev.off()
+

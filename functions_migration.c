@@ -327,8 +327,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 	double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
 	double *vbin_moran = sdbin_on + *nbins-1; //moran's I
 	double *vbin_geary = vbin_moran + *nbins-1; //geary's C
-	double *vbin_ripleyk = vbin_geary + *nbins-1; //ripley's K
-	double *vbin_ripleyl = vbin_ripleyk + *nbins-1; //ripley's L
+	double *vbin_ripleyl = vbin_geary + *nbins-1; //ripley's L 
 	double *vbin_sb_as; //sameblock - acrossstreets semivar
 	double *sdbin_sb_as; //sameblock - acrossstreets sd
 	double *vbinsb;
@@ -398,10 +397,8 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				vbin_geary[ind] += v_geary;
 
 				// Ripley's K and L functions
-				if(inf_data[i] == 1 && inf_data[j] == 1){
-					vbin_ripleyk[ind] += 1;
-					vbin_ripleyl[ind] += 1;
-				}		
+				if(inf_data[i] == 1 && inf_data[j] == 1)
+					vbin_ripleyl[ind] += 1;		
 			}
 		}
 
@@ -428,7 +425,6 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_on[class]=NAN;
 			vbin_moran[class]=NAN;
 			vbin_geary[class]=NAN;
-			vbin_ripleyk[class]=NAN;
 			vbin_ripleyl[class]=NAN;
 		}
 
@@ -748,7 +744,7 @@ int double_compare(const void *a, const void *b){
 }
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats){
 
 	//printf("%d \n", *endIndex);
 
@@ -806,7 +802,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//create *dx and *dy and *coeff (used in regression)
 	double *dx, *dy; // coordinats of the initial points in the stats
-	double coeff[5]; // the coefficients estimated
+	double coeff[*numCoeffs]; // the coefficients estimated
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
@@ -839,18 +835,16 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		// dx: the number of the cell in the partition  
 		// dy: the number of positive per cell
 		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);		
-		polynomialfit(*(gridNumCells+grid), 5, dx, dy, coeff);
+		polynomialfit(*(gridNumCells+grid), *numCoeffs, dx, dy, coeff);
 
 		//store positive count in gridstats
-		stats[grid*7] = positivecount; 
+		stats[grid* *gridnbStats] = positivecount; 
 		//store the variance of the percent positive
-		stats[grid*7+1] = varPP;
+		stats[grid* *gridnbStats+1] = varPP;
 		//store the regression coefficients
-		stats[grid*7+2] = coeff[0];
-		stats[grid*7+3] = coeff[1];
-		stats[grid*7+4] = coeff[2];
-		stats[grid*7+5] = coeff[3];
-		stats[grid*7+6] = coeff[4];
+		for(int c=0; c<*numCoeffs; c++){
+			stats[grid* *gridnbStats + 2+c] = coeff[c];
+		}
 	
 		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);	
 		positivecount = 0;
@@ -1212,7 +1206,7 @@ void noKernelMultiGilStat(
 	int* matchStats, int* lengthStats, 
 	int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *nbStats,
 	int* haveBlocks, 
-	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, double* gridstats, 
+	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, double* gridstats, 
 	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats,
 	int* infnbStats, double* infstats,	
 	double* trs_at_risk, int* ntr_at_risk, // thresholds area at Risk stat
@@ -1235,9 +1229,9 @@ void noKernelMultiGilStat(
   	int indexInfestInit[*L];
 
 	// make the distances matrix
-	double* dists = (double *) malloc(sizeof(double)* *(*L * *L));  //malloc dists
+	double* dists = (double *) malloc(sizeof(double)* (*L * *L));  //malloc dists
 	if(dists == NULL){
-		printf("cannot allocate memory");
+		printf("cannot (m)allocate memory");
 		return;
 	}
 	makeDistMat(xs,L,ys,dists);
@@ -1283,12 +1277,12 @@ void noKernelMultiGilStat(
 
 				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
 				int npos[1];
-				npos[1] = *endIndex + 1;
+				npos[0] = *endIndex + 1;
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
+					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, numCoeffs, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, trs_at_risk, ntr_at_risk, at_riskStats,ncoefsAtRisk); break; 
+					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, trs_at_risk, ntr_at_risk, at_riskStats, ncoefsAtRisk); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}
