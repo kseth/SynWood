@@ -91,7 +91,7 @@ expect_equal(distsNoRowNames,makeDistMat(xs,ys))
 	  trs<-cumsum(1:10)
 
 set.seed(1234)
-ncoefsAtRisk<-5
+ncoefsAtRisk<-length(trs)-1
 ncolAtRiskStats<-length(trs)+ncoefsAtRisk
 atRiskStats<-mat.or.vec(2,ncolAtRiskStats) # the full matrix with multiple stats
 
@@ -111,11 +111,34 @@ at_risk_stat <- get_at_risk_stat(out$pos,dists,trs)
 expect_equal(at_risk_stat,correct)
 
 ## overall with fit
+par(mfrow=c(1,2))
+plot(correct)
+# C fit
 at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
-# expect_equal(at_risk_fit[1,],rep(1,ncolAtRiskStats))
-expect_equal(at_risk_fit[2,],rep(0,ncolAtRiskStats))
+get.predict.at_risk<-function(trs,at_risk_fit){
+	result<- 0*trs
+	for(iat in 1:length(at_risk_fit)){
+		for(itr in 1:(length(trs))){
+			# cat("iat:",iat,"coef:",at_risk_fit[iat],"tr:",trs[itr],"result:",result[itr],"\n")
+			result[itr] <- result[itr]+at_risk_fit[iat]*trs[itr]^(iat-1)
+		}
+	}
+	return(result)
+}
+coefsFit<-at_risk_fit[2,(length(trs)+1):(length(trs)+ncoefsAtRisk)]
+pred.at_risk<-get.predict.at_risk(trs,coefsFit)
 
+lines(pred.at_risk,col=4)
+# R fit
+Rfit<-lm(at_risk_stat ~ poly(trs, ncoefsAtRisk-1, raw=TRUE))
+lines(predict(Rfit))
 
+# check C vs R fit
+plot(Rfit$coefficients,coefsFit)
+abline(a=0,b=1)
+expect_equal(as.vector(Rfit$coefficients),coefsFit)
+
+# plot the spatial repartition
 par(mfcol=c(2,5))
 for(i in 1:length(trs)){
 	plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)

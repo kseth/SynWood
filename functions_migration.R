@@ -1434,6 +1434,8 @@ get_at_risk_indicator<-function(posnodes,dists,trs){
 get_at_risk_stat<-function(pos,dists,trs){
 	stat<- rep(0,length(trs))
 	L<-dim(dists)[1]
+	pos<- pos-1 # to correspond to C numering
+
 	out<-.C("get_at_risk_stat",
 		at_risk_current = as.numeric(stat),
 		L = as.integer(L),
@@ -1449,6 +1451,7 @@ get_at_risk_stat<-function(pos,dists,trs){
 
 # fit the raw stat and formalize in big matrix
 get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
+	pos<- pos-1 # to correspond to C numering
 	out<-.C("get_stats_at_risk",
 		rep = as.integer(numRep),
 		L = as.integer(dim(dists)[1]),

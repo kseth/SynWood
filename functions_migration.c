@@ -1005,9 +1005,9 @@ void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes
 	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
 
 	// transform matrix of indicator in raw stat
-	for(int itr=0;itr< *nTr;itr++){
-		for ( int ih = 0; ih < *L; ih += 1 ) { 
-			at_risk_stats[itr] += at_risk_ind[itr* *L + ih];
+	for ( int ih = 0; ih < *L; ih += 1 ) { 
+		for(int itr=0;itr< *nTr;itr++){
+			at_risk_stats[itr] += at_risk_ind[itr + ih * *nTr ];
 		}
 	}
 	free(at_risk_ind);
@@ -1019,6 +1019,8 @@ void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes
 void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
   // the distances must be increasing in trs
   
+  int summary[*nTr];
+  for(int itr=0;itr< *nTr;itr++) summary[itr]=0;
   for(int node =0;node<*n;node++){ 
     int lnode = node * *nTr; // line for the node with != tr
     int atRisk = 0; // indicator that at risk with at least one tr
@@ -1032,8 +1034,12 @@ void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, do
 	ipos++;
       }
       at_risk[lnode+itr]=atRisk;
+      summary[itr]+=atRisk;
     }
   }
+  // printf("summary in indicator\n");
+  // for(int itr=0;itr< *nTr;itr++) printf("%d ",summary[itr]);
+  // printf("\n");
 }
 
 
