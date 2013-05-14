@@ -955,7 +955,7 @@ if(class(importOk)!="try-error"){
 		inf.statsTable <- 0
 
 		# at_risk statistics
-		atRisk.nbStats<-0
+		atRisk.nbCoefs<-0
 		atRisk.statsTable<-0
 
 		if(getStats){
@@ -1087,8 +1087,8 @@ if(class(importOk)!="try-error"){
 			}
 			if("atRisk" %in% typeStat){
 				atRisk.nbCoefs<-atRisk.ncoefs
-				atRisk.nbStats<-length(trsAtRisk)+ncoefsAtRisk
-				atRisk.statsTable<-mat.or.vect(Nrep,atRisk.nbStats)
+				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
+				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
 			}
 		}
 
@@ -1147,7 +1147,7 @@ if(class(importOk)!="try-error"){
 			 inf.nbStats = as.integer(inf.nbStats),
 			 inf.statsTable = as.numeric(inf.statsTable), 
 			 atRisk.trs = as.numeric(atRisk.trs),
-			 atRisk.ntrs = as.numeric(length(atRisk.trs)),
+			 atRisk.ntrs = as.integer(length(atRisk.trs)),
 			 atRisk.statsTable = as.numeric(atRisk.statsTable),
 			 atRisk.nbCoefs = as.integer(atRisk.nbCoefs),
 			 xs = as.numeric(coords$X),

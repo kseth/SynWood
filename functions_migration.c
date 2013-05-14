@@ -1268,6 +1268,7 @@ void noKernelMultiGilStat(
 	
 	printf("2");
 	// makeDistMat(xs,L,ys,dists);
+
  	printf("3");
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
