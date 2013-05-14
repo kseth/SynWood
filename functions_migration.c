@@ -1224,8 +1224,8 @@ void noKernelMultiGilStat(
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping 
-	if(*haveBlocks == 0 && *rateSkipInMove != 0){
-		printf("no blocks but rateSkipInMove!=0");
+	if(*skipColIndex == 0 && *skipRowPointer==0 && *rateSkipInMove != 0){
+		printf("no skips given but rateSkipInMove!=0");
 		return;
 	}
 
@@ -1235,7 +1235,11 @@ void noKernelMultiGilStat(
   	int indexInfestInit[*L];
 
 	// make the distances matrix
-	double dists[*L * *L];
+	double* dists = (double *) malloc(sizeof(double)* *(*L * *L));  //malloc dists
+	if(dists == NULL){
+		printf("cannot allocate memory");
+		return;
+	}
 	makeDistMat(xs,L,ys,dists);
  
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
@@ -1295,5 +1299,7 @@ void noKernelMultiGilStat(
 	 	}
 
 	}
+
+	free(dists); //free malloc'ed dists
 	
 }

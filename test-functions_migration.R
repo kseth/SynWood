@@ -48,8 +48,6 @@ test_mat <- as.spam(test_mat)
 expect_equal(totalmat, test_mat)
 })
 
-stop()
-
 ### make a basic simulation of dispersal
 ## parameters
 cote<-50
