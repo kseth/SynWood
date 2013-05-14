@@ -1267,7 +1267,7 @@ void noKernelMultiGilStat(
 	}
 	
 	printf("2");
-	// makeDistMat(xs,L,ys,dists);
+	makeDistMat(xs,L,ys,dists);
 
  	printf("3");
 
