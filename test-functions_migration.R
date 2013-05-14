@@ -92,19 +92,27 @@ expect_equal(distsNoRowNames,makeDistMat(xs,ys))
 
 set.seed(1234)
 ncoefsAtRisk<-5
+ncolAtRiskStats<-length(trs)+ncoefsAtRisk
+atRiskStats<-mat.or.vec(2,ncolAtRiskStats) # the full matrix with multiple stats
+
 # one center
 zs<-0*xs
 zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 out<-basicSimulation(xs,ys,zs,dists)
 expect_equal(sum(out$zs),38)
+## simple indicator
+at_risk<-get_at_risk_indicator(out$pos,dists,trs)
+stat<-apply(at_risk,2,sum)
+plot(stat)
+correct<- c(38,180,382,722,1295,2067,2465,2500,2500,2500)
+expect_equal(stat,correct)
 ## simple stat
-at_risk<-at_risk_stat(out$pos,dists,trs)
-## overall with fit
-ncolAtRiskStats<-length(trs)+ncoefsAtRisk
-atRiskStats<-mat.or.vec(2,ncolAtRiskStats)
+at_risk_stat <- get_at_risk_stat(out$pos,dists,trs)
+expect_equal(at_risk_stat,correct)
 
+## overall with fit
 at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
-expect_equal(at_risk_fit[1,],rep(1,ncolAtRiskStats))
+# expect_equal(at_risk_fit[1,],rep(1,ncolAtRiskStats))
 expect_equal(at_risk_fit[2,],rep(0,ncolAtRiskStats))
 
 
@@ -114,11 +122,6 @@ for(i in 1:length(trs)){
 	points(xs[out$pos],ys[out$pos],pch=3)
 }
 
-stat<-apply(at_risk,2,sum)
-plot(stat)
-correct<- c(38,180,382,722,1295,2067,2465,2500,2500,2500)
-expect_equal(stat,correct)
-
 # three centers
 set.seed(1234)
 zs<-0*xs
@@ -127,7 +130,7 @@ zs[length(zs)]<-1
 zs[which(xs==round(cote/2) & ys == round(cote/2))]<-1
 out<-basicSimulation(xs,ys,zs,dists)
 expect_equal(sum(out$zs),30)
-at_risk3<-at_risk_stat(out$pos,dists,trs)
+at_risk3<-get_at_risk_indicator(out$pos,dists,trs)
 # par(mfcol=c(3,4))
 # for(i in 1:length(trs)){
 # plot(xs,ys,col=at_risk3[,i]+2,asp=1,pch=19,cex=0.2)

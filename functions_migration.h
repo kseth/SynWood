@@ -32,7 +32,9 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 
 void get_stats_at_risk(int* rep, int* L, int* endInfest, int* endIndex, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat,int* ncoefs);
 
-void at_risk_stat(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists, double *trs, int *nTr);
+void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr);
+
+void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr);
 
 int follow_link(int *Grille, int sizeGrille, int num_case);
 

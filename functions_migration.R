@@ -1408,7 +1408,7 @@ percolation_circle<-function(dists,tr){
 
 # flag at risk nodes according to a vector of threshold distances
 # and a matrix of distances
-at_risk_stat<-function(posnodes,dists,trs){
+get_at_risk_indicator<-function(posnodes,dists,trs){
   # posnodes: nodes generating the risk
   # dists: square distance matrix for all the nodes
   # trs: increasing threshold distances
@@ -1416,7 +1416,7 @@ at_risk_stat<-function(posnodes,dists,trs){
   at_risk<-rep(0,length(trs)*n)
   posnodes<- posnodes-1 # to correspond to C numering
 
-  out<-.C("at_risk_stat",
+  out<-.C("get_at_risk_indicator",
 	  at_risk = as.integer(at_risk),
 	  n = as.integer(n),
 	  posnodes = as.integer(posnodes),
@@ -1428,6 +1428,24 @@ at_risk_stat<-function(posnodes,dists,trs){
   return(matrix(out$at_risk,ncol=length(trs),byrow=TRUE))
 }
 
+# get indicator at_Risk and transform it in raw stat
+get_at_risk_stat<-function(pos,dists,trs){
+	stat<- rep(0,length(trs))
+	L<-dim(dists)[1]
+	out<-.C("get_at_risk_stat",
+		at_risk_current = as.numeric(stat),
+		L = as.integer(L),
+		pos = as.integer(pos),
+		npos = as.integer(length(pos)),
+		dists = as.numeric(dists),
+		trs_at_risk = as.numeric(trs_at_risk),
+		ntr_at_risk = as.integer(length(trs_at_risk))
+		)
+	rawstat<-out$at_risk_current
+	return(rawstat)
+}
+
+# fit the raw stat and formalize in big matrix
 get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
 	out<-.C("get_stats_at_risk",
 		rep = as.integer(numRep),
