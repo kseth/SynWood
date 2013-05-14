@@ -1187,6 +1187,7 @@ if(class(importOk)!="try-error"){
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
 
 				statsTable <- c(statsTable, numInfested)
+				statsTable <- statsTable[-1]
 			}else{
 
 				numInfested <- out$inf.statsTable 

@@ -856,8 +856,6 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
 
-	printf("%i\n", *endIndex);
-
 	//store the stats in the right place
 	double* stats = circlestats + (*rep * *circlenbStats);
 
@@ -879,7 +877,6 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 			whichHouseInfested = *(endInfest+house);
 			wherePut = circleIndexes[(center* *L)+whichHouseInfested];
 
-			printf("%04d %04d\n", whichHouseInfested, wherePut); 
 			if(wherePut != -1)
 				numPP[center][wherePut] = numPP[center][wherePut]+1;
 		}
@@ -902,13 +899,9 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		
 		stats[circle*2] = meanPP;
 		stats[circle*2+1] = varPP;
-		printf("%f %f \n", meanPP, varPP);
 		meanPP = 0;
 		varPP = 0;
 	}
-
-	for(int num = 0; num < *circlenbStats; num++)
-		printf("%f ", stats[num]);	
 	
 } 
 
@@ -1263,14 +1256,14 @@ void noKernelMultiGilStat(
   	int indexInfestInit[*L];
 
 	// make the distances matrix
-	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
-	if(dists == NULL){
-		printf("cannot (c)allocate memory");
-		return;
-	}
+	double* dists = NULL;
+	// double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+	// if(dists == NULL){
+	//	printf("cannot (c)allocate memory");
+	//	return;
+	// }
 	
 	// makeDistMat(xs,L,ys,dists);
- 	printf("3");
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
