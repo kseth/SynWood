@@ -12,17 +12,7 @@ maps <- jer_dat[, c("X", "Y")]
 ## fields now contained in jer_dat:
 ## "Unicode","POINT_X","POINT_Y", "STATUS","D.x","L.x","V.x","BLOCK_NUM","TOTAL_C","TOTAL_P", "OLDSTATUS", "X", "Y"
 
-startInfestH <- which(maps$OLDSTATUS == 1)
-endInfestH <- which(maps$STATUS == 1)
-
-## create a dummy timeH
-timeH <- rep(-2, length(startInfestH))
-
-### the vec of stats for the second timepoint data
-stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps, breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
-
-if(!is.vector(stats$statsTable)){
-	statsData <- stats$statsTable[, 1]
-}else{
-	statsData <- stats$statsTable
-}
+startingInfested <- which(maps$OLDSTATUS == 1)
+endInfestedHouses <- which(maps$STATUS == 1)
+binomialEndInfested <- rep(0, length(maps$X))
+binomialEndInfested[endInfestedHouses] <- 1

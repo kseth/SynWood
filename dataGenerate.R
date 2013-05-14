@@ -50,5 +50,3 @@ if(!is.vector(secondTimePointStats2$statsTable)){
 }else{
 	statsData <- secondTimePointStats2$statsTable
 }
-
-
