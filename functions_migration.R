@@ -5,6 +5,26 @@ library(testthat)
 # source("RanalysisFunctions.R")
 
 #======================
+# Basic functions
+#======================
+# dist function
+makeDistMat<-function(xs,ys){
+	expect_equal(length(xs),length(ys))
+	dists<-mat.or.vec(length(xs),length(xs))
+	out<-.C("makeDistMat",
+	   xc = as.numeric(xs),
+	   L = as.integer(length(xs)),
+	   yc = as.numeric(ys),
+	   dists = as.numeric(dists)
+	   )
+	dists<-matrix(out$dists,length(xs))
+
+	return(dists)
+}
+
+
+
+#======================
 # Generate hop/skip/jump matrixes
 #======================
 
@@ -332,7 +352,7 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 
 }
 
-importkmeans_Ok <- try(dyn.load("~/Desktop/synwood_control/SynWood/kmeans.so"), silent=FALSE)
+importkmeans_Ok <- try(dyn.load("kmeans.so"), silent=TRUE)
 
 ## X the x coords of the points
 ## Y the y coords of the points
@@ -1406,6 +1426,23 @@ at_risk_stat<-function(posnodes,dists,trs){
 	  nTr = as.integer(length(trs))
 	  )
   return(matrix(out$at_risk,ncol=length(trs),byrow=TRUE))
+}
+
+get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
+	out<-.C("get_stats_at_risk",
+		rep = as.integer(numRep),
+		L = as.integer(dim(dists)[1]),
+		pos = as.integer(pos),
+		npos = as.integer(length(pos)),
+		dists = as.numeric(dists),
+		trs_at_risk = as.numeric(trs),
+		ntr_at_risk = as.integer(length(trs)),
+		at_risk_stat = as.double(currentAtRiskStat),
+		ncoefsA
+		)
+
+	at_risk_stats<-matrix(out$at_risk_stat,ncol=dim(currentAtRiskStat)[2],byrow=TRUE)
+	return(at_risk_stats)
 }
 
 # Tests
