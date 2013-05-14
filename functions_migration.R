@@ -920,7 +920,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid", "circles","at_risk")
+		implStats <- c("semivariance", "grid", "circles", "at_risk")
 
 		# initialize all the statistics to 0
 		# if getStats and specific statistics are used, then change their value
@@ -940,6 +940,7 @@ if(class(importOk)!="try-error"){
 		gridEmptyCells <- 0
 		gridCountCells <- 0
 		grid.nbStats <- 0
+		grid.numCoeffs <- 0 
 		grid.statsTable <- 0
 
 		#circle statistics
@@ -999,18 +1000,17 @@ if(class(importOk)!="try-error"){
 				## General Semivariance Std. Dev (old - new)
 				## Moran's I
 				## Geary's C
-				## Ripley's K
 				## Ripley's L
-				##	= 8 * length(cbin)
+				##	= 7 * length(cbin)
 				## if haveBlocks
 				##	By block Semivariance (same block - across streets)
 				##	By block Semivariance Std. Dev
-				## 	= 10 * length(cbin)
+				## 	= 9 * length(cbin)
 				###===================================
 				if(!haveBlocks)
-					semivar.nbStats <- 8*length(cbin)
+					semivar.nbStats <- 7*length(cbin)
 				else{
-					semivar.nbStats <- 10*length(cbin)
+					semivar.nbStats <- 9*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
 				}
@@ -1055,10 +1055,11 @@ if(class(importOk)!="try-error"){
 				## Variance of % positive per cell
 				## Number Cells with at least 1 positive 
 				## Fit quantile distribution to polynomial
-				## a + bx + cx^2 + dx^3 + ex^4 (4 stats) 
-				##	= 7 * numDiffGrids
+				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats) 
+				##	= (2+grid.numCoeffs) * numDiffGrids
 				###===================================
-				grid.nbStats <- 7*numDiffGrids		
+				grid.numCoeffs <- 5
+				grid.nbStats <- (2+grid.numCoeffs)*numDiffGrids		
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)			
 			}
 
@@ -1131,6 +1132,7 @@ if(class(importOk)!="try-error"){
 			 gridEmptyCells = as.integer(gridEmptyCells),
 			 gridCountCells = as.integer(gridCountCells),
 			 grid.nbStats = as.integer(grid.nbStats),
+			 grid.numCoeffs = as.integer(grid.numCoeffs),
 			 grid.statsTable = as.numeric(grid.statsTable),
 			 numDiffCircles = as.integer(numDiffCircles),
 			 numDiffCenters = as.integer(numDiffCenters),

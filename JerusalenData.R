@@ -6,9 +6,10 @@ jerusalen_encuesta <- read.csv(file = "../jerusalen_encuesta_2011_full_f2_collap
 
 keep <- which(encuesta_melgar$unicode %in% jerusalen_encuesta$Unicode)
 match <- match(jerusalen_encuesta$Unicode, encuesta_melgar[keep, "unicode"])
-maps <- cbind(jerusalen_encuesta[, -which(names(jerusalen_encuesta) %in% c("EASTING", "NORTHING"))], OLDSTATUS = encuesta_melgar[keep, "status"][match])
-maps <- cbind(maps, X = jerusalen_encuesta[, "EASTING"], Y = jerusalen_encuesta[, "NORTHING"])
-## fields now contained in jerusalen_encuesta:
+jer_dat <- cbind(jerusalen_encuesta[, -which(names(jerusalen_encuesta) %in% c("EASTING", "NORTHING"))], OLDSTATUS = encuesta_melgar[keep, "status"][match])
+jer_dat <- cbind(jer_dat, X = jerusalen_encuesta[, "EASTING"], Y = jerusalen_encuesta[, "NORTHING"])
+maps <- jer_dat[, c("X", "Y")]
+## fields now contained in jer_dat:
 ## "Unicode","POINT_X","POINT_Y", "STATUS","D.x","L.x","V.x","BLOCK_NUM","TOTAL_C","TOTAL_P", "OLDSTATUS", "X", "Y"
 
 startInfestH <- which(maps$OLDSTATUS == 1)
@@ -18,7 +19,7 @@ endInfestH <- which(maps$STATUS == 1)
 timeH <- rep(-2, length(startInfestH))
 
 ### the vec of stats for the second timepoint data
-stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
+stats <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = endInfestH, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps, breaksGenVar = genIntervals, simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
 
 if(!is.vector(stats$statsTable)){
 	statsData <- stats$statsTable[, 1]
