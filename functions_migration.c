@@ -986,11 +986,14 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 
 // use at_risk_stat and polynomial fitting to return the at_risk stats
 void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs_at_risk, int* ntr_at_risk, double* at_risk_stat,int* ncoefs){
+	int sizeLine = *ncoefs + *ntr_at_risk; // line in at_risk_stat
+	double* at_risk_current = at_risk_stat+ sizeLine * *rep;
+	// compute raw stats
+	get_at_risk_stat(at_risk_current,L,pos,npos,dists,trs_at_risk,ntr_at_risk);
 
-	// fit
-
-	// put result into at_risk_stat
-
+	// fit of the stats with polynomial regression
+	double coefs[*ncoefs];
+	polynomialfit(*ntr_at_risk, *ncoefs, trs_at_risk, at_risk_current, at_risk_current+ *ntr_at_risk);
 }
 
 //=======================================
@@ -998,8 +1001,28 @@ void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, dou
 // - according to dist give the number of points 
 //   within dist of infested
 //=======================================
-void at_risk_stat(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
-  // in at_risk (n*nTr) return for each tr and each node if at risk
+
+void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
+
+	// get matrix of indicator of at risk for each household
+	// and each threshold
+	int* at_risk_ind;
+	at_risk_ind = (int *) malloc(sizeof(int)* (*nTr * *L));
+	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
+
+	// transform matrix of indicator in raw stat
+	for(int itr=0;itr< *nTr;itr++){
+		for ( int ih = 0; ih < *L; ih += 1 ) { 
+			at_risk_stats[itr] += at_risk_ind[itr* *L + ih];
+		}
+	}
+	free(at_risk_ind);
+}
+
+//=======================================
+// in at_risk (n*nTr) return for each tr and each node if at risk
+//=======================================
+void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
   // the distances must be increasing in trs
   
   for(int node =0;node<*n;node++){ 
@@ -1279,7 +1302,7 @@ void noKernelMultiGilStat(
 
 				// for every stat that we want, switch (if 1, do semivariance stats; if 2, do grid stats)	
 				int npos[1];
-				npos[1] = *endIndex + 1;
+				npos[0] = *endIndex + 1;
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, gridstats); break;
