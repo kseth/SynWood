@@ -1085,6 +1085,7 @@ if(class(importOk)!="try-error"){
 				circle.nbStats <- 2*numDiffCircles
 				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
 			}
+			
 			if("atRisk" %in% typeStat){
 				atRisk.nbCoefs<-atRisk.ncoefs
 				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
@@ -1098,14 +1099,18 @@ if(class(importOk)!="try-error"){
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
-			 skipColIndex = as.integer(ifelse(!is.null(stratHopSkipJump$skipMat), stratHopSkipJump$skipMat@colindices-1, 0)), # if no skips, pass dummy skip
-			 skipRowPointer = as.integer(ifelse(!is.null(stratHopSkipJump$skipMat), stratHopSkipJump$skipMat@rowpointers-1, 0)), # if no skips, pass dummy skip
+			 skipColIndex = if(!is.null(stratHopSkipJump$skipMat)){
+				 		as.integer(stratHopSkipJump$skipMat@colindices-1)}else{
+						as.integer(0)}, # if no skips, pass dummy skip
+			 skipRowPointer = if(!is.null(stratHopSkipJump$skipMat)){
+				 	 	as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
+						as.integer(0)}, # if no skips, pass dummy skip
 			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
 			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
 			 rateHopInMove = as.numeric(rateHopInMove), 
 			 rateSkipInMove = as.numeric(rateSkipInMove), 
 			 rateJumpInMove = as.numeric(rateJumpInMove), 
-			 blockIndex = ifelse(haveBlocks, as.integer(blockIndex), 0),
+			 blockIndex = if(haveBlocks){as.integer(blockIndex)}else{as.integer(0)},
 			 simul = as.integer(simul),
 			 infested = as.integer(infested),
 			 infestedDens = as.numeric(infestedDens),
