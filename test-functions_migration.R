@@ -166,7 +166,6 @@ expect_equal(stat,correct)
 
 # })
 
-
 ### test of percolation computations
 test_that("percolation computations",{
 	  # ashape(xs[pos],ys[pos],alpha=1) # bug, doesn't want to do it

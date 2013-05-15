@@ -1159,6 +1159,7 @@ if(class(importOk)!="try-error"){
 			 ys = as.numeric(coords$Y),
 			 detectRate = as.numeric(detectRate) 
 			 )
+		# print(out)
 
 		out$infestedDens<-out$infestedDens/Nrep;
 	
