@@ -669,7 +669,7 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 	
 	
 			// printf("new infested: %i\n", dest);
-			// ///fflush(stdout);
+			// fflush(stdout);
 		}			
 
 		if((*(infested+dest)) != 1){ // if the destination is not already infested
@@ -746,8 +746,6 @@ int double_compare(const void *a, const void *b){
 //have not implemented get_stats_grid for blocks
 void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats){
 
-	//printf("%d \n", *endIndex);
-
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
 	//initialize all the storage cells (to store how many positive) in gridEmptyCells to 0
@@ -780,13 +778,13 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		//printf("\n");
 		currentCellStartingPoint += *(gridNumCells+grid);
 	}
-  
+
 	//the first stat inserted will be num positive cells
 	//the second stat inserted will be variance of %positive 
 	//the third-sixth stats will be regression coefficients
 	// need to compute variance + store in gridstats
 	// the percent positive is the mean %positive over all the cells (this is scale invariant)
-	double meanPP = (*endIndex + 1) / *L;
+	double meanPP = ((double)(*endIndex + 1)) / ((double)*L);
 	count = 0;
 
 	// keeps track of number of positive cells in grid
@@ -801,7 +799,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	double cellPP= 0;
 
 	//create *dx and *dy and *coeff (used in regression)
-	double *dx, *dy; // coordinats of the initial points in the stats
+	double *dx, *dy; // coordinates of the initial points in the stats
 	double coeff[*numCoeffs]; // the coefficients estimated
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
@@ -825,28 +823,30 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 			count++;
 		}
 
-
 		//divide variance by number of cells and then subtract (mean percent positive)^2
 		varPP = varPP/ *(gridNumCells+grid) - meanPP*meanPP;
+		
+		//printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
 
 		//calculate the regression coefficients
 		//sort so that we have a "quantile like distribution"
-		// actually making a "weibull plot"
 		// dx: the number of the cell in the partition  
 		// dy: the number of positive per cell
-		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);		
+		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);
 		polynomialfit(*(gridNumCells+grid), *numCoeffs, dx, dy, coeff);
-
+		
 		//store positive count in gridstats
-		stats[grid* *gridnbStats] = positivecount; 
+		stats[grid * (*numCoeffs+2)] = positivecount; 
+
 		//store the variance of the percent positive
-		stats[grid* *gridnbStats+1] = varPP;
+		stats[grid* (*numCoeffs+2) + 1] = varPP;
+
 		//store the regression coefficients
 		for(int c=0; c<*numCoeffs; c++){
-			stats[grid* *gridnbStats + 2+c] = coeff[c];
+			stats[grid* (*numCoeffs+2) + 2+c] = coeff[c];
 		}
-	
-		//printf("cells: %d coeffs: %f %f %f %f\n", *(gridNumCells+grid), coeff[0], coeff[1], coeff[2], coeff[3]);	
+
+
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
@@ -855,8 +855,6 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
-
-	printf("%i\n", *endIndex);
 
 	//store the stats in the right place
 	double* stats = circlestats + (*rep * *circlenbStats);
@@ -879,7 +877,6 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 			whichHouseInfested = *(endInfest+house);
 			wherePut = circleIndexes[(center* *L)+whichHouseInfested];
 
-			printf("%04d %04d\n", whichHouseInfested, wherePut); 
 			if(wherePut != -1)
 				numPP[center][wherePut] = numPP[center][wherePut]+1;
 		}
@@ -902,13 +899,9 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		
 		stats[circle*2] = meanPP;
 		stats[circle*2+1] = varPP;
-		printf("%f %f \n", meanPP, varPP);
 		meanPP = 0;
 		varPP = 0;
 	}
-
-	for(int num = 0; num < *circlenbStats; num++)
-		printf("%f ", stats[num]);	
 	
 } 
 
@@ -1256,7 +1249,6 @@ void noKernelMultiGilStat(
 		printf("no skips given but rateSkipInMove!=0");
 		return;
 	}
-
 	
 	int valEndIndex = *endIndex;	
 	int infestedInit[*L];
@@ -1269,10 +1261,7 @@ void noKernelMultiGilStat(
 		return;
 	}
 	
-	printf("2");
 	makeDistMat(xs,L,ys,dists);
-
- 	printf("3");
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
