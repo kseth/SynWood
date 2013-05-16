@@ -435,7 +435,7 @@ partitionKMeans <- function(X, Y, num_clusts, language = "R"){
 		return(list(index=index, num_cells=num_cells, housesPerCell=housesPerCell))
 
 	} else {
-		cat("using R kmeans partitioning\n")
+		# cat("using R kmeans partitioning\n")
 
 		points <- matrix(c(X, Y), ncol = 2)
 		out <- kmeans(points, centers = num_clusts, iter = 100, nstart = 2)
