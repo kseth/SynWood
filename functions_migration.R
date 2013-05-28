@@ -1167,8 +1167,6 @@ if(class(importOk)!="try-error"){
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 		# need to remove the ones that are NAN
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-		# keepable <- c(4*length(cbin)+1:(2*length(cbin)))
-		# keepable <- c(1:(2*length(cbin)))
 		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 	
 		# make matrix out of grid.statsTable
