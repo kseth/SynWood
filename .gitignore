@@ -2,3 +2,6 @@
 *.*~
 *.pdf
 *.csv
+*.swp
+.RData
+.Rhistory
