@@ -1255,13 +1255,14 @@ void noKernelMultiGilStat(
   	int indexInfestInit[*L];
 
 	// make the distances matrix
-	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
-	if(dists == NULL){
-		printf("cannot (c)allocate memory");
-		return;
-	}
-	
-	makeDistMat(xs,L,ys,dists);
+	// double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+	//if(dists == NULL){
+	//		printf("cannot (c)allocate memory");
+	//		return;
+	//	}
+	//	
+	//	makeDistMat(xs,L,ys,dists);
+	double* dists = NULL;
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
@@ -1323,6 +1324,6 @@ void noKernelMultiGilStat(
 
 	}
 
-	free(dists); //free malloc'ed dists
+	//free(dists); //free malloc'ed dists
 	
 }
