@@ -191,3 +191,65 @@ end <- Sys.time()
 # print(start2-start1)
 # cat("boundednorm MCMC ")
 # print(end-start2)
+
+#===============================
+## intent to normalize any stat
+#===============================
+z<-runif(1000)^2
+## wood procedure
+trans<-get.trans(rbind(z,z))
+w<-trans.stat(rbind(z,z),trans)
+hist(w[1,])
+shapiro.test(w)
+ks.test(w,"pnorm")
+# # => shapiro no but ks ok and imply defining by hand, painful
+
+### inverse of quantile based transform to normality
+## prototype
+par(mfrow=c(1,2))
+z<-runif(1000)^2 # something really not normal
+hist(z)
+cz<-sort(z) # quantiles
+invfn<-function(x) sqrt(x) # define an inverse of the quantile
+	# it should always be possible as the quantile is injective
+w<-qnorm(invfn(z)) # transform to normality
+shapiro.test(w)
+hist(w)
+ks.test(w,"pnorm")
+# => perfect
+
+## real stuff
+# initial state
+par(mfrow=c(1,3))
+z<-runif(1000,min=0,max=1)^2 # something really not normal
+z<-rpois(1000,min=0,max=1)^2 # something really not normal
+# hist(z)
+
+# fit a polynomial fn to the inverse of the quantiles
+xs<-sort(z)
+ys<-1:length(z)
+
+# # intent with polynomial fitting
+# model<-lm(ys ~ poly(xs, 10, raw=TRUE))
+
+# # intent with specific fitting
+# model<-nls(ys ~ 1/(1+alpha*exp(-beta*xs)),start=list(alpha=1,beta=2))
+
+# intent with spline fitting
+model<-smooth.spline(xs,ys)
+
+plot(xs,ys)
+
+lines(xs,predict(model,xs)$y,col=4)
+invz<-predict(model,xs)$y/length(z)
+ks.test(invz,"punif") # test uniformity
+	
+# uniform to normality
+w<-qnorm(invz)
+hist(w)
+hist(qnorm(sqrt(z)))
+shapiro.test(w) 
+ks.test(w,"pnorm")
+# not quite as good as the real transform
+
+
