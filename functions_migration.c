@@ -1254,14 +1254,9 @@ void noKernelMultiGilStat(
 	int infestedInit[*L];
   	int indexInfestInit[*L];
 
-	// make the distances matrix
-	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
-	if(dists == NULL){
-		printf("cannot (c)allocate memory");
-		return;
-	}
-	
-	makeDistMat(xs,L,ys,dists);
+	//may be used if atRisk stats are called
+	int noDists = 1;
+	double* dists = NULL;
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
@@ -1303,7 +1298,6 @@ void noKernelMultiGilStat(
 			for(int stat=0;stat<*lengthStats; stat++){
 
 				// for every stat that we want, switch case
-
 				int npos[1];
 				npos[0] = *endIndex + 1;
 
@@ -1311,7 +1305,16 @@ void noKernelMultiGilStat(
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, numCoeffs, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
+					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
+							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+							if(dists == NULL){
+								printf("cannot (c)allocate memory");
+								return;
+							}		
+							makeDistMat(xs,L,ys,dists);
+							noDists = 0;
+						}
+						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}
@@ -1323,6 +1326,7 @@ void noKernelMultiGilStat(
 
 	}
 
-	free(dists); //free malloc'ed dists
-	
+
+	if(dists != NULL)
+		free(dists); //free malloc'ed dists
 }
