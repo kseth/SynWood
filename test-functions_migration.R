@@ -115,6 +115,7 @@ par(mfrow=c(1,2))
 plot(correct)
 # C fit
 at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
+# compute polynom at points
 get.predict.at_risk<-function(trs,at_risk_fit){
 	result<- 0*trs
 	for(iat in 1:length(at_risk_fit)){
