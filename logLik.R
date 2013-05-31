@@ -73,14 +73,16 @@ MVN.check <- function(S,s=NULL,cex.axis=1,cex.lab=1) {
   for (i in 1:nrow(S)) ps[i] <- sum(S[i,]<s[i])/ncol(S)
 
   um <- robust.vcov(S)
-  ms <- as.numeric(um$mY)
-  S <- S-ms
+  ms <- as.numeric(um$mY) # means
+  S <- S-ms # centering to 0
   ## Malahanobis for each column of S
-  z <- colSums(S*(t(um$E)%*%um$E%*%S))
+  z <- colSums(S*(t(um$E)%*%um$E%*%S)) # standardize the variance
   
-  q <- log(qchisq((1:n-.5)/n,df=p))
-  z <- log(sort(z))
+  q <- log(qchisq((1:n-.5)/n,df=p)) # expected quantiles of a multivariate standardized normal
+  z <- log(sort(z)) # observed quantiles for the stats
   
+  # plot the q-q multivariate plot
+  dev.new()
   plot(q,z,type="l",col="grey",
        xlab="log theoretical quantiles",ylab="log observed quantiles",
        cex.axis=cex.axis,cex.lab=cex.lab)
@@ -103,6 +105,8 @@ MVN.check <- function(S,s=NULL,cex.axis=1,cex.lab=1) {
   rz <- range(z)
   rz <- c(rz[1]-2,rz[2]+2)
   
+  # marginal qq-plot, one line per stat
+  dev.new()
   plot(z,sort(S[1,]),type="l",col="grey",ylim=rz,
        xlab="N(0,1) quantiles",ylab="marginal quantiles",
        cex.axis=cex.axis,cex.lab=cex.lab)
