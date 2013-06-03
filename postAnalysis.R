@@ -1,8 +1,8 @@
-source("extrapol_field.R")
-#source("../spatcontrol/spatcontrol.R", chdir = TRUE)
+#source("extrapol_field.R")
+source("../spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "name_LLJ100"
-daisyChainSeeds <- 10:109*1000 
+nameSimul <- "loTrueVals"
+daisyChainSeeds <- 201:270*1000 
 
 outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
