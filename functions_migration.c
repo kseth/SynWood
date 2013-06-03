@@ -781,9 +781,9 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//the first stat inserted will be num positive cells
 	//the second stat inserted will be variance of %positive 
-	//the third-sixth stats will be regression coefficients
-	// need to compute variance + store in gridstats
-	// the percent positive is the mean %positive over all the cells (this is scale invariant)
+	//the remaining stats will be regression coefficients
+	//need to compute variance + store in gridstats
+	//the percent positive is the mean %positive over all the cells (this is scale invariant)
 	double meanPP = ((double)(*endIndex + 1)) / ((double)*L);
 	count = 0;
 
@@ -800,13 +800,20 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//create *dx and *dy and *coeff (used in regression)
 	double *dx, *dy; // coordinates of the initial points in the stats
-	double coeff[*numCoeffs]; // the coefficients estimated
+	double *coeff; // the coefficients estimated
+	int statPos = 0; //position to put into table
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
 		//allocate *dx and *dy
 		dx = (double *) malloc(sizeof(double)* *(gridNumCells+grid));
 		dy = (double *) malloc(sizeof(double)* *(gridNumCells+grid));
+		coeff = (double *) malloc(sizeof(double)* *(numCoeffs+grid));
+
+		if(dx == NULL || dy == NULL || coeff == NULL){
+			printf("mallocating error; possibly out of memory\n");
+			return;
+		}
 
 		for(int cell=0; cell<*(gridNumCells+grid); cell++){
 
@@ -824,7 +831,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		}
 
 		//divide variance by number of cells and then subtract (mean percent positive)^2
-		varPP = varPP/ *(gridNumCells+grid) - meanPP*meanPP;
+		varPP = varPP/ (*(gridNumCells+grid)-1) - meanPP*meanPP;
 		
 		//printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
 
@@ -833,24 +840,26 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		// dx: the number of the cell in the partition  
 		// dy: the number of positive per cell
 		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);
-		polynomialfit(*(gridNumCells+grid), *numCoeffs, dx, dy, coeff);
+		polynomialfit(*(gridNumCells+grid), *(numCoeffs+grid), dx, dy, coeff);
 		
 		//store positive count in gridstats
-		stats[grid * (*numCoeffs+2)] = positivecount; 
+		stats[statPos++] = positivecount;
+		// stats[statPos-1] = NAN;	
 
 		//store the variance of the percent positive
-		stats[grid* (*numCoeffs+2) + 1] = varPP;
+		stats[statPos++] = varPP;
+		// stats[statPos-1] = NAN;
 
 		//store the regression coefficients
-		for(int c=0; c<*numCoeffs; c++){
-			stats[grid* (*numCoeffs+2) + 2+c] = coeff[c];
+		for(int c=0; c<*(numCoeffs+grid); c++){
+			stats[statPos++] = coeff[c];
 		}
-
 
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
-		free(dy);	
+		free(dy);
+		free(coeff);	
 	}
 }
 
@@ -1254,14 +1263,9 @@ void noKernelMultiGilStat(
 	int infestedInit[*L];
   	int indexInfestInit[*L];
 
-	// make the distances matrix
-	double* dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
-	if(dists == NULL){
-		printf("cannot (c)allocate memory");
-		return;
-	}
-	
-	makeDistMat(xs,L,ys,dists);
+	//may be used if atRisk stats are called
+	int noDists = 1;
+	double* dists = NULL;
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
@@ -1303,7 +1307,6 @@ void noKernelMultiGilStat(
 			for(int stat=0;stat<*lengthStats; stat++){
 
 				// for every stat that we want, switch case
-
 				int npos[1];
 				npos[0] = *endIndex + 1;
 
@@ -1311,7 +1314,16 @@ void noKernelMultiGilStat(
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, numCoeffs, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
+					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
+							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+							if(dists == NULL){
+								printf("cannot (c)allocate memory");
+								return;
+							}		
+							makeDistMat(xs,L,ys,dists);
+							noDists = 0;
+						}
+						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}
@@ -1323,6 +1335,7 @@ void noKernelMultiGilStat(
 
 	}
 
-	free(dists); //free malloc'ed dists
-	
+
+	if(dists != NULL)
+		free(dists); //free malloc'ed dists
 }

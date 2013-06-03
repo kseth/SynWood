@@ -1057,11 +1057,13 @@ if(class(importOk)!="try-error"){
 				## Number Cells with at least 1 positive 
 				## Fit quantile distribution to polynomial
 				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats) 
-				##	= (2+grid.numCoeffs) * numDiffGrids
+				##	= 2*numDiffGrids + sum(grid.numCoeffs)
 				###===================================
-				grid.numCoeffs <- 5
-				grid.nbStats <- (2+grid.numCoeffs)*numDiffGrids		
-				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)			
+				grid.numCoeffs <- rep(1, length(gridNumCells))
+				# grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				# (log(gridNumCells))+1 
+				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs)		
+				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
 
 			if("circles" %in% typeStat){
@@ -1173,12 +1175,15 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+		# out$grid.statsTable <- out$grid.statsTable[which(1:dim(out$grid.statsTable)[1] %% 3 == 2), ] ## only keep variances
+		# out$grid.statsTable <- sqrt(out$grid.statsTable) #normalize it!
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
 		# make matrix out of inf.statsTable
 		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
+		# out$inf.statsTable <- sqrt(out$inf.statsTable) #normalize it!
 
 		# make matrix out of atRisk.statsTable
 		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
