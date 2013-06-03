@@ -839,7 +839,7 @@ if(class(importOk)!="try-error"){
 		# clean away NANs introduced in C
 		notNAN <- which(!is.nan(out$statsTable[, 1]))
 		
-		keep<-intersect(notNAN,keepable)
+		keep<-intersect(notNAN)
 		out$statsTable<-out$statsTable[keep, ]
 
 		infestH <- out$indexInfest
@@ -1169,7 +1169,7 @@ if(class(importOk)!="try-error"){
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
 		# keepable <- c(4*length(cbin)+1:(2*length(cbin)))
 		# keepable <- c(1:(2*length(cbin)))
-		out$semivar.statsTable <- out$semivar.statsTable[intersect(notNAN, keepable), ]
+		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
