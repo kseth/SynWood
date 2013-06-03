@@ -895,7 +895,6 @@ if(class(importOk)!="try-error"){
 		detectRate = 1, 
 		rateIntro = 0){
 
-
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
@@ -922,14 +921,16 @@ if(class(importOk)!="try-error"){
 		implStats <- c("semivariance", "grid", "circles", "atRisk")
 
 		# initialize all the statistics to 0
+		matchStats <- 0
+
 		# if getStats and specific statistics are used, then change their value
 		# semivariance statistics
+		nbins <- 0
 		dist_indices <- 0
 		cbin <- 0
 		cbinas <- 0
 		cbinsb <- 0
 		semivar.nbStats <- 0
-		matchStats <- 0
 		semivar.statsTable <- 0
 
 		# grid/partition statistics
@@ -982,16 +983,13 @@ if(class(importOk)!="try-error"){
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
 
-					warning("calculating dist_out with given data, pass dist_out to make much faster")
-
-					if(haveBlocks)	
-						dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-					else
-						dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
+					stop("no semivariance dist_out object passed, cannot execute!")
 				}
 
 				dist_indices <- dist_out$CClassIndex
 				cbin <- dist_out$classSize
+				nbins <- length(cbin) + 1 #number of breaks not bins
+
 				# stats selection
 				###===================================
 				## CURRENT STATS:
@@ -1129,7 +1127,7 @@ if(class(importOk)!="try-error"){
 			 getStats=as.integer(getStats),
 			 matchStats=as.integer(matchStats),
 			 lengthStats=as.integer(length(matchStats)),
-			 nbins = as.integer(length(breaksGenVar)),
+			 nbins = as.integer(nbins),
 			 cbin = as.integer(cbin),
 			 cbinas = as.integer(cbinas),
 			 cbinsb = as.integer(cbinsb),
@@ -1196,8 +1194,8 @@ if(class(importOk)!="try-error"){
 			# put all the stats into one list for making statsTable
 			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable,out$atRisk.statsTable)
 
-			if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
-			{
+			if(Nrep==1){
+			## if only one repetition, stats have to be handled as vectors
 				numInfested <- out$inf.statsTable
 				for(statsWant in matchStats)
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
