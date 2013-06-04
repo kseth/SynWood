@@ -396,7 +396,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				v_geary = v_geary*v_geary;
 				vbin_geary[ind] += v_geary;
 
-				// Ripley's K and L functions
+				// Ripley's L functions
 				if(inf_data[i] == 1 && inf_data[j] == 1)
 					vbin_ripleyl[ind] += 1;		
 			}
@@ -417,7 +417,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 			vbin_on[class] = vbin_on[class]/(4*cbin[class]);
 			vbin_moran[class] = (vbin_moran[class] * *n)/(cbin[class] * sq_residual_prevalence);
 			vbin_geary[class] = (vbin_geary[class] * (*n - 1))/(2*cbin[class] * sq_residual_prevalence);
-			vbin_ripleyl[class] = sqrt(vbin_ripleyl[class]);
+			vbin_ripleyl[class] = sqrt(vbin_ripleyl[class]/(2*cbin[class]);
 		} else {
 			sdbin[class]=NAN;
 			vbin[class]=NAN;

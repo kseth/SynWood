@@ -270,28 +270,40 @@ robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
   # sy: vector with stats in data
   # trans: a result of call get.trans
   #	   contains piecewise transform to normality (is interactive)
-  # er: if given use this vcov matrix in spite of the sY
-synLik<-function(sY=NULL,sy,trans=NULL,er=NULL){
+  # er: if given, use this vcov object instead of vcov of sY
+  #	if given, will override sY
+  #	if given, must be same format as object from robust.vcov (or alternately robust.vcov.modified)
+synLik<-function(sY=NULL, sy, trans=NULL, er=NULL){
+
+  if(is.null(sY) && is.null(er))
+  	stop("either sY (stats) or er (vcov) must be passed")	  
 
   ## extreme transform to normality
   if (!is.null(trans)){
-    if(!is.null(sY)) sY <- trans.stat(sY,trans)
+    if(!is.null(sY))
+	    sY <- trans.stat(sY,trans)
+    
     sy <- trans.stat(sy,trans)
   }
 
-  if(!is.null(sY)) sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
+  if(is.null(er)){ ## if er is not passed, calc vcov matrix
 
-  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-  ## commented out by Wood because we don't want to robustify! KS
+        ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
+  	## commented out by Wood, KS
 
-  if(is.null(er)){
-	  er<-try(robust.vcov(sY),silent=TRUE)
-	  
-  }
-  if(class(er)=="try-error" || is.na(er)){
-	  ll<-NA
-	  attr(ll,"er") <- NA
-	  return(ll)
+	# only keep the observation for which all stats are finite
+  	sY <- sY[,is.finite(colSums(sY))] 	
+
+	er <- try(robust.vcov(sY), silent=TRUE)
+
+	if(class(er)=="try-error" || is.na(er)){ ## cannot find vcov matrix
+		ll<-NA
+		attr(ll,"rss") <- NA
+		attr(ll,"er") <- NA
+		attr(ll,"sy") <- sy
+		attr(ll,"sY") <- sY
+		return(ll)
+  	}
   }
 
   rss <- sum((er$E%*%(sy-er$mY))^2)
@@ -299,39 +311,8 @@ synLik<-function(sY=NULL,sy,trans=NULL,er=NULL){
 
   attr(ll,"rss") <- rss
   attr(ll,"sy") <- sy
-  if(!is.null(sY)) attr(ll,"sY") <- sY else attr(ll,"sY")<-NA
+  attr(ll,"sY") <- sY 
   attr(ll,"er") <- er
-
-  return(ll)
-}
-
-## get the log synthetic likelihood
-## modified by KS to use robust.vcov.modified
-  # sY: matrix with stats for theta
-  # sy: vector with stats in data
-  # trans: a result of call get.trans
-  #	   contains piecewise transform to normality (is interactive)
-synLik.modified<-function(sY,sy,trans=NULL){
-
-  ## extreme transform to normality
-  if (!is.null(trans)){
-    sY <- trans.stat(sY,trans)
-    sy <- trans.stat(sy,trans)
-  }
-
-  sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
-
-  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-  ## commented out because we don't want to robustify! KS
-
-  er <- robust.vcov.modified(sY) ##KS
-
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  ll <- -rss/2 - er$half.ldet.V
-
-  attr(ll,"rss") <- rss
-  attr(ll,"sy") <- sy
-  attr(ll,"sY") <- sY
 
   return(ll)
 }
