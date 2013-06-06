@@ -195,6 +195,7 @@ end <- Sys.time()
 #===============================
 ## intent to normalize any stat
 #===============================
+library(cobs)
 z<-runif(1000)^2
 ## wood procedure
 trans<-get.trans(rbind(z,z))
@@ -220,14 +221,14 @@ ks.test(w,"pnorm")
 
 ## real stuff
 # initial state
-par(mfrow=c(1,3))
-z<-runif(1000,min=0,max=1)^2 # something really not normal
-z<-rpois(1000,min=0,max=1)^2 # something really not normal
-# hist(z)
+par(mfrow=c(1, 4))
+# z<-runif(1000,min=0,max=1)^2 # something really not normal
+z<-rpois(1000, 50)
+hist(z)
 
 # fit a polynomial fn to the inverse of the quantiles
 xs<-sort(z)
-ys<-1:length(z)
+ys<-1:length(z)/(length(z)+1)
 
 # # intent with polynomial fitting
 # model<-lm(ys ~ poly(xs, 10, raw=TRUE))
@@ -237,19 +238,34 @@ ys<-1:length(z)
 
 # intent with spline fitting
 model<-smooth.spline(xs,ys)
+model2<-cobs(xs, ys, constraint = "increase", lambda=-1)
+model3<-nls(ys ~ , start=list(beta=1,chi=1), lower=c(0, 0), algorithm="port")
 
-plot(xs,ys)
+#lines(xs,predict(model,xs)$y,col=4)
+#lines(xs,predict(model2,xs)[, "fit"],col=5)
+plot(xs,predict(model3,xs),type="l" col="grey")
+points(xs,ys,pch=".")
 
-lines(xs,predict(model,xs)$y,col=4)
-invz<-predict(model,xs)$y/length(z)
+invz<-predict(model,xs)$y
+invz2<-predict(model2,xs)[, "fit"]
+invz3<-predict(model3,xs)
 ks.test(invz,"punif") # test uniformity
+ks.test(invz2,"punif") # test uniformity
+ks.test(invz3,"punif") # test uniformity
 	
 # uniform to normality
 w<-qnorm(invz)
-hist(w)
-hist(qnorm(sqrt(z)))
+w2<-qnorm(invz2)
+w3<-qnorm(invz3)
+#hist(w)
+#hist(w2)
+hist(w3)
+#hist(qnorm(sqrt(z)))
 shapiro.test(w) 
-ks.test(w,"pnorm")
+shapiro.test(w2)
+shapiro.test(w3)
 # not quite as good as the real transform
 
 
+## boxcox transforms
+library(car)
