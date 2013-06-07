@@ -286,7 +286,7 @@ divideMap <- function(maps, partitionSizes, typeDivide = "grid", language = "R")
 	}else if(typeDivide == "kmeans"){ ## if kmeans
 
 		for(part in 1:length(partitionSizes))
-			map.partitions[[part]] <- partitionKMeans(maps$X, maps$Y, partitionSizes[part], language = language) 
+			map.partitions[[part]] <- partitionKMeans(maps$X, maps$Y, partitionSizes[part], language = language)
 
 	}
 
