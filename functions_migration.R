@@ -1057,8 +1057,8 @@ if(class(importOk)!="try-error"){
 				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats) 
 				##	= 2*numDiffGrids + sum(grid.numCoeffs)
 				###===================================
-				grid.numCoeffs <- rep(5, length(gridNumCells))
-				# grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				grid.numCoeffs <- rep(6, length(gridNumCells))
+				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
 				# (log(gridNumCells))+1 
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs)		
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)

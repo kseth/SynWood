@@ -322,7 +322,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 	double v_moran=0.;
 	double v_geary=0.;
   	double *vbin = stats; //new new global semivar
-  	double *sdbin = stats+ *nbins -1; //new new global sd
+  	double *sdbin = vbin + *nbins -1; //new new global sd
 	double *vbin_on = sdbin + *nbins -1; //new old global semivar 
 	double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
 	double *vbin_moran = sdbin_on + *nbins-1; //moran's I
@@ -801,14 +801,18 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	//create *dx and *dy and *coeff (used in regression)
 	double *dx, *dy; // coordinates of the initial points in the stats
 	double *coeff; // the coefficients estimated
+	int howManyCoeffs; //degree of polynomial regression
 	int statPos = 0; //position to put into table
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
+		howManyCoeffs = *(gridNumCells+grid);
+		howManyCoeffs = (howManyCoeffs > 25)? 25: howManyCoeffs;
+
 		//allocate *dx and *dy
 		dx = (double *) malloc(sizeof(double)* *(gridNumCells+grid));
 		dy = (double *) malloc(sizeof(double)* *(gridNumCells+grid));
-		coeff = (double *) malloc(sizeof(double)* *(numCoeffs+grid));
+		coeff = (double *) malloc(sizeof(double)* howManyCoeffs);
 
 		if(dx == NULL || dy == NULL || coeff == NULL){
 			printf("mallocating error; possibly out of memory\n");
@@ -840,7 +844,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		// dx: the number of the cell in the partition  
 		// dy: the number of positive per cell
 		qsort(dy, *(gridNumCells+grid), sizeof(double), double_compare);
-		polynomialfit(*(gridNumCells+grid), *(numCoeffs+grid), dx, dy, coeff);
+		polynomialfit(*(gridNumCells+grid), howManyCoeffs, dx, dy, coeff);
 		
 		//store positive count in gridstats
 		stats[statPos++] = positivecount;

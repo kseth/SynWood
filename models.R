@@ -1,6 +1,27 @@
 source("functions_migration.R")
 
 #==================================
+# Binomial likelihood function
+#==================================
+# yhat - the mean observation over all iterations (the infestation density of the field)
+# y - the observed infestation
+# ff - fudge factor, the epsilon that takes into account the error from a limited number of simulations
+
+binLik <- function(yhat, y, ff=10e-6, log=TRUE){
+
+	probs <- 1 - abs(yhat - y)
+	probs[which(probs == 0)] <- ff
+
+	if(log){
+	        ll <- sum(log(probs))
+	}else{
+		ll <- prod(probs)
+	}
+
+	return(ll)
+}
+
+#==================================
 ## Declare a global variable to hold minimum Likelihood
 ## 	use min LL in bad cases
 #==================================
@@ -228,23 +249,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP<-NA
 	}else{
 		yhat<-out$infestedDens
-
-		# binomial likelihood
-		# take the product of all the infestedDens that are infested at the end time point y
-		# then multiply by (1-infestedDens) for all those that are not infested at end time point y
-		inf <- which(Data$y == 1)
-		uninf <- which(Data$y == 0)
-		pred1 <- which(yhat == 1)
-		pred0 <- which(yhat == 0)
-		predMid <- which(yhat > 0 & yhat < 1)
-
-		# ff == fudge factor, the epsilon that takes into account the error from a limited number of simulations
-		# ff <- 1/(length(Data$Nrep)+1)
-		ff <- 10e-6
-
-		ll <- sum(log(yhat[intersect(inf, union(predMid, pred1))]))
-		ll <- ll + sum(log(1-yhat[intersect(uninf, union(predMid, pred0))]))
-		ll <- ll + sum(log(rep(ff, length(union(intersect(inf, pred0), intersect(uninf, pred1))))))
+		ll<-binLik(yhat=yhat, y=Data$y, ff=10e-6)
 
 		# get likelihood with priors
 		LL<-ll
