@@ -806,8 +806,9 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
 
-		howManyCoeffs = *(gridNumCells+grid);
-		howManyCoeffs = (howManyCoeffs > 25)? 25: howManyCoeffs;
+		howManyCoeffs = (gridNumCells[grid]<*L/gridNumCells[grid])? gridNumCells[grid] : *L/gridNumCells[grid];
+
+		// printf("%d ", howManyCoeffs);
 
 		//allocate *dx and *dy
 		dx = (double *) malloc(sizeof(double)* *(gridNumCells+grid));
@@ -857,7 +858,10 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		//store the regression coefficients
 		for(int c=0; c<*(numCoeffs+grid); c++){
 			stats[statPos++] = coeff[c];
+			// printf("%f ", coeff[c]);
 		}
+
+		// printf("\n");
 
 		positivecount = 0;
 		varPP = 0;
