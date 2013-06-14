@@ -994,22 +994,23 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS:
 				## General Semivariance (new - new)
-				## General Semivariance Std. Dev. (new - new)
-				## General Semivariance (old - new)
-				## General Semivariance Std. Dev (old - new)
 				## Moran's I
 				## Geary's C
 				## Ripley's L
-				##	= 7 * length(cbin)
+				##	= 4 * length(cbin)
 				## if haveBlocks
 				##	By block Semivariance (same block - across streets)
 				##	By block Semivariance Std. Dev
-				## 	= 9 * length(cbin)
+				## 	= 6 * length(cbin)
+				## DEPRECATED STATS:
+				## General Semivariance Std. Dev. (new - new)
+				## General Semivariance (old - new)
+				## General Semivariance Std. Dev (old - new)
 				###===================================
 				if(!haveBlocks)
-					semivar.nbStats <- 7*length(cbin)
+					semivar.nbStats <- 4*length(cbin)
 				else{
-					semivar.nbStats <- 9*length(cbin)
+					semivar.nbStats <- 6*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
 				}
@@ -1169,7 +1170,8 @@ if(class(importOk)!="try-error"){
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
 		# keepable <- c(4*length(cbin)+1:(2*length(cbin)))
 		# keepable <- c(1:(2*length(cbin)))
-		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
+		keepable <- 3*length(cbin)+1:length(cbin)
+		out$semivar.statsTable <- out$semivar.statsTable[intersect(notNAN, keepable), ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
@@ -1200,7 +1202,7 @@ if(class(importOk)!="try-error"){
 				for(statsWant in matchStats)
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
 
-				statsTable <- c(statsTable, numInfested)
+				# statsTable <- c(statsTable, numInfested)
 				statsTable <- statsTable[-1]
 			}else{
 
@@ -1208,8 +1210,8 @@ if(class(importOk)!="try-error"){
 				statsTable <- matrix(0, 1, Nrep)
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]])
-				statsTable <- rbind(statsTable[-1, ], numInfested)
-
+				# statsTable <- rbind(statsTable[-1, ], numInfested)
+				statsTable <- statsTable[-1, ]
 				#figure out which stats are degenerate (important to do prestats removal!)
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)

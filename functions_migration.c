@@ -311,21 +311,24 @@ void generateProbMat(double* halfDistJ,
 }
 
 void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data, int* cbin, double* stats, int* nbins, int* endIndex, int* haveBlocks, int* blockIndex, int* cbinsb, int* cbinas){  
-  // Calculate all the pair-wise statistics
+  	// Calculate all the pair-wise statistics
 
 	int ind=0;
+
 	double prevalence = *endIndex + 1;
 	prevalence /= *n;
 	double sq_residual_prevalence = 0;
+
 	double v=0.;
-	double v_on=0.;
+	// double v_on=0.;
 	double v_moran=0.;
 	double v_geary=0.;
-  	double *vbin = stats; //new new global semivar
-  	double *sdbin = vbin + *nbins -1; //new new global sd
-	double *vbin_on = sdbin + *nbins -1; //new old global semivar 
-	double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
-	double *vbin_moran = sdbin_on + *nbins-1; //moran's I
+
+	double *vbin = stats; //new new global semivar
+  	// double *sdbin = vbin + *nbins -1; //new new global sd
+	// double *vbin_on = sdbin + *nbins -1; //new old global semivar 
+	// double *sdbin_on = vbin_on + *nbins -1; //new old global sd 
+	double *vbin_moran = vbin + *nbins-1; //moran's I
 	double *vbin_geary = vbin_moran + *nbins-1; //geary's C
 	double *vbin_ripleyl = vbin_geary + *nbins-1; //ripley's L 
 	double *vbin_sb_as; //sameblock - acrossstreets semivar
@@ -363,7 +366,7 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 				v = inf_data[i] - inf_data[j];
 				v = v*v;
 				vbin[ind]+= v; 
-				sdbin[ind] += v*v;
+				// sdbin[ind] += v*v;
 				
 				if(*haveBlocks == 1){ //finding sb-as semivariance
 					if(*(blockIndex + i) == *(blockIndex + j)){//same blocks
@@ -377,15 +380,14 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 
 				//(old-new) semivariance
 				//need to go both ways (since i->j is not symmetric anymore)
-				v_on = start_inf_data[i] - inf_data[j];
-				v_on = v_on*v_on;
-				vbin_on[ind]+=v_on;
-				sdbin_on[ind]+=v_on*v_on;
-
-				v_on = start_inf_data[j] - inf_data[i];
-				v_on = v_on*v_on;
-				vbin_on[ind]+=v_on;
-				sdbin_on[ind]+=v_on*v_on;
+				// v_on = start_inf_data[i] - inf_data[j];
+				// v_on = v_on*v_on;
+				// vbin_on[ind]+=v_on;
+				// sdbin_on[ind]+=v_on*v_on;
+				// v_on = start_inf_data[j] - inf_data[i];
+				// v_on = v_on*v_on;
+				// vbin_on[ind]+=v_on;
+				// sdbin_on[ind]+=v_on*v_on;
 			
 				// Moran's I
 				v_moran = (inf_data[i] - prevalence) * (inf_data[j] - prevalence);
@@ -411,18 +413,18 @@ void modBinIt(int* n, int* dist_index, double* inf_data, double* start_inf_data,
 
 		if (cbin[class]>0){
 			//remember cbin[class]=half number pairs in distance class 
-			sdbin[class] = sqrt((sdbin[class] - ((vbin[class] * vbin[class])/cbin[class]))/(4*(cbin[class] - 1)));
+			// sdbin[class] = sqrt((sdbin[class] - ((vbin[class] * vbin[class])/cbin[class]))/(4*(cbin[class] - 1)));
 			vbin[class] = vbin[class]/(2*cbin[class]); 
-			sdbin_on[class] = sqrt((sdbin_on[class] - ((vbin_on[class] * vbin_on[class])/(2*cbin[class])))/(16*(cbin[class] - 1)));
-			vbin_on[class] = vbin_on[class]/(4*cbin[class]);
+			// sdbin_on[class] = sqrt((sdbin_on[class] - ((vbin_on[class] * vbin_on[class])/(2*cbin[class])))/(16*(cbin[class] - 1)));
+			// vbin_on[class] = vbin_on[class]/(4*cbin[class]);
 			vbin_moran[class] = (vbin_moran[class] * *n)/(cbin[class] * sq_residual_prevalence);
 			vbin_geary[class] = (vbin_geary[class] * (*n - 1))/(2*cbin[class] * sq_residual_prevalence);
 			vbin_ripleyl[class] = sqrt(vbin_ripleyl[class]/(2*cbin[class]));
 		} else {
-			sdbin[class]=NAN;
+			// sdbin[class]=NAN;
 			vbin[class]=NAN;
-			sdbin_on[class]=NAN;
-			vbin_on[class]=NAN;
+			// sdbin_on[class]=NAN;
+			// vbin_on[class]=NAN;
 			vbin_moran[class]=NAN;
 			vbin_geary[class]=NAN;
 			vbin_ripleyl[class]=NAN;
