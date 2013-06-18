@@ -1055,10 +1055,13 @@ if(class(importOk)!="try-error"){
 				## Variance of % positive per cell
 				## Number Cells with at least 1 positive 
 				## Fit quantile distribution to polynomial
-				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats) 
-				##	= 2*numDiffGrids + sum(grid.numCoeffs)
+				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
+			        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
+			       	## DISCONTINUED:
+				## Fit histogram distribution to polynomial
+				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)	
 				###===================================
-				grid.numCoeffs <- rep(5, length(gridNumCells))
+				grid.numCoeffs <- rep(4, length(gridNumCells))
 				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
 				# (log(gridNumCells))+1 
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs)		
@@ -1168,10 +1171,8 @@ if(class(importOk)!="try-error"){
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 		# need to remove the ones that are NAN
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-		# keepable <- c(4*length(cbin)+1:(2*length(cbin)))
-		# keepable <- c(1:(2*length(cbin)))
-		keepable <- 3*length(cbin)+1:length(cbin)
-		out$semivar.statsTable <- out$semivar.statsTable[intersect(notNAN, keepable), ]
+		# keepable <- 3*length(cbin)+1:length(cbin) #Keep only Ripley's
+		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
@@ -1202,7 +1203,7 @@ if(class(importOk)!="try-error"){
 				for(statsWant in matchStats)
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
 
-				# statsTable <- c(statsTable, numInfested)
+				statsTable <- c(statsTable, numInfested)
 				statsTable <- statsTable[-1]
 			}else{
 
@@ -1210,8 +1211,7 @@ if(class(importOk)!="try-error"){
 				statsTable <- matrix(0, 1, Nrep)
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]])
-				# statsTable <- rbind(statsTable[-1, ], numInfested)
-				statsTable <- statsTable[-1, ]
+				statsTable <- rbind(statsTable[-1, ], numInfested)
 				#figure out which stats are degenerate (important to do prestats removal!)
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)

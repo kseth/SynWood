@@ -1,8 +1,7 @@
-#source("extrapol_field.R")
-source("../spatcontrol/spatcontrol.R", chdir = TRUE)
+source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "loTrueVals"
-daisyChainSeeds <- 201:270*1000 
+nameSimul <- "Ripleys"
+daisyChainSeeds <- 201:229*1000 
 
 outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
@@ -16,7 +15,7 @@ for(nums in 2:length(outfiles)){
 names(allRuns) <- { if(dim(allRuns)[2] == 4) c("LL", "LP", "rateMove", "rateJump") else c("LL", "LP", "rateMove", "rateJump", "detectRate") }
 traces(allRuns)
 
-realMeans <- c(0.04, 0.10, 1)
+realMeans <- c(0.04, 0.40, 1)
 names(realMeans) <- c("rateMove", "rateJump", "detectRate")
 lims <- data.frame("rateMove" = c(0, .08), "rateJump" = c(0, 1), "detectRate" = c(0, 1))
 
