@@ -1176,15 +1176,13 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-		# out$grid.statsTable <- out$grid.statsTable[which(1:dim(out$grid.statsTable)[1] %% 3 == 2), ] ## only keep variances
-		# out$grid.statsTable <- sqrt(out$grid.statsTable) #normalize it!
-
+		## only keep coefficients
+		## out$grid.statsTable <- out$grid.statsTable[which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(3, 4, 5, 0)), ] 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
 		# make matrix out of inf.statsTable
 		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
-		# out$inf.statsTable <- sqrt(out$inf.statsTable) #normalize it!
 
 		# make matrix out of atRisk.statsTable
 		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
@@ -1196,7 +1194,6 @@ if(class(importOk)!="try-error"){
 	
 			# put all the stats into one list for making statsTable
 			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable,out$atRisk.statsTable)
-
 			if(Nrep==1){
 			## if only one repetition, stats have to be handled as vectors
 				numInfested <- out$inf.statsTable

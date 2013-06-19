@@ -806,11 +806,8 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//create *dx and *dy and *coeff (used in regression)
 	double *dx, *dy; // coordinates of the points in the quantile distribution
-	double *histx, *histy; //coordinates of the points in the binned histogram
-	double *quant_coeff, *hist_coeff; // the coefficients estimated
+	double *quant_coeff; // the coefficients estimated
 	int howManyCoeffs; //degree of polynomial regression
-	int nbins; //number of bins to put data into
-	int whichbin; //keeps tracking of the binning of the data
 	int statPos = 0; //position to put into table
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
@@ -818,8 +815,6 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		numCells = gridNumCells[grid];
 		numHousesPerCell = *L/numCells;
 		howManyCoeffs = (numCells < numHousesPerCell) ? numCells : numHousesPerCell;
-		nbins=(int)(2.0 * cbrt(howManyCoeffs)); //Rice's rule for the number of bins
-		//nbins = 3;
 
 		// printf("%d ", howManyCoeffs);
 
@@ -827,13 +822,9 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		dx = (double *) malloc(sizeof(double)* numCells);
 		dy = (double *) malloc(sizeof(double)* numCells);
 		quant_coeff = (double *) malloc(sizeof(double)* howManyCoeffs);
-		histx = (double *) malloc(sizeof(double)* nbins);
-		histy = (double *) calloc(nbins, sizeof(double));
-		hist_coeff = (double *) malloc(sizeof(double) * (nbins-1));
 
 
-
-		if(dx == NULL || dy == NULL || quant_coeff == NULL || histx == NULL || histy == NULL || hist_coeff == NULL){
+		if(dx == NULL || dy == NULL || quant_coeff == NULL){
 			printf("allocation error; possibly out of memory\n");
 			return;
 		}
@@ -845,18 +836,6 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 			cellPP = numPositive/numTotal;
 			dx[cell] = ((double)(cell+1))/((double)(numCells+1));
 			dy[cell] = cellPP;
-
-			//machinery for histogram regression
-			if(cell < nbins) // only initialize histx until nbins
-			{
-				histx[cell] = (1.0*cell + 0.5)/((double)nbins); 
-			}
-			whichbin = (int)(cellPP * nbins);
-
-			if(whichbin >= nbins) //in the case that cellPP is 1
-				whichbin = nbins - 1;
-
-			histy[whichbin]++; //increase the count of the cell of whichbin; 	
 
 			// positive count and variance positive
 			if(numPositive > 0)
@@ -878,16 +857,11 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		qsort(dy, numCells, sizeof(double), double_compare);
 		polynomialfit(numCells, howManyCoeffs, dx, dy, quant_coeff);
 	
-		//calculate the histogram regression coefficients
-		// histx: the midpoints of the bins
-		// histy: the number of points in the bin
-		// polynomialfit(nbins, nbins-1, histx, histy, hist_coeff);
-
 		//store positive count in gridstats
 		stats[statPos++] = positivecount;
 
-		//store the variance of the percent positive
-		stats[statPos++] = varPP;
+		//store the sd of the percent positive
+		stats[statPos++] = sqrt(varPP);
 
 		//store the regression coefficients
 		for(int c=0; c<numCoeffs[grid]; c++){
@@ -895,21 +869,11 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 			// printf("%f ", quant_coeff[c]);
 		}
 
-		// for(int c=0; c<4; c++){
-		//	 	stats[statPos++] = histy[c];
-		//	 	// printf("%f ", hist_coeff[c]);
-		//	}
-
-		// printf("\n");
-
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
 		free(dy);
 		free(quant_coeff);
-		free(histx);
-		free(histy);
-		free(hist_coeff);	
 	}
 }
 
@@ -954,10 +918,11 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 		}
 
 		meanPP = meanPP / *numDiffCenters;
-		varPP = varPP/ *numDiffCenters - meanPP*meanPP;
-		
+		varPP = varPP/(*numDiffCenters - 1) - meanPP*meanPP;
+	
+		// store the mean and standard deviation of the percent positive
 		stats[circle*2] = meanPP;
-		stats[circle*2+1] = varPP;
+		stats[circle*2+1] = sqrt(varPP);
 		meanPP = 0;
 		varPP = 0;
 	}
