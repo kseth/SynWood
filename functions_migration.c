@@ -745,7 +745,12 @@ int double_compare(const void *a, const void *b){
 	return 1;	
 }
 
-//gets the lmoments of an array passed to it
+//gets the L-moments of an array passed to it
+//extern because native code in FORTRAN (see samlmu.f)
+//x is the array of values sorted in ascending order (ala call to qsort)
+//n is the size of x
+//xmom is the (empty) output array of moments
+//nmom is the size of xmom (number of moments wanted) 
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
 //have not implemented get_stats_grid for blocks
