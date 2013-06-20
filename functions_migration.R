@@ -1064,7 +1064,7 @@ if(class(importOk)!="try-error"){
 				grid.numCoeffs <- rep(4, length(gridNumCells))
 				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
 				# (log(gridNumCells))+1 
-				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs)		
+				grid.nbStats <- 2*numDiffGrids + 1.75*sum(grid.numCoeffs)		
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
 

@@ -19,4 +19,4 @@
 
 set -o nounset                              # Treat unset variables as an error
 R CMD SHLIB kmeans.c
-R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c 
+R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c samlmu.f 

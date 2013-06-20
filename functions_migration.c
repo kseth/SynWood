@@ -745,6 +745,9 @@ int double_compare(const void *a, const void *b){
 	return 1;	
 }
 
+//gets the lmoments of an array passed to it
+extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
+
 //have not implemented get_stats_grid for blocks
 void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats){
 
@@ -808,6 +811,11 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	double *dx, *dy; // coordinates of the points in the quantile distribution
 	double *quant_coeff; // the coefficients estimated
 	int howManyCoeffs; //degree of polynomial regression
+
+	//create *lmoms and lmoments
+	int lmoments = 4; //how many moments to calculate
+	double* lmoms; // object which stores the lmoments
+
 	int statPos = 0; //position to put into table
 
 	for(int grid=0; grid<*numDiffGrids; grid++){
@@ -818,13 +826,13 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 		// printf("%d ", howManyCoeffs);
 
-		//allocate *dx and *dy
+		//allocate *dx, *dy and quant_coeff* and lmoms*
 		dx = (double *) malloc(sizeof(double)* numCells);
 		dy = (double *) malloc(sizeof(double)* numCells);
 		quant_coeff = (double *) malloc(sizeof(double)* howManyCoeffs);
+		lmoms = (double *) malloc(sizeof(double)* lmoments);
 
-
-		if(dx == NULL || dy == NULL || quant_coeff == NULL){
+		if(dx == NULL || dy == NULL || quant_coeff == NULL || lmoms == NULL){
 			printf("allocation error; possibly out of memory\n");
 			return;
 		}
@@ -856,7 +864,10 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		// dy: the number of positive per cell
 		qsort(dy, numCells, sizeof(double), double_compare);
 		polynomialfit(numCells, howManyCoeffs, dx, dy, quant_coeff);
-	
+
+		// get the lmoments of the distribution	
+		samlmu_(dy, &numCells, lmoms, &lmoments);
+		
 		//store positive count in gridstats
 		stats[statPos++] = positivecount;
 
@@ -869,11 +880,17 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 			// printf("%f ", quant_coeff[c]);
 		}
 
+		//store the lmoments (not the l-mean because ~ to num_occupied)
+		for(int c=0; c<3; c++){
+			stats[statPos++] = lmoms[c+1];
+			// printf("%f ", quant_coeff[c]);
+		}
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
 		free(dy);
 		free(quant_coeff);
+		free(lmoms);
 	}
 }
 
