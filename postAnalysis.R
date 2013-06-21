@@ -1,7 +1,7 @@
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "Partitions"
-daisyChainSeeds <- 201:203*1000 
+nameSimul <- "Circles"
+daisyChainSeeds <- 201:235*1000 
 
 #=======================
 # Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)

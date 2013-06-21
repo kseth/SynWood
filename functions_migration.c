@@ -754,25 +754,28 @@ int double_compare(const void *a, const void *b){
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
-	//initialize all the storage cells (to store how many positive) in gridEmptyCells to 0
+	
+	//count how many cells there are total
 	for(int grid=0; grid<*numDiffGrids; grid++){
+		count+=gridNumCells[grid];
+	}
 
-		for(int cell=0; cell<*(gridNumCells+grid);cell++){
-			gridEmptyCells[count++] = 0;
-		}
+	//init storage array
+	int* gridEmptyCells = (int*) calloc(count, sizeof(int));
+	if(gridEmptyCells == NULL){
+		printf("allocation error in get_stats_grid; possibly out of memory\n");
+		return;
 	}
 
 	int currentIndexStartingPoint = 0;
 	int currentCellStartingPoint = 0;
 	int infestedCell = 0;
-
 	//traverse through all the different grid systems
 	for(int grid=0; grid<*numDiffGrids; grid++){
-
 		currentIndexStartingPoint = *L * grid;
 
 		//for each grid system		
@@ -789,9 +792,10 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		currentCellStartingPoint += *(gridNumCells+grid);
 	}
 
+	//compute statistics
 	//the first stat inserted will be num positive cells
 	//the second stat inserted will be variance of %positive 
-	//the remaining stats will be regression coefficients
+	//the remaining stats will be regression coefficients and L-moments
 	//need to compute variance + store in gridstats
 	//the percent positive is the mean %positive over all the cells (this is scale invariant)
 	double meanPP = ((double)(*endIndex + 1)) / ((double)*L);
@@ -817,8 +821,8 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	double *quant_coeff; // the coefficients estimated
 	int howManyCoeffs; //degree of polynomial regression
 
-	//create *lmoms and lmoments
-	int lmoments = 4; //how many moments to calculate
+	//create *lmoms and lmoments (used in L-moments)
+	int lmoments = *numLmoments + 1; //how many moments to calculate
 	double* lmoms; // object which stores the lmoments
 
 	int statPos = 0; //position to put into table
@@ -838,12 +842,12 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		lmoms = (double *) malloc(sizeof(double)* lmoments);
 
 		if(dx == NULL || dy == NULL || quant_coeff == NULL || lmoms == NULL){
-			printf("allocation error; possibly out of memory\n");
+			printf("allocation error in get_stats_grid; possibly out of memory\n");
 			return;
 		}
 
 		for(int cell=0; cell<numCells; cell++){
-			//machinery for quantile regression
+			//machinery for quantile regression and L-moments
 			numPositive = gridEmptyCells[count];
 			numTotal = gridCountCells[count];
 			cellPP = numPositive/numTotal;
@@ -870,7 +874,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		qsort(dy, numCells, sizeof(double), double_compare);
 		polynomialfit(numCells, howManyCoeffs, dx, dy, quant_coeff);
 
-		// get the lmoments of the distribution	
+		// get the lmoments of the quantile distribution	
 		samlmu_(dy, &numCells, lmoms, &lmoments);
 		
 		//store positive count in gridstats
@@ -886,10 +890,11 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		}
 
 		//store the lmoments (not the l-mean because ~ to num_occupied)
-		for(int c=0; c<3; c++){
-			stats[statPos++] = lmoms[c+1];
-			// printf("%f ", quant_coeff[c]);
+		for(int c=1; c<lmoments; c++){
+			stats[statPos++] = lmoms[c];
+			// printf("%f ", lmoms[c]);
 		}
+
 		positivecount = 0;
 		varPP = 0;
 		free(dx);
@@ -897,6 +902,8 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		free(quant_coeff);
 		free(lmoms);
 	}
+
+	free(gridEmptyCells);
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
@@ -1279,7 +1286,7 @@ void noKernelMultiGilStat(
 	int* matchStats, int* lengthStats, 
 	int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *nbStats,
 	int* haveBlocks, 
-	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, double* gridstats, 
+	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, int* numLmoments, double* gridstats, 
 	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats,
 	int* infnbStats, double* infstats,	
 	double* atRisk_trs, int* atRisk_ntrs, // thresholds area at Risk stat
@@ -1349,7 +1356,7 @@ void noKernelMultiGilStat(
 
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridEmptyCells, gridCountCells, numCoeffs, gridstats); break;
+					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
 							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists

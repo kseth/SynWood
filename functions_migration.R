@@ -937,10 +937,10 @@ if(class(importOk)!="try-error"){
 		numDiffGrids <- 0
 		gridIndexes <- 0
 		gridNumCells <- 0
-		gridEmptyCells <- 0
 		gridCountCells <- 0
 		grid.nbStats <- 0
 		grid.numCoeffs <- 0 
+		grid.numLmoments <- 0
 		grid.statsTable <- 0
 
 		#circle statistics
@@ -1041,9 +1041,7 @@ if(class(importOk)!="try-error"){
 				gridNumCells <- unlist(gridNumCells)
 				names(gridNumCells) <- NULL
 
-				## pass empty cells into C for calculation purposes
-				## emptyCells will keep track of positives, countCells will keep track of total number of houses per cell
-				gridEmptyCells <- rep(0, sum(gridNumCells))
+				# countCells will keep track of total number of houses per cell
 				gridCountCells <- map.partitions[which(names(map.partitions) %in% "housesPerCell")]
 				gridCountCells <- unlist(gridCountCells)
 				names(gridCountCells) <- NULL
@@ -1057,14 +1055,14 @@ if(class(importOk)!="try-error"){
 				## Fit quantile distribution to polynomial
 				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
 			        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
-			       	## DISCONTINUED:
-				## Fit histogram distribution to polynomial
-				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)	
+			       	## L-moment statistics (taken from quantile distribution)
+			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
+				## L-mean should be ~ to median (also to num_inf)	
 				###===================================
 				grid.numCoeffs <- rep(4, length(gridNumCells))
 				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
-				# (log(gridNumCells))+1 
-				grid.nbStats <- 2*numDiffGrids + 1.75*sum(grid.numCoeffs)		
+				grid.numLmoments <- 3
+				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
 
@@ -1142,10 +1140,10 @@ if(class(importOk)!="try-error"){
 			 numDiffGrids = as.integer(numDiffGrids),
 			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
 			 gridNumCells = as.integer(gridNumCells),
-			 gridEmptyCells = as.integer(gridEmptyCells),
 			 gridCountCells = as.integer(gridCountCells),
 			 grid.nbStats = as.integer(grid.nbStats),
 			 grid.numCoeffs = as.integer(grid.numCoeffs),
+			 grid.numLmoments = as.integer(grid.numLmoments),
 			 grid.statsTable = as.numeric(grid.statsTable),
 			 numDiffCircles = as.integer(numDiffCircles),
 			 numDiffCenters = as.integer(numDiffCenters),
@@ -1176,8 +1174,8 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-		## only keep coefficients
-		## out$grid.statsTable <- out$grid.statsTable[which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(3, 4, 5, 0)), ] 
+		## only keep L-moments 
+		# out$grid.statsTable <- out$grid.statsTable[which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0)), ] 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
