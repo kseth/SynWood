@@ -1,4 +1,4 @@
-source("spatcontrol/spatcontrol.R", chdir=TRUE)
+source("../spatcontrol/spatcontrol.R", chdir=TRUE)
 library(pracma)
 library(geometry)
 
