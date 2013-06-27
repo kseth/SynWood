@@ -1,5 +1,5 @@
 library(testthat)
-source("SynWood/precFunctions.R")
+source("precFunctions.R")
 x <- runif(10000, -10, 10)
 y <- dnorm(x)
 
