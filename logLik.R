@@ -155,7 +155,7 @@ trim.stat <- function(sY,p=.01) {
 
 ## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
 ## But adds pre-conditioning for stable computation....
-robust.vcov <- function(sY,alpha=2,beta=1.25) {
+robust.vcov <- function(sY,alpha=2,beta=1.25){
  
   mY <- rowMeans(sY)
   sY1 <- sY - mY 
@@ -305,8 +305,13 @@ synLik<-function(sY=NULL, sy, trans=NULL, er=NULL){
 		return(ll)
   	}
   }
+  get_rss<-function(s,er) sum((er$E%*%(s-er$mY))^2)
 
-  rss <- sum((er$E%*%(sy-er$mY))^2)
+  if(class(sy)=="matrix"){
+    rss<- apply(sy,2,get_rss,er)
+  }else{
+    rss <- get_rss(sy,er) # sum((er$E%*%(sy-er$mY))^2)
+  }
   ll <- -rss/2 - er$half.ldet.V
 
   attr(ll,"rss") <- rss
