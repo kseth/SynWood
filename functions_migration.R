@@ -1059,7 +1059,7 @@ if(class(importOk)!="try-error"){
 			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
 				## L-mean should be ~ to median (also to num_inf)	
 				###===================================
-				grid.numCoeffs <- rep(4, length(gridNumCells))
+				grid.numCoeffs <- rep(4, length(gridNumCells)) #should normally be 4, 1 for quickness
 				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
 				grid.numLmoments <- 3
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
@@ -1167,15 +1167,22 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
+
 		# need to remove the ones that are NAN
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-		# keepable <- 3*length(cbin)+1:length(cbin) #Keep only Ripley's
-		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
+
+		whichkeep <- c(0, 1, 2, 3) # Keep only (0-semivariance, 1-moran's, 2-geary's, 3-ripley's)
+		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+
 		## only keep L-moments 
-		# out$grid.statsTable <- out$grid.statsTable[which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0)), ] 
+		## keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0))
+		## out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
+
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
