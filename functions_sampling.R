@@ -96,8 +96,15 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 	  dprop<-function(val,center,disp){
 		  return(dtnorm(val,mean=center,sd=disp,lower=0,upper=1,log=TRUE))
 	  }
+  }else if(Data$sampling[nameParam]=="poisson"){
+    rprop<-function(center,disp){
+      return(rpois(1,center))
+    }
+    dprop<-function(val,center,disp){
+      return(dpois(val,center,log=TRUE))
+    }
   }else{
-	  stop("unknown sampling method for ",nameParam)
+    stop("unknown sampling method for ",nameParam)
   }
 
   # sample proposal
