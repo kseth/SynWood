@@ -1,9 +1,12 @@
-source("extrapol_field.R")
-#source("../spatcontrol/spatcontrol.R", chdir = TRUE)
+source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "name_LLJ100"
-daisyChainSeeds <- 10:109*1000 
+nameSimul <- "Circles"
+daisyChainSeeds <- 201:235*1000 
 
+#=======================
+# Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)
+# Store the lengths of each of the MCMCs so they can be accessed independently
+#=======================
 outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
 allLengths <- dim(allRuns)[1]
@@ -13,13 +16,21 @@ for(nums in 2:length(outfiles)){
 	allLengths <- c(allLengths, dim(allRuns)[1])
 }
 
+# name the parameters
 names(allRuns) <- { if(dim(allRuns)[2] == 4) c("LL", "LP", "rateMove", "rateJump") else c("LL", "LP", "rateMove", "rateJump", "detectRate") }
+
+#=======================
+# Generate the trace and posteriors of all the MCMCs combined 
+#=======================
+# generate the joint trace
 traces(allRuns)
 
-realMeans <- c(0.04, 0.10, 1)
+# what are the real means and the limits for plotting
+realMeans <- c(0.04, 0.40, 1)
 names(realMeans) <- c("rateMove", "rateJump", "detectRate")
 lims <- data.frame("rateMove" = c(0, .08), "rateJump" = c(0, 1), "detectRate" = c(0, 1))
 
+# generate the combined posteriors (over all MCMCs)
 dev.new()
 par(mfrow=c(dim(allRuns)[2],1))
 
@@ -31,15 +42,22 @@ for(param in names(realMeans)){
 dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
 graphics.off()
 
-
 ## determine mean(sd(eachRun))/sd(allRuns)
 ## determine mean(zscore(eachRun))/zscore(allRuns)
 sd_all <- apply(allRuns[, -(1:2)], 2, sd)
 mean_all <- apply(allRuns[, -(1:2)], 2, mean)
 zscore_all <- (realMeans[names(realMeans) %in% names(allRuns)] - mean_all)/sd_all
 
+#=======================
+# Initialize the measures of each of the MCMCs
+# 	Standard Deviation
+#	Means
+#	Medians
+#	Z-Scores
+#	Quantiles
+#	And cook's p distribution
+#=======================
 #determine the standard deviation, mean, median, zscores and quantiles (0.025, 0.975) for each of the runs
-
 sd_each <- apply(allRuns[1:allLengths[1], -(1:2)], 2, sd)
 sd_each <- data.frame(t(sd_each))
 
@@ -66,8 +84,7 @@ for(param in names(realMeans)[names(realMeans)%in%names(allRuns)]){
 		counts[param] <- counts[param]+1
 }
 
-
-#do Cook's p
+#initialize Cook's p
 prior_q_distribution <- list()
 length(prior_q_distribution) <- length(realMeans)
 names(prior_q_distribution) <- names(realMeans)  
@@ -83,8 +100,7 @@ for(param in names(realMeans)[names(realMeans)%in%names(allRuns)]){
 	prior_q_distribution[[param]] <- quant # put into the q_distribution
 }
 
-
-
+#calculate the measures over the rest of the runs
 for(run in 2:length(allLengths)){
 
 	sd_temp <- apply(allRuns[(allLengths[run-1]+1):allLengths[run], -(1:2)], 2, sd)
@@ -129,8 +145,7 @@ mean_zscore_each <- apply(zscore_each, 2, mean)
 
 cat("mean(sd by run)/sd: \n", mean_sd_each/sd_all, "\n mean(zscore by run): \n", mean_zscore_each, "\n zscore overall: \n", zscore_all, "\n")
 
-
-# determine the percentbad - percent that the parameters are outside confidence interval
+# determine the percentbad - percent that parameters are outside confidence interval
 percentgood <- counts/length(allLengths)
 percentbad <- 1-percentgood
 print(percentbad[1:2])
@@ -145,11 +160,11 @@ percentoff_rj <- mean(percentoff_rj)
 ## caterpillar plot
 dev.new()
 par(mfrow=c(2, 1))
-plot(1:length(allLengths), log(median_each[, 1]), xlab = "MCMC Chain Index", ylab = "log parameter interval", main = paste0("log rate of movement (%off (log) ", signif(percentoff_rm, 3)," ) (%out ", signif(percentbad[1],2), " )"), pch = 16, ylim = c(-4.25, -2.25))
+plot(1:length(allLengths), log(median_each[, 1]), xlab = "MCMC Chain Index", ylab = "log parameter interval", main = paste0("log rate of movement (%off (log) ", signif(percentoff_rm, 3)," ) (%out ", signif(percentbad[1],2), " )"), pch = 18, ylim = c(-4.25, -2.25))
 abline(h = log(realMeans["rateMove"]), col = "green")
 arrows(1:length(allLengths), log(quantile_each[, 1]), 1:length(allLengths), log(quantile_each[, 2]), code = 3, angle=90, length=0.01)
 
-plot(1:length(allLengths), median_each[, 2], xlab = "MCMC Chain Index", ylab = "parameter interval", main = paste0("rate jump (%off ", signif(percentoff_rj, 3)," ) (%out ", signif(percentbad[2],2), " )"), pch = 16, ylim = c(0, 1))
+plot(1:length(allLengths), median_each[, 2], xlab = "MCMC Chain Index", ylab = "parameter interval", main = paste0("rate jump (%off ", signif(percentoff_rj, 3)," ) (%out ", signif(percentbad[2],2), " )"), pch = 18, ylim = c(0, 1))
 abline(h = realMeans["rateJump"], col = "green")
 arrows(1:length(allLengths), quantile_each[, 3], 1:length(allLengths), quantile_each[, 4], code = 3, angle=90, length=0.01)
 
@@ -171,14 +186,16 @@ cookp <- 1-cookp
 #plot Cook's q, p
 dev.new()
 par(mfrow = c(2, 2))
-hist(prior_q_distribution[["rateMove"]], xlab = "quantiles", main = paste0("rate move (cook's p ", signif(cookp["rateMove"], 3), ")"))
-hist(prior_q_distribution[["rateJump"]], xlab = "quantiles", main = paste0("rate jump (cook's p ", signif(cookp["rateJump"], 3), ")"))
+hist(prior_q_distribution[["rateMove"]], breaks=(0:10)/10, xlab = "quantiles", main = paste0("rate move (cook's p ", signif(cookp["rateMove"], 3), ")"), freq=F)
+abline(h=1, col="green")
+hist(prior_q_distribution[["rateJump"]], breaks=(0:10)/10, xlab = "quantiles", main = paste0("rate jump (cook's p ", signif(cookp["rateJump"], 3), ")"), freq=F)
+abline(h=1, col="green")
 
-rmDens <- density(prior_q_distribution[["rateMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
-plot(rmDens, xlim = c(0.001, 0.999), main = "rateMove", xlab = "quantiles", ylab = "density")
-abline(h = 1, col = "green")
-wjDens <- density(prior_q_distribution[["rateJump"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
-plot(wjDens, xlim = c(0.001, 0.999), main = "rate jump", xlab = "quantile", ylab = "density")
-abline(h = 1, col = "green")
+## rmDens <- density(prior_q_distribution[["rateMove"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
+## plot(rmDens, xlim = c(0.001, 0.999), main = "rateMove", xlab = "quantiles", ylab = "density")
+## abline(h = 1, col = "green")
+## wjDens <- density(prior_q_distribution[["rateJump"]], from = 0.01, to = 0.99, kernel = "gaussian", adj = 0.5)
+## plot(wjDens, xlim = c(0.001, 0.999), main = "rate jump", xlab = "quantile", ylab = "density")
+## abline(h = 1, col = "green")
 
 dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))

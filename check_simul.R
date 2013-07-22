@@ -1,19 +1,18 @@
-library(vioplot)
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-Monitored<-read.table("thetasamples_all314159.txt",header=TRUE)
-Monitored<-Monitored[-(1:300), ]
-params <- c("rateMove", "weightSkipInMove", "weightJumpInMove")
+Monitored<-read.table("completethetasamples_all201000.txt",header=TRUE)
+names(Monitored)<-c("LL", "LP", "rateMove", "weightJumpInMove") 
+params <- c("rateMove", "weightJumpInMove")
 traces(Monitored)
 
 dev.new()
-par(mfrow=c(2,2))
+par(mfrow=c(3, 1))
 plot(Monitored[, 2], xlab = "MCMC iteration", ylab = "Likelihood", pch = ".")
 for(param in params){
 plot(Monitored[[param]], xlab = "MCMC iteration", ylab = param, pch = ".")
 }
 
-lims <- data.frame("rateMove" = c(0, .08), "weightJumpInMove" = c(0, 1), "weightSkipInMove" = c(0, 1), "detectRate" = c(0, 1))
+lims <- data.frame("rateMove"=c(0, .08), "weightJumpInMove"=c(0, 1), "weightSkipInMove"=c(0, 1), "detectRate"=c(0, 1))
 
 dev.new()
 par(mfrow=c(3, 1))
@@ -21,16 +20,10 @@ for(param in params){
 	get.estimate(Monitored[[param]], name=param, xlim = lims[, param])
 }
 
-weightLocal <- 1-Monitored$weightJumpInMove
-weightSkip <- weightLocal * Monitored$weightSkipInMove
-weightHop <- weightLocal-weightSkip
+weightHop <- 1-Monitored$weightJumpInMove
+get.estimate(weightHop, name="weightHopInMove", xlim = c(0, 1))
 
-dev.new()
-par(mfrow=c(3, 1))
-get.estimate(weightHop, name="percent Hops", xlim = c(0, 1))
-get.estimate(weightSkip, name="percent Skips", xlim = c(0, 1))
-get.estimate(Monitored$weightJumpInMove, name="percent Jumps", xlim = c(0, 1))
-
-dev.new()
-vioplot(weightHop, weightSkip, Monitored$weightJumpInMove, names = c("Hops", "Skips", "Jumps"), ylim = c(0, 1), col = "violet")
-title(xlab = "Move Type", ylab = "Percent of Moves")
+print(mean(exp(Monitored$LP)))
+print(quantile(Monitored$rateMove, c(0.025, 0.5, 0.975)))
+print(quantile(1/Monitored$rateMove, c(0.025, 0.5, 0.975))/52)
+print(quantile(Monitored$weightJumpInMove, c(0.025, 0.5, 0.975)))

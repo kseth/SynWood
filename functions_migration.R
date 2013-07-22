@@ -286,7 +286,7 @@ divideMap <- function(maps, partitionSizes, typeDivide = "grid", language = "R")
 	}else if(typeDivide == "kmeans"){ ## if kmeans
 
 		for(part in 1:length(partitionSizes))
-			map.partitions[[part]] <- partitionKMeans(maps$X, maps$Y, partitionSizes[part], language = language) 
+			map.partitions[[part]] <- partitionKMeans(maps$X, maps$Y, partitionSizes[part], language = language)
 
 	}
 
@@ -839,7 +839,7 @@ if(class(importOk)!="try-error"){
 		# clean away NANs introduced in C
 		notNAN <- which(!is.nan(out$statsTable[, 1]))
 		
-		keep<-intersect(notNAN,keepable)
+		keep<-intersect(notNAN)
 		out$statsTable<-out$statsTable[keep, ]
 
 		infestH <- out$indexInfest
@@ -895,7 +895,6 @@ if(class(importOk)!="try-error"){
 		detectRate = 1, 
 		rateIntro = 0){
 
-
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
@@ -922,24 +921,26 @@ if(class(importOk)!="try-error"){
 		implStats <- c("semivariance", "grid", "circles", "atRisk")
 
 		# initialize all the statistics to 0
+		matchStats <- 0
+
 		# if getStats and specific statistics are used, then change their value
 		# semivariance statistics
+		nbins <- 0
 		dist_indices <- 0
 		cbin <- 0
 		cbinas <- 0
 		cbinsb <- 0
 		semivar.nbStats <- 0
-		matchStats <- 0
 		semivar.statsTable <- 0
 
 		# grid/partition statistics
 		numDiffGrids <- 0
 		gridIndexes <- 0
 		gridNumCells <- 0
-		gridEmptyCells <- 0
 		gridCountCells <- 0
 		grid.nbStats <- 0
 		grid.numCoeffs <- 0 
+		grid.numLmoments <- 0
 		grid.statsTable <- 0
 
 		#circle statistics
@@ -982,36 +983,34 @@ if(class(importOk)!="try-error"){
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
 
-					warning("calculating dist_out with given data, pass dist_out to make much faster")
-
-					if(haveBlocks)	
-						dist_out <- makeDistClassesWithStreets(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar, blockIndex)
-					else
-						dist_out <- makeDistClasses(as.vector(coords[, 1]), as.vector(coords[, 2]), breaksGenVar)
+					stop("no semivariance dist_out object passed, cannot execute!")
 				}
 
 				dist_indices <- dist_out$CClassIndex
 				cbin <- dist_out$classSize
+				nbins <- length(cbin) + 1 #number of breaks not bins
+
 				# stats selection
 				###===================================
 				## CURRENT STATS:
 				## General Semivariance (new - new)
-				## General Semivariance Std. Dev. (new - new)
-				## General Semivariance (old - new)
-				## General Semivariance Std. Dev (old - new)
 				## Moran's I
 				## Geary's C
 				## Ripley's L
-				##	= 7 * length(cbin)
+				##	= 4 * length(cbin)
 				## if haveBlocks
 				##	By block Semivariance (same block - across streets)
 				##	By block Semivariance Std. Dev
-				## 	= 9 * length(cbin)
+				## 	= 6 * length(cbin)
+				## DEPRECATED STATS:
+				## General Semivariance Std. Dev. (new - new)
+				## General Semivariance (old - new)
+				## General Semivariance Std. Dev (old - new)
 				###===================================
 				if(!haveBlocks)
-					semivar.nbStats <- 7*length(cbin)
+					semivar.nbStats <- 4*length(cbin)
 				else{
-					semivar.nbStats <- 9*length(cbin)
+					semivar.nbStats <- 6*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
 				}
@@ -1042,9 +1041,7 @@ if(class(importOk)!="try-error"){
 				gridNumCells <- unlist(gridNumCells)
 				names(gridNumCells) <- NULL
 
-				## pass empty cells into C for calculation purposes
-				## emptyCells will keep track of positives, countCells will keep track of total number of houses per cell
-				gridEmptyCells <- rep(0, sum(gridNumCells))
+				# countCells will keep track of total number of houses per cell
 				gridCountCells <- map.partitions[which(names(map.partitions) %in% "housesPerCell")]
 				gridCountCells <- unlist(gridCountCells)
 				names(gridCountCells) <- NULL
@@ -1056,12 +1053,17 @@ if(class(importOk)!="try-error"){
 				## Variance of % positive per cell
 				## Number Cells with at least 1 positive 
 				## Fit quantile distribution to polynomial
-				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats) 
-				##	= (2+grid.numCoeffs) * numDiffGrids
+				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
+			        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
+			       	## L-moment statistics (taken from quantile distribution)
+			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
+				## L-mean should be ~ to median (also to num_inf)	
 				###===================================
-				grid.numCoeffs <- 5
-				grid.nbStats <- (2+grid.numCoeffs)*numDiffGrids		
-				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)			
+				grid.numCoeffs <- rep(4, length(gridNumCells)) #should normally be 4, 1 for quickness
+				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				grid.numLmoments <- 3
+				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
+				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
 
 			if("circles" %in% typeStat){
@@ -1127,7 +1129,7 @@ if(class(importOk)!="try-error"){
 			 getStats=as.integer(getStats),
 			 matchStats=as.integer(matchStats),
 			 lengthStats=as.integer(length(matchStats)),
-			 nbins = as.integer(length(breaksGenVar)),
+			 nbins = as.integer(nbins),
 			 cbin = as.integer(cbin),
 			 cbinas = as.integer(cbinas),
 			 cbinsb = as.integer(cbinsb),
@@ -1138,10 +1140,10 @@ if(class(importOk)!="try-error"){
 			 numDiffGrids = as.integer(numDiffGrids),
 			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
 			 gridNumCells = as.integer(gridNumCells),
-			 gridEmptyCells = as.integer(gridEmptyCells),
 			 gridCountCells = as.integer(gridCountCells),
 			 grid.nbStats = as.integer(grid.nbStats),
 			 grid.numCoeffs = as.integer(grid.numCoeffs),
+			 grid.numLmoments = as.integer(grid.numLmoments),
 			 grid.statsTable = as.numeric(grid.statsTable),
 			 numDiffCircles = as.integer(numDiffCircles),
 			 numDiffCenters = as.integer(numDiffCenters),
@@ -1165,14 +1167,21 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
+
 		# need to remove the ones that are NAN
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-		# keepable <- c(4*length(cbin)+1:(2*length(cbin)))
-		# keepable <- c(1:(2*length(cbin)))
-		out$semivar.statsTable <- out$semivar.statsTable[intersect(notNAN, keepable), ]
+
+		whichkeep <- c(0, 1, 2, 3) # Keep only (0-semivariance, 1-moran's, 2-geary's, 3-ripley's)
+		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+
+		## only keep L-moments 
+		## keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0))
+		## out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
@@ -1190,9 +1199,8 @@ if(class(importOk)!="try-error"){
 	
 			# put all the stats into one list for making statsTable
 			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable,out$atRisk.statsTable)
-
-			if(Nrep==1) ## if only one repetition, the stats will have to be handled as vectors
-			{
+			if(Nrep==1){
+			## if only one repetition, stats have to be handled as vectors
 				numInfested <- out$inf.statsTable
 				for(statsWant in matchStats)
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
@@ -1206,7 +1214,6 @@ if(class(importOk)!="try-error"){
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]])
 				statsTable <- rbind(statsTable[-1, ], numInfested)
-
 				#figure out which stats are degenerate (important to do prestats removal!)
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)

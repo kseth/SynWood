@@ -73,14 +73,16 @@ MVN.check <- function(S,s=NULL,cex.axis=1,cex.lab=1) {
   for (i in 1:nrow(S)) ps[i] <- sum(S[i,]<s[i])/ncol(S)
 
   um <- robust.vcov(S)
-  ms <- as.numeric(um$mY)
-  S <- S-ms
+  ms <- as.numeric(um$mY) # means
+  S <- S-ms # centering to 0
   ## Malahanobis for each column of S
-  z <- colSums(S*(t(um$E)%*%um$E%*%S))
+  z <- colSums(S*(t(um$E)%*%um$E%*%S)) # standardize the variance
   
-  q <- log(qchisq((1:n-.5)/n,df=p))
-  z <- log(sort(z))
+  q <- log(qchisq((1:n-.5)/n,df=p)) # expected quantiles of a multivariate standardized normal
+  z <- log(sort(z)) # observed quantiles for the stats
   
+  # plot the q-q multivariate plot
+  dev.new()
   plot(q,z,type="l",col="grey",
        xlab="log theoretical quantiles",ylab="log observed quantiles",
        cex.axis=cex.axis,cex.lab=cex.lab)
@@ -103,6 +105,8 @@ MVN.check <- function(S,s=NULL,cex.axis=1,cex.lab=1) {
   rz <- range(z)
   rz <- c(rz[1]-2,rz[2]+2)
   
+  # marginal qq-plot, one line per stat
+  dev.new()
   plot(z,sort(S[1,]),type="l",col="grey",ylim=rz,
        xlab="N(0,1) quantiles",ylab="marginal quantiles",
        cex.axis=cex.axis,cex.lab=cex.lab)
@@ -151,7 +155,7 @@ trim.stat <- function(sY,p=.01) {
 
 ## Uses Campbell's robust approach as described on p 231 of Krzanowski 1988
 ## But adds pre-conditioning for stable computation....
-robust.vcov <- function(sY,alpha=2,beta=1.25) {
+robust.vcov <- function(sY,alpha=2,beta=1.25){
  
   mY <- rowMeans(sY)
   sY1 <- sY - mY 
@@ -266,68 +270,54 @@ robust.vcov.old <- function(sY,alpha=2,beta=1.25) {
   # sy: vector with stats in data
   # trans: a result of call get.trans
   #	   contains piecewise transform to normality (is interactive)
-  # er: if given use this vcov matrix in spite of the sY
-synLik<-function(sY=NULL,sy,trans=NULL,er=NULL){
+  # er: if given, use this vcov object instead of vcov of sY
+  #	if given, will override sY
+  #	if given, must be same format as object from robust.vcov (or alternately robust.vcov.modified)
+synLik<-function(sY=NULL, sy, trans=NULL, er=NULL){
+
+  if(is.null(sY) && is.null(er))
+  	stop("either sY (stats) or er (vcov) must be passed")	  
 
   ## extreme transform to normality
   if (!is.null(trans)){
-    if(!is.null(sY)) sY <- trans.stat(sY,trans)
+    if(!is.null(sY))
+	    sY <- trans.stat(sY,trans)
+    
     sy <- trans.stat(sy,trans)
   }
 
-  if(!is.null(sY)) sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
+  if(is.null(er)){ ## if er is not passed, calc vcov matrix
 
-  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-  ## commented out by Wood because we don't want to robustify! KS
+        ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
+  	## commented out by Wood, KS
 
-  if(is.null(er)){
-	  er<-try(robust.vcov(sY),silent=TRUE)
-	  
+	# only keep the observation for which all stats are finite
+  	sY <- sY[,is.finite(colSums(sY))] 	
+
+	er <- try(robust.vcov(sY), silent=TRUE)
+
+	if(class(er)=="try-error" || is.na(er)){ ## cannot find vcov matrix
+		ll<-NA
+		attr(ll,"rss") <- NA
+		attr(ll,"er") <- NA
+		attr(ll,"sy") <- sy
+		attr(ll,"sY") <- sY
+		return(ll)
+  	}
   }
-  if(class(er)=="try-error" || is.na(er)){
-	  ll<-NA
-	  attr(ll,"er") <- NA
-	  return(ll)
-  }
+  get_rss<-function(s,er) sum((er$E%*%(s-er$mY))^2)
 
-  rss <- sum((er$E%*%(sy-er$mY))^2)
+  if(class(sy)=="matrix"){
+    rss<- apply(sy,2,get_rss,er)
+  }else{
+    rss <- get_rss(sy,er) # sum((er$E%*%(sy-er$mY))^2)
+  }
   ll <- -rss/2 - er$half.ldet.V
 
   attr(ll,"rss") <- rss
   attr(ll,"sy") <- sy
-  if(!is.null(sY)) attr(ll,"sY") <- sY else attr(ll,"sY")<-NA
+  attr(ll,"sY") <- sY 
   attr(ll,"er") <- er
-
-  return(ll)
-}
-
-## get the log synthetic likelihood
-## modified by KS to use robust.vcov.modified
-  # sY: matrix with stats for theta
-  # sy: vector with stats in data
-  # trans: a result of call get.trans
-  #	   contains piecewise transform to normality (is interactive)
-synLik.modified<-function(sY,sy,trans=NULL){
-
-  ## extreme transform to normality
-  if (!is.null(trans)){
-    sY <- trans.stat(sY,trans)
-    sy <- trans.stat(sy,trans)
-  }
-
-  sY <- sY[,is.finite(colSums(sY))] # only keep the observation for which all stats are finite
-
-  ## sY <- trim.stat(sY) ## trimming the marginal extremes to robustify
-  ## commented out because we don't want to robustify! KS
-
-  er <- robust.vcov.modified(sY) ##KS
-
-  rss <- sum((er$E%*%(sy-er$mY))^2)
-  ll <- -rss/2 - er$half.ldet.V
-
-  attr(ll,"rss") <- rss
-  attr(ll,"sy") <- sy
-  attr(ll,"sY") <- sY
 
   return(ll)
 }
