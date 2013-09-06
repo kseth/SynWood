@@ -1061,9 +1061,8 @@ if(class(importOk)!="try-error"){
 			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
 				## L-mean should be ~ to median (also to num_inf)	
 				###===================================
-				grid.numCoeffs <- rep(4, length(gridNumCells)) #should normally be 4, 1 for quickness
-				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
-				grid.numLmoments <- 1 
+				grid.numCoeffs <- rep(1, length(gridNumCells)) #should normally be 4, 1 for quickness #grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				grid.numLmoments <- 3 #should be 3
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
@@ -1189,13 +1188,13 @@ if(class(importOk)!="try-error"){
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
 
-		## only keep L-moments 
-		## keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 5) %in% c(4, 0))
-		## out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
+		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 
+		keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(5, 0))
+		out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
 
 		## only keep regression coefficients
-		keepCoeffs <- which((1:dim(out$grid.statsTable)[1] %% 7) %in% c(3, 4, 5, 6))
-		out$grid.statsTable <- out$grid.statsTable[keepCoeffs, ]
+		## keepCoeffs <- which((1:dim(out$grid.statsTable)[1] %% 7) %in% c(3, 4, 5, 6))
+		## out$grid.statsTable <- out$grid.statsTable[keepCoeffs, ]
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)

@@ -830,7 +830,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	int howManyCoeffs; //degree of polynomial regression
 
 	//create *lmoms and lmoments (used in L-moments)
-	int lmoments = *numLmoments + 2; //how many moments to calculate
+	int lmoments = *numLmoments + 1; //how many moments to calculate
 	double* lmoms; // object which stores the lmoments
 
 	int statPos = 0; //position to put into table
@@ -898,7 +898,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		}
 
 		//store the lmoments (not the l-mean because ~ to num_occupied)
-		for(int c=2; c<lmoments; c++){
+		for(int c=1; c<lmoments; c++){
 			stats[statPos++] = lmoms[c];
 			// printf("%f ", lmoms[c]);
 		}
