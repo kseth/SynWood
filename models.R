@@ -44,6 +44,7 @@ minLLever=-10e6
 ###	     map.partitions = map.partitions, #partitions object
 ###	     conc.circs = conc.circs, #circles object
 ###	     useStats = useStats, 
+###	     whichPairwise = whichPairwise,
 ###	     infestH=infestH,
 ###	     timeH=timeH,
 ###	     endTime=nbit,
@@ -92,7 +93,8 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
 			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]))
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]), 
+			    whichPairwise=Data$whichPairwise)
 
 	end <- Sys.time()
 
@@ -111,7 +113,7 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		# synthetic likelihood
 		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
 		if(length(degen) > 0){ #if some stats degenerate
-			if(length(degen) == length(Data$y))
+			if(length(degen) == length(Data$y)) #if all stats are degenerate
 				ll <- -Inf
 			else{
 				degenY <- Data$y[degen]
@@ -203,6 +205,7 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     map.partitions = map.partitions, #partitions object
 ###	     conc.circs = conc.circs, #circles object
 ###	     useStats = useStats, 
+###	     whichPairwise = whichPairwise,
 ###	     infestH=infestH,
 ###	     timeH=timeH,
 ###	     endTime=nbit,
@@ -251,7 +254,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
 			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]))
+			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]),
+			    whichPairwise=Data$whichPairwise)
 
 	end <- Sys.time()
 
@@ -355,6 +359,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     map.partitions = NULL,
 ###	     conc.circs = NULL,
 ###	     useStats = useStats,
+###	     whichPairwise = whichPairwise,
 ###	     infestH=infestH,
 ###	     timeH=timeH,
 ###	     endTime=nbit,

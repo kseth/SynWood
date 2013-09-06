@@ -467,3 +467,62 @@ get_expected_coverage<-function(probs=0.95,likObs,likExp,plot=FALSE){
   return(cov)
 }
 
+#=========================
+# Fit and get coverage
+#=========================
+post_cov_analysis <- function(TVstats, NdrawsFromFit=dim(TVstats)[1], probs=c(0.90, 0.95, 0.99), typeFit=c("normal", "skew")){
+
+	if(is.vector(TVstats)){
+		warning("only 1 statistic passed")
+		return()
+	}
+
+	cat("Fit and get coverage...\n")
+	### with multivariate normality
+
+	probsObj <- probs
+
+	if("normal" %in% typeFit){
+		cat("Multivariate normal...\n")
+		# get structure and the likelihoods for the TV
+		sl<-synLik(t(TVstats),t(TVstats),  trans = NULL)
+		er<-attr(sl,"er")
+		Q<-t(er$E)%*% er$E # precision matrix
+		attributes(sl)<-NULL
+		sls<-sl # likelihoods without all the mess
+
+		# draw stats from the fitted field
+		sampMVF<-rmvnorm.prec(NdrawsFromFit,mu=er$mY,Q=Q)
+
+		# get corresponding likelihoods
+		sl<-synLik(t(TVstats),t(sampMVF),  trans = NULL,er=er)
+		attributes(sl)<-NULL
+		slMVF<-sl
+
+		###### get joint coverage 
+		covNorm<-get_expected_coverage(probs,sls,slMVF)
+		probsObj <- cbind(probsObj,covNorm)
+	}
+
+	##### with skew normality
+	if("skew" %in% typeFit){
+		cat("Multivariate skew normal...\n")
+		# fit
+		fit.dp <- msn.mle(y=TVstats)$dp
+		# get likelihood of observed in fit
+		ssnls <- dmsn(x=TVstats, dp=fit.dp, log=T)
+
+		# Draw 10000 from the fitted multivariate space
+		sampMVF <- rmsn(NdrawsFromFit, dp=fit.dp)
+
+		# likelihood of drawn
+		slSMVF <- dmsn(x=sampMVF, dp=fit.dp, log=T)
+
+		###### get joint coverage 
+		covSNorm<-get_expected_coverage(probs,ssnls,slSMVF)
+		probsObj <- cbind(probsObj,covSNorm)
+	}
+
+
+	return(probsObj)
+}

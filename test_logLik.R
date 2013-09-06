@@ -18,4 +18,3 @@ sls<-synLik(sY=t(mvsample),sy=t(mvsample[1:2,]))
 attributes(sls)<-NULL
 
 expect_equal(c(sl1,sl2),sls)
-

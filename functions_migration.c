@@ -650,23 +650,31 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 				// printf("hop ");
 				rand = UNICONG;
 				numHouses = hopRowPointer[house+1] - hopRowPointer[house];
-				dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)]; 
+
+				if(numHouses > 0) // if can infest, move
+					dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)];
+				else //else, stay
+					dest = house;	
 			}
 			else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
 				// next move is skip
-				// pick new house to become infested
-				// printf("skip ");
 				rand = UNICONG;
 				numHouses = skipRowPointer[house+1] - skipRowPointer[house];
-				dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)]; 		
+
+				if(numHouses > 0)
+					dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)];
+				else
+					dest = house;		
 			}
 			else{
 				// next move is jump
-				// pick new house to become infested
-				// printf("jump ");
 				rand = UNICONG;
 				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
-				dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)]; 
+
+				if(numHouses > 0)
+					dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)];
+			 	else
+					dest = house;	
 			}
 	
 	
@@ -822,7 +830,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	int howManyCoeffs; //degree of polynomial regression
 
 	//create *lmoms and lmoments (used in L-moments)
-	int lmoments = *numLmoments + 1; //how many moments to calculate
+	int lmoments = *numLmoments + 2; //how many moments to calculate
 	double* lmoms; // object which stores the lmoments
 
 	int statPos = 0; //position to put into table
@@ -890,7 +898,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		}
 
 		//store the lmoments (not the l-mean because ~ to num_occupied)
-		for(int c=1; c<lmoments; c++){
+		for(int c=2; c<lmoments; c++){
 			stats[statPos++] = lmoms[c];
 			// printf("%f ", lmoms[c]);
 		}
@@ -1029,18 +1037,6 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 	}	
 }
 
-// use at_risk_stat and polynomial fitting to return the at_risk stats
-void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs, int* ntrs, double* at_risk_stat,int* ncoefs){
-	int sizeLine = *ncoefs + *ntrs; // line in at_risk_stat
-	double* at_risk_current = at_risk_stat+ sizeLine * *rep;
-	// compute raw stats
-	get_at_risk_stat(at_risk_current,L,pos,npos,dists,trs,ntrs);
-
-	// fit of the stats with polynomial regression
-	double coefs[*ncoefs];
-	polynomialfit(*ntrs, *ncoefs, trs, at_risk_current, at_risk_current+ *ntrs);
-}
-
 //=======================================
 // At risk stat
 // - according to dist give the number of points 
@@ -1093,7 +1089,17 @@ void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, do
   // printf("\n");
 }
 
+// use at_risk_stat and polynomial fitting to return the at_risk stats
+void get_stats_at_risk(int* rep, int* L, int* pos, int* npos, double* dists, double* trs, int* ntrs, double* at_risk_stat,int* ncoefs){
+	int sizeLine = *ncoefs + *ntrs; // line in at_risk_stat
+	double* at_risk_current = at_risk_stat+ sizeLine * *rep;
+	// compute raw stats
+	get_at_risk_stat(at_risk_current,L,pos,npos,dists,trs,ntrs);
 
+	// fit of the stats with polynomial regression
+	double coefs[*ncoefs];
+	polynomialfit(*ntrs, *ncoefs, trs, at_risk_current, at_risk_current+ *ntrs);
+}
 //=======================================
 // Functions for percolation stat
 //=======================================
@@ -1267,39 +1273,40 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 }
 
 void noKernelMultiGilStat(
-	int* hopColIndex, int* hopRowPointer, 
-	int* skipColIndex, int* skipRowPointer, 
-	int* jumpColIndex, int* jumpRowPointer, 
-	double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, 
-	int* blockIndex, 
-	int *simul, 
-	int *infested, 
-	double *infestedDens, 
-	int *endIndex, 
-	int *L, 
-	double *endTime, 
-	int *indexInfest, 
-	double *age, 
-	double *rateMove, double* rateIntro, 
-	int *seed, int *Nrep, 
-	int* getStats, 
-	int* matchStats, int* lengthStats, 
-	int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *nbStats,
-	int* haveBlocks, 
-	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, int* numLmoments, double* gridstats, 
-	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats,
-	int* infnbStats, double* infstats,	
+	int* hopColIndex, int* hopRowPointer, //indices of places to hop to (formed from SPAM matrix in R) 
+	int* skipColIndex, int* skipRowPointer, //places to skip to (SPAM)
+	int* jumpColIndex, int* jumpRowPointer, //places to jump to (SPAM)
+	double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, //should sum up to 1, %hop, %skips, %jumps 
+	int* blockIndex, //blocks if landscape is structured by block 
+	int *simul, //if 1, simulate, if 0, don't
+	int *infested, //houses starting infested
+	double *infestedDens, //ending infestation density (over N runs)
+	int *endIndex, //number infested - 1
+	int *L, //number houses in landscape
+	double *endTime, //how long to simulate
+	int *indexInfest, //indices of houses starting infested
+	double *age, //time of infestation
+	double *rateMove, double* rateIntro, //rate of dispersal, rate of new introduction 
+	int *seed, int *Nrep, //integer starting seed, number of repetitions
+	int* getStats, //if 1, calc stats, if 0, don't
+	int* matchStats, int* lengthStats, //which statistics to calculate, how many statistics to calculate
+	int *nbins, int *cbin, int* cbinas, int* cbinsb, int* indices, double* semivarstats, int *semivarnbStats, //see get_stats_semivar
+	int* haveBlocks, //if 1, have blocks, if 0, don't 
+	int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* gridnbStats, int* numCoeffs, int* numLmoments, double* gridstats, //see get_stats_grid 
+	int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, int* circlenbStats, double* circlestats, //see get_stats_circle
+	int* infnbStats, double* infstats, //see get_stats_num_inf	
 	double* atRisk_trs, int* atRisk_ntrs, // thresholds area at Risk stat
 	double* at_riskStats, // results area at Risk stat, size (*atRisk_ntrs+*ncoefsAtRisk) * (*Nrep)
 	int* ncoefsAtRisk, // number of coefs in poly fit of at_risk
-    	double* xs, // Xs of the nodes
-    	double* ys, // Ys of the nodes
-    	double* detectRate){
+    	double* xs, // Xs of the nodes in the landscape
+    	double* ys, // Ys of the nodes in the landscape
+    	double* detectRate // % of end infested houses that are detected (1 to not remove any houses)
+	){
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping
 	if(*skipColIndex == 0 && *skipRowPointer==0 && *rateSkipInMove != 0){
-		printf("no skips given but rateSkipInMove!=0");
+		printf("no skips given but rateSkipInMove!=0\n");
 		return;
 	}
 	
@@ -1307,9 +1314,9 @@ void noKernelMultiGilStat(
 	int infestedInit[*L];
   	int indexInfestInit[*L];
 
-	//may be used if atRisk stats are called
-	int noDists = 1;
-	double* dists = NULL;
+	//if atRisk stats are called
+	int noDists = 1; //haven't made distance matrix yet
+	double* dists = NULL; //distance matrix
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
@@ -1326,7 +1333,7 @@ void noKernelMultiGilStat(
 	 		
 	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
 
-			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data post gillespie
+			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
 	 		for(int h=0;h<*L;h++){
 	 			infestedDens[h]+=infestedInit[h];
@@ -1345,9 +1352,6 @@ void noKernelMultiGilStat(
 	 			}
 			}
 
-			// always calculate number infested stats (quick + easy)
-			get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks);
-
 			for(int stat=0;stat<*lengthStats; stat++){
 
 				// for every stat that we want, switch case
@@ -1355,11 +1359,11 @@ void noKernelMultiGilStat(
 				npos[0] = *endIndex + 1;
 
 				switch(matchStats[stat]){
-	 				case 1:	get_stats_semivar(&rep, nbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
+	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
 					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
-							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dists
+							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
 							if(dists == NULL){
 								printf("cannot (c)allocate memory");
 								return;
@@ -1367,7 +1371,8 @@ void noKernelMultiGilStat(
 							makeDistMat(xs,L,ys,dists);
 							noDists = 0;
 						}
-						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break; 
+						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break;
+					case 5: get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks); break;
 					default: printf("stat that isn't supported yet\n"); break;
 				}
 			}
