@@ -96,8 +96,15 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 	  dprop<-function(val,center,disp){
 		  return(dtnorm(val,mean=center,sd=disp,lower=0,upper=1,log=TRUE))
 	  }
+  }else if(Data$sampling[nameParam]=="poisson"){
+    rprop<-function(center,disp){
+      return(rpois(1,center))
+    }
+    dprop<-function(val,center,disp){
+      return(dpois(val,center,log=TRUE))
+    }
   }else{
-	  stop("unknown sampling method for ",nameParam)
+    stop("unknown sampling method for ",nameParam)
   }
 
   # sample proposal
@@ -139,6 +146,13 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   	attributes(oldTheta)$outModel <- recompModel
   	attributes(oldTheta)$LLH <- LLHold
   }
+  # avoid stumbling on a null prior
+  if(is.null(LLHprop_prioronly)){
+	  LLHprop_prioronly<-0
+  }
+  if(is.null(LLHold_prioronly)){
+	  LLHold_prioronly<-0
+  }
 
   # accept/reject
   # always 0 for symmetric distribution, only for record
@@ -147,10 +161,12 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   # compute the log accept/reject ratio
   if(is.finite(LLHprop) && is.finite(LLHold)){ # deal with NAN or Inf in synlik
 	# to avoid problems with LLH_statsonly >> priors, nullifying the impact of the prior
-	if(LLHprop_statsonly == LLHold_statsonly) # if both stats only LL equal, consider only priors
+	if(LLHprop_statsonly == LLHold_statsonly){ # if both stats only LL equal, consider only priors
+		#browser()
 		lnr <- LLHprop_prioronly-LLHold_prioronly+hasting_term
-	else
+	}else{
   		lnr <- LLHprop-LLHold+hasting_term
+	}
   }else{
 	if(!is.na(LLHprop) && !is.na(LLHold)){ # if only infinites, no NA
 		if(LLHprop > LLHold)

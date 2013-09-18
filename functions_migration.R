@@ -891,7 +891,8 @@ if(class(importOk)!="try-error"){
 		conc.circs = NULL, 
 		atRisk.trs = NULL,
 		atRisk.ncoefs = NULL,
-		typeStat = "semivariance", 
+		typeStat = "semivariance",
+	        whichPairwise = c("semivariance", "moran", "geary", "ripley"),	
 		detectRate = 1, 
 		rateIntro = 0){
 
@@ -918,7 +919,7 @@ if(class(importOk)!="try-error"){
 		}
 
 		# implemented stats
-		implStats <- c("semivariance", "grid", "circles", "atRisk")
+		implStats <- c("semivariance", "grid", "circles", "atRisk", "num_inf")
 
 		# initialize all the statistics to 0
 		matchStats <- 0
@@ -965,19 +966,20 @@ if(class(importOk)!="try-error"){
 			matchStats <- match(typeStat, implStats)
 
 			if(any(is.na(matchStats))){ #throw an error regarding stats not yet implemented
-				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStat))
+				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStats))
 			}
 
-			# always calculate inf stats
-			# 1 if no blocks, 3 if blocks
-			# stats selection
-			##===============
-			# Number Infested
-			# If haveBlocks:
-			#	Number Blocks Infested
-			#	Number Infested / Number Blocks Infested
-			inf.nbStats <- 1 + haveBlocks*2
-			inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)	
+			if("num_inf" %in% typeStat){
+				# 1 if no blocks, 3 if blocks
+				# stats selection
+				##===============
+				# Number Infested
+				# If haveBlocks:
+				#	Number Blocks Infested
+				#	Number Infested / Number Blocks Infested
+				inf.nbStats <- 1 + haveBlocks*2
+				inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)
+			}	
 
 			# if want to calculate semivariance stats
 			if("semivariance" %in% typeStat){
@@ -1059,9 +1061,8 @@ if(class(importOk)!="try-error"){
 			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
 				## L-mean should be ~ to median (also to num_inf)	
 				###===================================
-				grid.numCoeffs <- rep(4, length(gridNumCells))
-				#grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
-				grid.numLmoments <- 3
+				grid.numCoeffs <- rep(1, length(gridNumCells)) #should normally be 4, 1 for quickness #grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				grid.numLmoments <- 3 #should be 3
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
 			}
@@ -1167,15 +1168,34 @@ if(class(importOk)!="try-error"){
 	
 		# make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
+
 		# need to remove the ones that are NAN
 		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-		# keepable <- 3*length(cbin)+1:length(cbin) #Keep only Ripley's
-		out$semivar.statsTable <- out$semivar.statsTable[notNAN, ]
+
+		# which of the pairwise to keep in final statistics
+		orderPairwise <- c("semivariance", "moran", "geary", "ripley")
+		whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
+		
+		if(any(is.na(whichkeep))){
+			warning("some pairwise supplied that are NA")
+	      		whichkeep <- whichkeep[!is.na[whichkeep]]
+		}
+
+		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
 	
 		# make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-		## only keep L-moments 
-		# out$grid.statsTable <- out$grid.statsTable[which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0)), ] 
+
+		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 
+		keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(5, 0))
+		out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
+
+		## only keep regression coefficients
+		## keepCoeffs <- which((1:dim(out$grid.statsTable)[1] %% 7) %in% c(3, 4, 5, 6))
+		## out$grid.statsTable <- out$grid.statsTable[keepCoeffs, ]
+
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
@@ -1191,22 +1211,21 @@ if(class(importOk)!="try-error"){
 		if(getStats){ ## if want to get statistics, need to make the statsTable
 	
 			# put all the stats into one list for making statsTable
-			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable,out$atRisk.statsTable)
+			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable, out$atRisk.statsTable, out$inf.statsTable)
 			if(Nrep==1){
-			## if only one repetition, stats have to be handled as vectors
-				numInfested <- out$inf.statsTable
+				## if only one repetition, stats have to be handled as vectors
 				for(statsWant in matchStats)
 			 		statsTable <- c(statsTable, allStats[[statsWant]])
 
-				statsTable <- c(statsTable, numInfested)
 				statsTable <- statsTable[-1]
 			}else{
 
-				numInfested <- out$inf.statsTable 
 				statsTable <- matrix(0, 1, Nrep)
 				for(statsWant in matchStats)
 					statsTable <- rbind(statsTable, allStats[[statsWant]])
-				statsTable <- rbind(statsTable[-1, ], numInfested)
+				
+				statsTable <- statsTable[-1, ]
+				
 				#figure out which stats are degenerate (important to do prestats removal!)
 				vars <- apply(statsTable, 1, var)
 				degenerateStats <- which(vars == 0)
@@ -1489,4 +1508,3 @@ get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
 
 # Tests
 # test_file("test-functions_migration.R")
-

@@ -2,8 +2,10 @@
 source("functions_migration.R")
 library("spam")
 
+#========================
+# Test that Hop/Skip/Jump matrix is made correctly
+#========================
 test_that("making hop skip jumps correctly",{
-
 num.rows <- 3 
 num.cols <- 3
 row.dist <- 1
@@ -13,18 +15,12 @@ lowerLimitSkip <- 1
 limitJump <- 3
 lowerLimitJump <- 2
 
-##
-# tests, add to test-functions_migration when have time
-# length(hopMat@entries) + length(skipMat@entries) == length(dist_mat_hop_skip@entries)
-# diag(hopMat) == diag(skipMat) == diag(jumpMat) == 0
-##
 stratmat <- generate_stratified_mat(maps, limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, lowerLimitSkip=lowerLimitSkip)
 
 # all diagonals must be zero
 expect_true(sum(diag(stratmat$hopMat)) == 0)
 expect_true(sum(diag(stratmat$skipMat)) == 0)
 expect_true(sum(diag(stratmat$jumpMat)) == 0)
-
 
 # corners can hop to 2 spots
 expect_true(sum(stratmat$hopMat[1, ]) == 2)
@@ -48,6 +44,46 @@ test_mat <- as.spam(test_mat)
 
 expect_equal(totalmat, test_mat)
 })
+
+#============================
+# Test that noKernelMultiGilStat works as expected
+# For high + low rate move
+#============================
+test_that("noKernelMultiGilStat num infs calculation",{
+num.rows <- 10 
+num.cols <- 10
+row.dist <- 1
+maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+
+limitHopSkip <- 2 
+lowerLimitSkip <- NULL 
+limitJump <-10 
+lowerLimitJump <- limitHopSkip 
+
+stratmat <- generate_stratified_mat(maps, limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, lowerLimitSkip=lowerLimitSkip)
+
+## very high movement should fill up the map so that all houses become filled
+rateMove <- 1
+rateJumpInMove <-0.5 
+seed <- 100000
+
+out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1000, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+
+## all houses should be infested
+expect_true(!(any(out$infestedDens == 0)))
+expect_equal(out$statsTable, length(maps$X))
+
+## very low movement should fill up the map so that only the initial house is positive
+rateMove <- 0.0000000001
+
+out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+
+## only house 1 is infested
+expect_equal(out$statsTable, 1)
+expect_equal(sum(out$infestedDens), 1)
+expect_equal(which(out$infestedDens==1), 1)
+})
+
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -204,6 +240,10 @@ percGroups<-percolation_circle(dists[out$pos,out$pos],3)
 expect_equal(percGroups,correct)
 }) # end test_that
 
+
+#========================
+# Old Tests
+#========================
 ## was broken by missing maps, to restore
 # test_that("semi-variogram computations",{
 # 	  varioTest <- variog(coords = maps[,c("X","Y")], data = maps$infest1, breaks = genIntervals)
@@ -218,8 +258,8 @@ expect_equal(percGroups,correct)
 # 	expect_true(all.equal(vario1$variog,varioTest$v))
 # 	expect_true(all.equal(vario1$sdvariog,varioTest$sd))
 # })
-
-
+#
+#
 ## was broken by maps not found
 # test_that("probmatR and probmatC equivalent",{ 	
 # 	threshold <- 2000
@@ -238,7 +278,7 @@ expect_equal(percGroups,correct)
 # 	expect_true(all.equal(cumulProbMatR, cumulProbMatC))
 # 	expect_true(all.equal(probMatR, probMatC))
 # })
-
+#
 # test_that("getPosteriorMaps (and multiGilStats behind the scene)",{
 #	source("param.r")
 #	source("maps_basic_regression.R")# for maps$X, maps$Y, maps$blockIndex

@@ -20,5 +20,7 @@ binomialEndInfested <- rep(0, length(maps$X))
 binomialEndInfested[endInfestedHouses] <- 1
 
 par(mfrow=c(1, 2))
-plot(maps, col=c("black", "red")[jer_dat$OLDSTATUS+1], pch = 18, asp=1, main="Jerusalen, January 2009")
-plot(maps, col=c("black", "red")[jer_dat$STATUS+1], pch = 18, asp=1, main="Jerusalen, March 2011")
+plot(maps[-startingInfested, ], col="black",  pch = 18, asp=1, main="Jerusalen, January 2009")
+points(maps[startingInfested, ], col="yellow3",  pch = 17, asp=1)
+plot(maps[-endInfestedHouses, ], col="black", pch = 18, asp=1, main="Jerusalen, March 2011")
+points(maps[endInfestedHouses, ], col="yellow3", pch = 17, asp=1)
