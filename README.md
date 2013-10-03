@@ -1,5 +1,6 @@
 SynWood
 =======
+In addition to the following, theses functionality are progressively transitioned to the synlik package https://bitbucket.org/cbarbu/synlik
 
 LDsynLikSpat.R contains the likelihood functions and simulation with a model using the kernel
 

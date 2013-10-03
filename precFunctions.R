@@ -451,6 +451,7 @@ volume_crI <- function(x1, x2, y, alpha=0.05, sigfig=5, tri=NULL){
 	return(list(ll=mid[length(mid)-1]))
 }
 
+<<<<<<< HEAD
 #=========================
 # Fit and get coverage
 #=========================
@@ -591,7 +592,6 @@ local.coverage <- function(TVstats, NdrawsFromFit=dim(TVstats)[1], probs=c(0.90,
 	return(probsObj)
 }
 
-
 #===========================
 # For each probability alpha passed into alpha (alpha = 0.05 corresponds to 95% credible intervals)
 # 	Return the coverage of the MCMCs given in allRuns
@@ -633,4 +633,4 @@ cred_cov_anal <- function(allRuns, allLengths, realMean, alpha=c(0.05, 0.10, 0.2
 	return(data.frame(alpha=alpha,credibility=1-alpha,coverage=coverage))	
 }
 
-
+library("synlik") # as should be installed from https://bitbucket.org/cbarbu/synlik
