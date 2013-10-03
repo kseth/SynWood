@@ -220,9 +220,9 @@ trapz3d <- function(x, y, z, tri=NULL){
 ## steps is the number of steps at which to bin the area
 ## prI is the quantiles of precision wanted
 ## ... passed to the smooth.spline function
-oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), ...){
+oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPoints = FALSE, xlim, ylim, ...){
 
-	pred_smooth <- smooth.spline(x, y,...)
+	pred_smooth <- smooth.spline(x, y, ...)
 	px <- seq(min(x), max(x), length.out=steps+1)
         py <- predict(pred_smooth, px)$y
 
@@ -241,8 +241,17 @@ oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), ...){
 	ypairs <- ypairs/sum(trap_areas) # normalize the py pair values
 	trap_areas <- trap_areas / sum(trap_areas) # normalize trap_areas
 
-	plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density")
-	points(x, y, pch = ".")
+	if(missing(xlim) && missing(ylim))
+		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density")
+	else if(missing(xlim))
+		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", ylim=ylim)
+	else if(missing(ylim))
+		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim)
+	else
+		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim, ylim=ylim)
+	
+	if(plotPoints)
+		points(x, y, pch = ".")
 
 	#order the trap areas in reverse order
 	rev_trap_areas <- rev(sort(trap_areas))
@@ -581,3 +590,47 @@ local.coverage <- function(TVstats, NdrawsFromFit=dim(TVstats)[1], probs=c(0.90,
 
 	return(probsObj)
 }
+
+
+#===========================
+# For each probability alpha passed into alpha (alpha = 0.05 corresponds to 95% credible intervals)
+# 	Return the coverage of the MCMCs given in allRuns
+#	allRuns is a vector of one parameter from all MCMCs concatenated together
+#	allLengths is the length of each MCMC
+#	realMean is the actual value that we want to be covered
+#===========================
+
+cred_cov_anal <- function(allRuns, allLengths, realMean, alpha=c(0.05, 0.10, 0.20)){
+
+	probs_left <- c(alpha/2) # left quantiles
+	probs_right <- c(1-alpha/2) # right quantiles
+	
+	quantile_left <- quantile(allRuns[1:allLengths[1]], probs = probs_left)
+	quantile_right <- quantile(allRuns[1:allLengths[1]], probs = probs_right)
+	
+	#using the counts, determine how many times we fall outside of the confidence interval
+	counts <- mat.or.vec(length(alpha), 1)
+	names(counts) <- alpha
+	
+	for(index in 1:length(alpha)){
+			if(realMean >= quantile_left[index] && realMean <= quantile_right[index])
+				counts[index] <- counts[index]+1
+		}
+
+	#calculate the measures over the rest of the runs
+	for(run in 2:length(allLengths)){
+
+		quantile_left <- quantile(allRuns[(allLengths[run-1]+1):allLengths[run]], probs = probs_left)
+		quantile_right <- quantile(allRuns[(allLengths[run-1]+1):allLengths[run]], probs = probs_right)
+
+		for(index in 1:length(alpha)){
+			if(realMean >= quantile_left[index] && realMean <= quantile_right[index])
+				counts[index] <- counts[index]+1
+		}
+	}
+
+	coverage <- counts/length(allLengths)
+	return(data.frame(alpha=alpha,credibility=1-alpha,coverage=coverage))	
+}
+
+

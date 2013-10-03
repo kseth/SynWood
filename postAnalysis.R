@@ -1,8 +1,8 @@
 library("ADGofTest") ## anderson-darling test for uniformity
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "Ripleys_Normal"
-daisyChainSeeds <- 201:212*1000 
+nameSimul <- "Partitions_Lmoments_normal"
+daisyChainSeeds <- 201:217*1000 
 
 #=======================
 # Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)
@@ -206,3 +206,9 @@ abline(h=1, col="green")
 ## abline(h = 1, col = "green")
 
 dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
+
+##width of credible intervals
+print(mean(quantile_each[, 4]-quantile_each[,3]))
+print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
+print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
+print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))
