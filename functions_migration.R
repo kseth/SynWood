@@ -872,7 +872,7 @@ if(class(importOk)!="try-error"){
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
 	noKernelMultiGilStat <- function(
-		stratHopSkipJump, 
+	    stratHopSkipJump, 
 		blockIndex, 
 		infestH, 
 		timeH, 
@@ -884,7 +884,8 @@ if(class(importOk)!="try-error"){
 		coords, 
 		breaksGenVar, 
 		seed=1, 
-		simul=TRUE, 
+		simul=TRUE,
+        maxInfest=NULL, 
 		getStats=TRUE, 
 		dist_out = NULL, 
 		map.partitions = NULL, 
@@ -1116,6 +1117,7 @@ if(class(importOk)!="try-error"){
 			 blockIndex = if(haveBlocks){as.integer(blockIndex)}else{as.integer(0)},
 			 simul = as.integer(simul),
 			 infested = as.integer(infested),
+			 maxInfest = as.integer(maxInfest),
 			 infestedDens = as.numeric(infestedDens),
 			 endIndex = as.integer(length(infestH) - 1),
 			 L = as.integer(L),
@@ -1162,7 +1164,6 @@ if(class(importOk)!="try-error"){
 			 ys = as.numeric(coords$Y),
 			 detectRate = as.numeric(detectRate) 
 			 )
-		# print(out)
 
 		out$infestedDens<-out$infestedDens/Nrep;
 	
@@ -1508,3 +1509,4 @@ get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
 
 # Tests
 # test_file("test-functions_migration.R")
+

@@ -211,7 +211,7 @@ void makeDistClassesWithStreets(double *xc // x of objects
 	}
 }
 
-// return prob_mat based on euclideant distances given in dist_mat
+// return prob_mat based on euclidean distances given in dist_mat
 // cumul == 1, make cumulative probability matrix
 // useDelta == 1, use the delta variable
 // blockIndex - an array with block number for each house
@@ -596,7 +596,7 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	// printf("final seed:%i",*seed);
 }
 
-void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
+void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
 	
 	jcong = (unsigned long)*seed;
 	// printf("seed: %li \n",jcong);
@@ -644,6 +644,8 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 			dest = -1; //the move location
 			rand = UNICONG;
 			
+			// TODO (Corentin): unify the three following 
+			// if in an arbitrary number of levels
 			if(rand < *rateHopInMove){
 				// next move is hop
 				// pick new house to become infested
@@ -677,17 +679,18 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 					dest = house;	
 			}
 	
-	
 			// printf("new infested: %i\n", dest);
 			// fflush(stdout);
 		}			
 
-		if((*(infested+dest)) != 1){ // if the destination is not already infested
+        if(dest != house){
+		if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
 			*endIndex+=1;
-			*(infested+dest) = 1;
+			*(infested+dest) += 1;
 			*(indexInfest + *endIndex) = dest;
 			*(age + *endIndex) = currentTime;
 		}
+        }
 	
 		//calculate time to next event again
 		rand = UNICONG;
@@ -1174,6 +1177,7 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// affiche_tableau(Percolateur,h,l);
 }
 
+// Simulation of the observation process
 void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate, int* seed){
 
 	if(*detectRate<1){ //if we have some error
@@ -1337,8 +1341,7 @@ void noKernelMultiGilStat(
 
 	 		for(int h=0;h<*L;h++){
 	 			infestedDens[h]+=infestedInit[h];
-	 		}
-	 		
+	 		}		
 	 	}
 
 	 	if(*getStats==1){ // calculate the statistics
@@ -1382,6 +1385,10 @@ void noKernelMultiGilStat(
 	 		break; // to exit loop even if Nrep!=1
 	 	}
 
+	}
+	// just in order to see the last replicate
+	for(int h=0;h<*L;h++){
+	  infested[h]=infestedInit[h];
 	}
 
 
