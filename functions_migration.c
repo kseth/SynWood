@@ -612,10 +612,11 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 	double currentTime = 0;
 	
 	//variables used in loop
-	int index, house, dest, numHouses;
+	int index=-1, house=-1, dest=-1, numHouses=-1;
 
 	//the gillespie loop
-	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
+	printf("entering gillespie loop (endtime: %.4f)",*endTime);
+	printf("endIndex:%i\n",*endIndex);
 	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
@@ -625,20 +626,16 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		//pick whether new move or new introduction
 		rand = UNICONG;
 		if(rand < percentIntro){ // new introduction
-
+		  	index = -1; // the infesting location index
+			house = -1; // the infesting location
 			rand = UNICONG;
 			dest = (int)(rand* *L);	//the introduction location
-		}
-		else{ // new move
-
+		}else{ // new move
 			//pick a location to be infesting house
 			rand = UNICONG;
 			index = (int)(rand* (*endIndex+1));
 			house = *(indexInfest + index);
 
-			// printf("infesting: %i; ", house);
-			
-	
 			//pick whether next move is hop/skip/jump
 			
 			dest = -1; //the move location
@@ -667,8 +664,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 					dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)];
 				else
 					dest = house;		
-			}
-			else{
+			}else{
 				// next move is jump
 				rand = UNICONG;
 				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
@@ -683,15 +679,25 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			// fflush(stdout);
 		}			
 
-        if(dest != house){
-		if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
-			*endIndex+=1;
-			*(infested+dest) += 1;
-			*(indexInfest + *endIndex) = dest;
-			*(age + *endIndex) = currentTime;
+		if(dest != house){
+
+		  if(*endIndex<3){
+		    printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
+		  }
+		  if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
+		    printf("");
+		    *endIndex+=1;
+		    *(infested+dest) += 1;
+		    *(indexInfest + *endIndex) = dest;
+		    *(age + *endIndex) = currentTime;
+		  }
 		}
-        }
-	
+
+		if(*endIndex<3){
+		  printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
+		      index, house,*endIndex,dest);
+		}
+
 		//calculate time to next event again
 		rand = UNICONG;
 		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
@@ -1322,17 +1328,31 @@ void noKernelMultiGilStat(
 	//if atRisk stats are called
 	int noDists = 1; //haven't made distance matrix yet
 	double* dists = NULL; //distance matrix
+	printf("valEndIndex: %i\n",valEndIndex);
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
+	  printf("rep: %i\n",rep);
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
-	 	// initialisation simul
-	 	for(int h=0;h<*L;h++){
-	 		infestedInit[h]=*(infested+h);
-	 		indexInfestInit[h]=*(indexInfest+h);	
-	 	}
-	 	
-	 	*endIndex=valEndIndex; 
+		if(valEndIndex <0){ // draw init
+		  for(int h=0;h<*L;h++){
+		    infestedInit[h]=0;
+		    indexInfestInit[h]=0;	
+		  }
+		  double rand = UNICONG;
+		  int h = (int)(rand* (*L+1));
+		  infestedInit[h]=1;
+		  indexInfestInit[0]=h;	
+		  *endIndex=0; 
+		}else{ // restore to init
+		  // initialisation simul
+		  for(int h=0;h<*L;h++){
+		    infestedInit[h]=*(infested+h);
+		    indexInfestInit[h]=*(indexInfest+h);	
+		  }
+
+		  *endIndex=valEndIndex; 
+		}
 
 	 	if(*simul==1){ // run a normal simulation
 	 		
