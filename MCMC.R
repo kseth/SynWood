@@ -27,22 +27,22 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 	if(length(sdprop) != nparams)
 		sdprop <- rep(sdprop[1], nparams)
 
-	names(sdprop) <- MyDataFullSample$parm.names
+	names(sdprop) <- MyDataFullSample$parmNames
 
 	beginEstimate <- -1 #value containing position of when adaptation of sampling variance is complete
 
 	# init of theta attributes and saving scheme
 	outModel<-Model(theta,MyDataFullSample)
-	Monitor<-mat.or.vec(nbsimul+1,length(MyDataFullSample$mon.names))
+	Monitor<-mat.or.vec(nbsimul+1,length(MyDataFullSample$monNames))
 	Monitor[1,]<-outModel$Monitor
 	attributes(theta)$outModel<-outModel
 
 	accepts<-as.data.frame(matrix(rep(0,nparams*nbsimul),ncol=nparams))
-	names(accepts)<-MyDataFullSample$parm.names
+	names(accepts)<-MyDataFullSample$parmNames
 
 	# write headers to table
-	write.table(t(MyDataFullSample$mon.names), monitor.file, sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
-	write.table(t(MyDataFullSample$parm.names), paste("acceptsamples", monitor.file, sep = ""), sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
+	write.table(t(MyDataFullSample$monNames), monitor.file, sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
+	write.table(t(MyDataFullSample$parmNames), paste("acceptsamples", monitor.file, sep = ""), sep="\t",append=FALSE,col.names=FALSE,row.names=FALSE)
 
 
 #============================
@@ -70,7 +70,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		## adapt the sampling variance	
 		if(!adaptOK && numit%%checkAdapt==0){
 			adaptOK <- TRUE
-			for(paramName in MyDataFullSample$parm.names){
+			for(paramName in MyDataFullSample$parmNames){
 	      			logSDprop <- adaptSDProp(sdprop[paramName], accepts[1:numit, paramName], lowAcceptRate, highAcceptRate, tailLength = 20)
 				adaptOK <- adaptOK && attributes(logSDprop)$noupdate
 				sdprop[paramName] <- logSDprop
@@ -99,7 +99,7 @@ MCMC <- function(MyDataFullSample, Model, functionSample = omniSample, nbsimul =
 		}
 		
 		## sample the variables
-		for(paramName in MyDataFullSample$parm.names){
+		for(paramName in MyDataFullSample$parmNames){
 	      		theta<-functionSample(Model,MyDataFullSample,theta,paramName,sdprop[paramName])
 	      		accepts[numit,paramName]<-as.numeric(attributes(theta)$new)
 	    	 }

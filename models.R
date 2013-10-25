@@ -57,15 +57,15 @@ minLLever=-10e6
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     default=default,
-###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
-###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+###	     monNames=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+###	     parmNames=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
 ###		)
 
 skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
-	names(theta)<-Data$parm.names
+	names(theta)<-Data$parmNames
 	
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -84,16 +84,16 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = ifelse("rateMove" %in% Data$parm.names, theta["rateMove"], Data$default["rateMove"]),
-			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parm.names, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
-			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parm.names,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
+			    rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
+			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]), 
+			    detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+			    rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]), 
 			    whichPairwise=Data$whichPairwise)
 
 	end <- Sys.time()
@@ -154,7 +154,7 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0 #keep track of just the prior sum
 
-		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
@@ -218,15 +218,15 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     default=default,
-###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
-###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+###	     monNames=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+###	     parmNames=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
 ###		)
 
 noKernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
-	names(theta)<-Data$parm.names
+	names(theta)<-Data$parmNames
 	
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -245,22 +245,22 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = ifelse("rateMove" %in% Data$parm.names, theta["rateMove"], Data$default["rateMove"]),
-			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parm.names, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
-			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parm.names,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
+			    rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
+			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]),
+			    detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+			    rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]),
 			    whichPairwise=Data$whichPairwise)
 
 	end <- Sys.time()
 
-	## cat("t multiGil: ")
-	## print(end-start)
+	cat("t multiGil: ")
+	print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -308,7 +308,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0 #keep track of just the prior sum
 
-		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
@@ -330,14 +330,14 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	## cat("t synLik: ")
-	## print(end-start)
+	cat("t synLik: ")
+	print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior
 			 Lprioronly=Lprioronly, # likelihood of parmeters according only to the prior
 			 Dev=-2*LL, # deviance, probably not to be changed
-			 Monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
 			 yhat=yhat, # data generated for that set of parameter
 			 	    # will be used for posterior check
 			 parm=theta # the parameters, possibly constrained by the model
@@ -372,15 +372,15 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     default=default,
-###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
-###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+###	     monNames=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+###	     parmNames=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
 ###		)
 
 binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
-	names(theta)<-Data$parm.names
+	names(theta)<-Data$parmNames
 
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -394,16 +394,16 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = ifelse("rateMove" %in% Data$parm.names, theta["rateMove"], Data$default["rateMove"]),
-			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parm.names, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
-			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parm.names,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
+			    rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
+			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
 			    Nrep = Data$Nrep, 
 			    coords = Data$maps[, c("X", "Y")], 
 			    seed=seed,
 			    getStats=getStats,
 			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parm.names, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parm.names, theta["rateIntro"], Data$default["rateIntro"]))
+			    detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+			    rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")
@@ -423,7 +423,7 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0 #keep track of prior likelihood
 
-		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
@@ -485,15 +485,15 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     priorIntervals=priorIntervals,
 ###	     initValues=initValues,
 ###	     genIntervals=genIntervals,
-###	     mon.names=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
-###	     parm.names=names(priorMeans), # parameters names (like in Model and Initial.Values)
+###	     monNames=c("LL","LP", names(priorMeans)), # monitored variables (like in Model)
+###	     parmNames=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
 ###		)
 
 kernelModel <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
-	names(theta)<-Data$parm.names
+	names(theta)<-Data$parmNames
 
 	# set seed for c simulations
 	seed <-runif(1,min=0,(2^16-1)) 
@@ -510,7 +510,7 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 	
 	# if only sampled parameter is rateMove
-	if(length(theta) == 1 & all.equal(Data$parm.names[1], "rateMove")){
+	if(length(theta) == 1 & all.equal(Data$parmNames[1], "rateMove")){
 		out <- multiGilStat(cumulProbMat = Data$cumulProbMat, blockIndex = Data$blockIndex, 
 			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
 			    rateMove = theta["rateMove"], 
@@ -567,7 +567,7 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0
 
-		for(name in Data$parm.names){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")

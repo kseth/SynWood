@@ -19,7 +19,7 @@ getMeanSdBetaDis<-function(a,b){
 normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 
   # identify param to sample
-  names(oldTheta)<-Data$parm.names
+  names(oldTheta)<-Data$parmNames
   old<-oldTheta[nameParam]
   # cat("parm:",nameParam,"old:",old,"oldTheta:",oldTheta,"\n")
 
@@ -29,7 +29,7 @@ normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
   # include proposal in theta
   propTheta<-oldTheta
   attributes(propTheta)<-NULL # important to avoid growing thetas
-  names(propTheta)<-Data$parm.names
+  names(propTheta)<-Data$parmNames
   propTheta[nameParam]<-prop
 
   # get LLH for proposal
@@ -61,7 +61,7 @@ normSample<-function(Model,Data,oldTheta,nameParam,sdprop){
 # generic function for sampling, see test-functions_sampling.R for use
 omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   # identify param to sample
-  names(oldTheta)<-Data$parm.names
+  names(oldTheta)<-Data$parmNames
   old<-oldTheta[nameParam]
   # cat("parm:",nameParam,"old:",old,"oldTheta:",oldTheta,"\n")
 
@@ -113,7 +113,7 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
   # include proposal in theta
   propTheta<-oldTheta
   attributes(propTheta)<-NULL # important to avoid growing thetas
-  names(propTheta)<-Data$parm.names
+  names(propTheta)<-Data$parmNames
   propTheta[nameParam]<-prop
 
   # get LLH for proposal
@@ -134,7 +134,7 @@ omniSample<-function(Model,Data,oldTheta,nameParam,sdprop,recompLLHold=TRUE){
 	# set up dummy theta
 	recompTheta<-oldTheta
 	attributes(recompTheta)<-NULL
-	names(recompTheta)<-Data$parm.names
+	names(recompTheta)<-Data$parmNames
 	
 	#recompute LLH for old
 	recompModel<-Model(recompTheta, Data)
