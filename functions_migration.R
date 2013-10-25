@@ -909,6 +909,7 @@ if(class(importOk)!="try-error"){
 		indexInfest <- rep(-1, L)
 		timeI <- rep(-1, L)
 		infested <- rep(0, L)
+		if(is.null(infestH)){ infestH <- round(runif(1,min=1,max=L))}
 		indexInfest[1:length(infestH)] <- infestH - 1
 		timeI[1:length(timeH)] <- timeH
 		infested[infestH] <- 1

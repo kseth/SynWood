@@ -1284,6 +1284,7 @@ void noKernelMultiGilStat(
 	int* blockIndex, //blocks if landscape is structured by block 
 	int *simul, //if 1, simulate, if 0, don't
 	int *infested, //houses starting infested
+	int *maxInfest, // max number of infested per unit ("house")
 	double *infestedDens, //ending infestation density (over N runs)
 	int *endIndex, //number infested - 1
 	int *L, //number houses in landscape
@@ -1335,7 +1336,7 @@ void noKernelMultiGilStat(
 
 	 	if(*simul==1){ // run a normal simulation
 	 		
-	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
+	 		stratGillespie(infestedInit,maxInfest,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
 
 			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
