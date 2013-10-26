@@ -451,7 +451,6 @@ volume_crI <- function(x1, x2, y, alpha=0.05, sigfig=5, tri=NULL){
 	return(list(ll=mid[length(mid)-1]))
 }
 
-<<<<<<< HEAD
 #=========================
 # Fit and get coverage
 #=========================
