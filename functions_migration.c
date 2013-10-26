@@ -804,7 +804,7 @@ int double_compare(const void *a, const void *b){
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
@@ -833,7 +833,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 		//note that endIndex delineates the last spot that is occupied 
 		for(int house=0; house<=*endIndex; house++){
 			infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
-			gridEmptyCells[currentCellStartingPoint + infestedCell]++;
+			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[endInfest[house]]; //the number of positive is now the number of positive subunits at the current house (unit)
 
 			//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
 		}
@@ -1417,7 +1417,7 @@ void noKernelMultiGilStat(
 
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
+					case 2: get_stats_grid(&rep, L, infestedInit, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
 							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
