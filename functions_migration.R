@@ -1279,6 +1279,143 @@ if(class(importOk)!="try-error"){
 
 		return(matrix(out$prob_mat, L, L, byrow = byrow))
 	}
+	
+	# group the nodes that are within tr of each others
+	# Nodes: 
+	percolation_circle<-function(dists,tr){
+	  n<-dim(dists)[1]
+	  Groups<-rep(-1,n)
+	  out<-.C("percolation_circle",
+		  Nodes=as.integer(Groups),
+		  n=as.integer(n),
+		  dists=as.numeric(dists),
+		  tr=as.numeric(tr))
+	  return(out$Nodes)
+	}
+	
+	# flag at risk nodes according to a vector of threshold distances
+	# and a matrix of distances
+	get_at_risk_indicator<-function(posnodes,dists,trs){
+	  # posnodes: nodes generating the risk
+	  # dists: square distance matrix for all the nodes
+	  # trs: increasing threshold distances
+	  n <- dim(dists)[1]
+	  at_risk<-rep(0,length(trs)*n)
+	  posnodes<- posnodes-1 # to correspond to C numering
+	
+	  out<-.C("get_at_risk_indicator",
+		  at_risk = as.integer(at_risk),
+		  n = as.integer(n),
+		  posnodes = as.integer(posnodes),
+		  nPosnodes = as.integer(length(posnodes)),
+		  dists = as.numeric(dists),
+		  trs = as.numeric(trs),
+		  nTr = as.integer(length(trs))
+		  )
+	  return(matrix(out$at_risk,ncol=length(trs),byrow=TRUE))
+	}
+	
+	# get indicator at_Risk and transform it in raw stat
+	get_at_risk_stat<-function(pos,dists,trs){
+		stat<- rep(0,length(trs))
+		L<-dim(dists)[1]
+		pos<- pos-1 # to correspond to C numering
+	
+		out<-.C("get_at_risk_stat",
+			at_risk_current = as.numeric(stat),
+			L = as.integer(L),
+			pos = as.integer(pos),
+			npos = as.integer(length(pos)),
+			dists = as.numeric(dists),
+			trs_at_risk = as.numeric(trs),
+			ntr_at_risk = as.integer(length(trs))
+			)
+		rawstat<-out$at_risk_current
+		return(rawstat)
+	}
+	
+	# fit the raw stat and formalize in big matrix
+	get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
+		pos<- pos-1 # to correspond to C numering
+		out<-.C("get_stats_at_risk",
+			rep = as.integer(numRep),
+			L = as.integer(dim(dists)[1]),
+			pos = as.integer(pos),
+			npos = as.integer(length(pos)),
+			dists = as.numeric(dists),
+			trs_at_risk = as.numeric(trs),
+			ntr_at_risk = as.integer(length(trs)),
+			at_risk_stat = as.double(currentAtRiskStat),
+			ncoefsAtRisk = as.integer(ncoefs)
+			)
+	
+		at_risk_stats<-matrix(out$at_risk_stat,ncol=dim(currentAtRiskStat)[2],byrow=TRUE)
+		return(at_risk_stats)
+	}
+
+	get_stats_grid <- function(infested, maxInfest, map.partitions){
+				
+		## the number of different indexings present in gridIndexes
+		numDiffGrids <- length(map.partitions)
+
+		## unlist the first list
+		map.partitions <- unlist(map.partitions, recursive = FALSE)
+	
+		## define the indexing systems
+		## every house should have numDiffGrids indexes
+		gridIndexes <- map.partitions[which(names(map.partitions) %in% "index")]
+		gridIndexes <- unlist(gridIndexes)
+		names(gridIndexes) <- NULL
+
+		## the length of each indexing - the number of cells per grid/index system
+		gridNumCells <- map.partitions[which(names(map.partitions) %in% "num_cells")] 
+		gridNumCells <- unlist(gridNumCells)
+		names(gridNumCells) <- NULL
+
+		# countCells will keep track of total number of houses per cell
+		gridCountCells <- map.partitions[which(names(map.partitions) %in% "housesPerCell")]
+		gridCountCells <- unlist(gridCountCells)
+		names(gridCountCells) <- NULL
+
+		# stats selection
+		###===================================
+		## CURRENT STATS 
+		## (by grid system):
+		## Variance of % positive per cell
+		## Number Cells with at least 1 positive 
+		## Fit quantile distribution to polynomial
+		## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
+	        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
+	       	## L-moment statistics (taken from quantile distribution)
+	        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
+		## L-mean should be ~ to median (also to num_inf)	
+		###===================================
+		grid.numCoeffs <- rep(1, length(gridNumCells)) #should normally be 4, 1 for quickness #grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+		grid.numLmoments <- 3 #should be 3
+		grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
+		grid.statsTable <- mat.or.vec(grid.nbStats, 1)
+
+		out <- .C(	"get_stats_grid",
+				rep = as.integer(0),
+				L = as.integer(length(infested)),
+				infestedInit = as.integer(infested),
+				maxInfest = as.integer(maxInfest),
+				endInfest = as.integer(which(infested>0)-1),
+				endIndex = as.integer(length(which(infested>0))-1),
+				gridnbStats = as.integer(grid.nbStats),
+				numDiffGrids = as.integer(numDiffGrids),
+				gridIndexes = as.integer(gridIndexes-1),
+				gridNumCells = as.integer(gridNumCells),
+				gridCountCells = as.integer(gridCountCells),
+				numCoeffs = as.integer(grid.numCoeffs),
+				numLmoments = as.integer(grid.numLmoments),
+				gridstats = as.numeric(grid.statsTable))
+		
+		return(gridstats = out$gridstats)
+		
+	}
+
+
 
 }
 
@@ -1438,80 +1575,5 @@ predictBasicModel<-function(maps,infestInitName,model=basicModel,timePredictOver
   predicted<-predict(model,newdata=maps,type="response")
   return(predicted)
 }
-
-# group the nodes that are within tr of each others
-# Nodes: 
-percolation_circle<-function(dists,tr){
-  n<-dim(dists)[1]
-  Groups<-rep(-1,n)
-  out<-.C("percolation_circle",
-	  Nodes=as.integer(Groups),
-	  n=as.integer(n),
-	  dists=as.numeric(dists),
-	  tr=as.numeric(tr))
-  return(out$Nodes)
-}
-
-# flag at risk nodes according to a vector of threshold distances
-# and a matrix of distances
-get_at_risk_indicator<-function(posnodes,dists,trs){
-  # posnodes: nodes generating the risk
-  # dists: square distance matrix for all the nodes
-  # trs: increasing threshold distances
-  n <- dim(dists)[1]
-  at_risk<-rep(0,length(trs)*n)
-  posnodes<- posnodes-1 # to correspond to C numering
-
-  out<-.C("get_at_risk_indicator",
-	  at_risk = as.integer(at_risk),
-	  n = as.integer(n),
-	  posnodes = as.integer(posnodes),
-	  nPosnodes = as.integer(length(posnodes)),
-	  dists = as.numeric(dists),
-	  trs = as.numeric(trs),
-	  nTr = as.integer(length(trs))
-	  )
-  return(matrix(out$at_risk,ncol=length(trs),byrow=TRUE))
-}
-
-# get indicator at_Risk and transform it in raw stat
-get_at_risk_stat<-function(pos,dists,trs){
-	stat<- rep(0,length(trs))
-	L<-dim(dists)[1]
-	pos<- pos-1 # to correspond to C numering
-
-	out<-.C("get_at_risk_stat",
-		at_risk_current = as.numeric(stat),
-		L = as.integer(L),
-		pos = as.integer(pos),
-		npos = as.integer(length(pos)),
-		dists = as.numeric(dists),
-		trs_at_risk = as.numeric(trs),
-		ntr_at_risk = as.integer(length(trs))
-		)
-	rawstat<-out$at_risk_current
-	return(rawstat)
-}
-
-# fit the raw stat and formalize in big matrix
-get_stats_at_risk<-function(numRep,pos,dists,trs,currentAtRiskStat,ncoefs){
-	pos<- pos-1 # to correspond to C numering
-	out<-.C("get_stats_at_risk",
-		rep = as.integer(numRep),
-		L = as.integer(dim(dists)[1]),
-		pos = as.integer(pos),
-		npos = as.integer(length(pos)),
-		dists = as.numeric(dists),
-		trs_at_risk = as.numeric(trs),
-		ntr_at_risk = as.integer(length(trs)),
-		at_risk_stat = as.double(currentAtRiskStat),
-		ncoefsAtRisk = as.integer(ncoefs)
-		)
-
-	at_risk_stats<-matrix(out$at_risk_stat,ncol=dim(currentAtRiskStat)[2],byrow=TRUE)
-	return(at_risk_stats)
-}
-
 # Tests
 # test_file("test-functions_migration.R")
-

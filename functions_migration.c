@@ -788,7 +788,7 @@ int double_compare(const void *a, const void *b){
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
@@ -800,41 +800,37 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 
 	//init storage array
 	int* gridEmptyCells = (int*) calloc(count, sizeof(int));
-	if(gridEmptyCells == NULL){
+	int* gridMaxInfestCells = (int*) calloc(count, sizeof(int));
+
+	if(gridEmptyCells == NULL && gridMaxInfestCells == NULL){
 		printf("allocation error in get_stats_grid; possibly out of memory\n");
 		return;
 	}
 
-	int currentIndexStartingPoint = 0;
-	int currentCellStartingPoint = 0;
+	int currentCellStartingPoint = 0;	
 	int infestedCell = 0;
-	//traverse through all the different grid systems
-	for(int grid=0; grid<*numDiffGrids; grid++){
-		currentIndexStartingPoint = *L * grid;
 
-		//for each grid system		
-		//traverse through all infested houses and populate
-		//note that endIndex delineates the last spot that is occupied 
-		
-		// // Was making a segfault please check following 
-		// for(int house=0; house<=*endIndex; house++){
-		// 	infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
-		// 	gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[endInfest[house]]; //the number of positive is now the number of positive subunits at the current house (unit)
-
-		// 	//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
-		// }
-		
-		// may not be the fastest but fair if multiple +
-		// per macro
-		for(int iMacro=0; iMacro<*L; iMacro++){
-			infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
-			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit
-
-			//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
+//   // The things I had implemented to debug:
+// 		for(int iMacro=0; iMacro<*L; iMacro++){
+// 			infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
+// 			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit
+	for(int house=0; house<*L; house++){
+		currentCellStartingPoint = 0;
+		for(int grid=0; grid<*numDiffGrids; grid++){	
+			infestedCell = gridIndexes[*L * grid + house];
+			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[house];
+			gridMaxInfestCells[currentCellStartingPoint + infestedCell]+=maxInfest[house];
+			currentCellStartingPoint += gridNumCells[grid];	
 		}
+	}
 
-		//printf("\n");
-		currentCellStartingPoint += *(gridNumCells+grid);
+	int count2 = 0;
+	for(int grid=0; grid<*numDiffGrids; grid++){
+		for(int cell=0; cell<gridNumCells[grid]; cell++){
+			// printf("%03d %03d %03d %03d\n", grid, cell, gridEmptyCells[count2], gridMaxInfestCells[count2]); 
+			count2++;
+		}
+		// printf("\n");
 	}
 
 	//compute statistics
@@ -843,7 +839,6 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 	//the remaining stats will be regression coefficients and L-moments
 	//need to compute variance + store in gridstats
 	//the percent positive is the mean %positive over all the cells (this is scale invariant)
-	double meanPP = ((double)(*endIndex + 1)) / ((double)*L);
 	count = 0;
 
 	// keeps track of number of positive cells in grid
@@ -851,6 +846,7 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 
 	//keeps track of the variance of the percent positive
 	double varPP = 0;
+	double meanPP = 0;
 
 	//number of cells in grid, number of houses per cell	
 	int numCells = 0;
@@ -894,7 +890,7 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 		for(int cell=0; cell<numCells; cell++){
 			//machinery for quantile regression and L-moments
 			numPositive = gridEmptyCells[count];
-			numTotal = gridCountCells[count];
+			numTotal = gridMaxInfestCells[count];
 			cellPP = numPositive/numTotal;
 			dx[cell] = ((double)(cell+1))/((double)(numCells+1));
 			dy[cell] = cellPP;
@@ -904,13 +900,14 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 				positivecount++;
 			
 			varPP += cellPP*cellPP;
+			meanPP += cellPP;
 			count++;
 		}
 
 		//divide variance by number of cells and then subtract (mean percent positive)^2
-		varPP = varPP/(numCells-1) - meanPP*meanPP;
+		varPP = (varPP - meanPP*meanPP/numCells)/(numCells - 1);
 		
-		//printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
+		// printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
 
 		//calculate the quantile regression coefficients
 		//sort so that we have a "quantile like distribution"
@@ -942,6 +939,7 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 
 		positivecount = 0;
 		varPP = 0;
+		meanPP = 0;
 		free(dx);
 		free(dy);
 		free(quant_coeff);
@@ -949,6 +947,7 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 	}
 
 	free(gridEmptyCells);
+	free(gridMaxInfestCells);
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
@@ -1374,7 +1373,7 @@ void noKernelMultiGilStat(
   	int indexInfestInit[nMicro];
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
-	  printf("rep: %i\n",rep);
+	  // printf("rep: %i\n",rep);
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
 		if(valEndIndex <0){ // draw init
@@ -1409,8 +1408,8 @@ void noKernelMultiGilStat(
 			    microToMacro,&nMicro,
 			    indexInfestInit,age,rateMove, rateIntro, seed);
 
-			printf("L: %i, endIndex: %i, dR: %.2f, s %i\n",
-			    *L,*endIndex,*detectRate,*seed);
+			//printf("L: %i, endIndex: %i, dR: %.2f, s %i\n",
+			    // *L,*endIndex,*detectRate,*seed);
 			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
 	 		for(int h=0;h<*L;h++){
@@ -1437,7 +1436,7 @@ void noKernelMultiGilStat(
 
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, infestedInit, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
+					case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
 							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat

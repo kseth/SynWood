@@ -46,6 +46,40 @@ expect_equal(totalmat, test_mat)
 })
 
 #============================
+# Test that get_stats_grid works fine with integral input
+# Where the input is the number of positive per site (positive houses in block, positive bugs in house, etc.)
+#============================
+test_that("get_stats_grid returns reasonably for 'poisson' input", {
+
+num.rows <- 33
+num.cols <- 33
+maps <- makeGrid(num.rows, num.cols, 10)
+partitionSizes <- c(10, 20)
+map.partitions <- divideMap(maps, partitionSizes, typeDivide = "kmeans")
+
+numHouses <- num.rows*num.cols
+
+infested <- rpois(numHouses, lambda = 5)
+maxInfest <- rep(max(infested), numHouses)
+infested <- infested - 1
+infested[which(infested < 0)] <- 0
+
+## the first 2 are #positive, variance
+## 3rd is 1st coefficient from polynom fit
+## 4th-6th are 2nd, 3rd, 4th L-moments
+
+out <- get_stats_grid(infested, maxInfest, map.partitions)
+expect_true(!any(is.na(out)))
+
+## case where input is bnary, not poisson (check to see that it works!)
+infested2 <- as.integer(round(runif(numHouses, 0, 1)))
+maxInfest2 <- rep(1, numHouses)
+out2 <- get_stats_grid(infested2, maxInfest2, map.partitions)
+expect_true(!any(is.na(out2)))
+
+})
+
+#============================
 # Test that noKernelMultiGilStat works as expected
 # For high + low rate move
 #============================
