@@ -599,10 +599,6 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* microInMacro){ 
   double rand = UNICONG;
   int nMacro = rowPointer[*macroOrigin+1] - rowPointer[*macroOrigin];
-  // printf("nMacro:%i ",nMacro);
-    // printf("nH:%i, 1: %i 2: %i,",numHouses,
-  //     rowPointer[*macroOrigin],
-  //     rowPointer[*macroOrigin+1]);
 
   if(nMacro > 0){ // if can infest, move
     // need to get the number of micro to draw from and the number of pos
@@ -615,13 +611,8 @@ void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* m
       nMicro += nLocMicro;
       cumulMicroPerMacro[iLocMacro] = (double) nMicro;
     }
- 
-    //  printf("c:");
-    //  for( int iMacro=0; iMacro<nMacro;iMacro++){
-    //    printf("%.1f ",cumulMicroPerMacro[iMacro]);
-    //  }
-
     // printf("nMicro: %i ",nMicro);
+    
     // draw uniformly in the number of micro to draw from
     double iMicro = (rand*nMicro);
     // printf("iMicro: %.1f ",iMicro);
@@ -629,6 +620,7 @@ void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* m
     // get back to the Macro selected among the neighbors
     int iLocMacro = fulldichot(cumulMicroPerMacro,iMicro,0,nMacro);
     // printf("iLocMacro: %i",iLocMacro);
+    
     // get back to the Macro selected among all
     int rowP = rowPointer[*macroOrigin]+iLocMacro;
     *dest = colInd[rowP];
@@ -685,7 +677,8 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		  	index = -1; // the infesting location index
 			house = -1; // the infesting location
 			rand = UNICONG;
-			dest = (int)(rand* *L);	//the introduction location
+			int microDest = rand* nMicro;
+			dest = microToMacro[microDest];
 		}else{ // new move
 			//pick a location to be infesting house
 			rand = UNICONG;
@@ -695,7 +688,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			//pick whether next move is hop/skip/jump
 			
 			dest = -1; //the move location
-			rand = UNICONG;
+			rand = UNICONG; // draw for move type
 			
 			// TODO (Corentin): unify the three following 
 			// if in an arbitrary number of levels
