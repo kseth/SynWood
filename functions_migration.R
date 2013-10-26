@@ -1349,7 +1349,7 @@ if(class(importOk)!="try-error"){
 		return(at_risk_stats)
 	}
 
-	get_stats_grid <- function(infested, map.partitions){
+	get_stats_grid <- function(infested, maxInfest, map.partitions){
 				
 		## the number of different indexings present in gridIndexes
 		numDiffGrids <- length(map.partitions)
@@ -1395,17 +1395,18 @@ if(class(importOk)!="try-error"){
 				rep = as.integer(0),
 				L = as.integer(length(infested)),
 				infestedInit = as.integer(infested),
-				endInfest = as.integer(which(infested==1)-1),
-				endIndex = as.integer(length((which(infested==1)))-1),
+				maxInfest = as.integer(maxInfest),
+				endInfest = as.integer(which(infested>0)-1),
+				endIndex = as.integer(length(which(infested>0))-1),
 				gridnbStats = as.integer(grid.nbStats),
 				numDiffGrids = as.integer(numDiffGrids),
-				gridIndexes = as.integer(gridIndexes),
+				gridIndexes = as.integer(gridIndexes-1),
 				gridNumCells = as.integer(gridNumCells),
 				gridCountCells = as.integer(gridCountCells),
 				numCoeffs = as.integer(grid.numCoeffs),
 				numLmoments = as.integer(grid.numLmoments),
-				gridstats = as.integer(grid.statsTable))
-
+				gridstats = as.numeric(grid.statsTable))
+		
 		return(gridstats = out$gridstats)
 		
 	}
