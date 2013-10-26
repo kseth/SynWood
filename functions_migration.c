@@ -595,6 +595,48 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	*seed=(int)jcong;
 	// printf("final seed:%i",*seed);
 }
+// if pointers is a rowpointer in spam
+void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* microInMacro){ 
+  double rand = UNICONG;
+  int nMacro = rowPointer[*macroOrigin+1] - rowPointer[*macroOrigin];
+  // printf("nMacro:%i ",nMacro);
+    // printf("nH:%i, 1: %i 2: %i,",numHouses,
+  //     rowPointer[*macroOrigin],
+  //     rowPointer[*macroOrigin+1]);
+
+  if(nMacro > 0){ // if can infest, move
+    // need to get the number of micro to draw from and the number of pos
+    double cumulMicroPerMacro[nMacro];
+    int nMicro  = 0;
+    for( int iLocMacro=0; iLocMacro<nMacro;iLocMacro++){
+      int rowP = rowPointer[*macroOrigin]+iLocMacro;
+      int iMacro = colInd[rowP];
+      int nLocMicro = microInMacro[iMacro];
+      nMicro += nLocMicro;
+      cumulMicroPerMacro[iLocMacro] = (double) nMicro;
+    }
+ 
+    //  printf("c:");
+    //  for( int iMacro=0; iMacro<nMacro;iMacro++){
+    //    printf("%.1f ",cumulMicroPerMacro[iMacro]);
+    //  }
+
+    // printf("nMicro: %i ",nMicro);
+    // draw uniformly in the number of micro to draw from
+    double iMicro = (rand*nMicro);
+    // printf("iMicro: %.1f ",iMicro);
+       
+    // get back to the Macro selected among the neighbors
+    int iLocMacro = fulldichot(cumulMicroPerMacro,iMicro,0,nMacro);
+    // printf("iLocMacro: %i",iLocMacro);
+    // get back to the Macro selected among all
+    int rowP = rowPointer[*macroOrigin]+iLocMacro;
+    *dest = colInd[rowP];
+    // printf("rP: %i d: %i\n",rowP,*dest);
+  }else{ //else, stay
+    *dest = *macroOrigin;	
+  }
+}
 
 void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
 	
@@ -614,10 +656,24 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 	//variables used in loop
 	int index=-1, house=-1, dest=-1, numHouses=-1;
 
+	// prep accounting for multiple micro=unit per location
+	int nMicro =0; // total number of micro units
+	for(int i=0; i< *L; i++){
+	  nMicro += maxInfest[i];
+	}
+	int microToMacro[nMicro]; // item = micro, each with location id
+	int k = 0;
+	for(int i=0; i< *L; i++){
+	  for(int j=0; j< maxInfest[i];j++){
+	    microToMacro[k] = i;
+	    k++;
+	  }
+	}
+
 	//the gillespie loop
 	printf("entering gillespie loop (endtime: %.4f)",*endTime);
 	printf("endIndex:%i\n",*endIndex);
-	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < nMicro){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
 		
@@ -644,6 +700,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			// TODO (Corentin): unify the three following 
 			// if in an arbitrary number of levels
 			if(rand < *rateHopInMove){
+			  
 				// next move is hop
 				// pick new house to become infested
 				// printf("hop ");
@@ -654,8 +711,8 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 					dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)];
 				else //else, stay
 					dest = house;	
-			}
-			else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
+			}else if(*rateHopInMove < rand && 
+			    rand < (*rateHopInMove + *rateSkipInMove)){
 				// next move is skip
 				rand = UNICONG;
 				numHouses = skipRowPointer[house+1] - skipRowPointer[house];

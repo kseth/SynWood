@@ -884,7 +884,7 @@ if(class(importOk)!="try-error"){
 		coords, 
 		seed=1, 
 		simul=TRUE,
-		maxInfest=NULL, 
+		maxInfest=rep(1,dim(coords)[1]), 
 		getStats=TRUE, 
 		dist_out = NULL, 
 		map.partitions = NULL, 
