@@ -630,7 +630,7 @@ void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* m
   }
 }
 
-void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
+void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int *microToMacro, int *nMicro, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
 	
 	jcong = (unsigned long)*seed;
 	// printf("seed: %li \n",jcong);
@@ -648,24 +648,10 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 	//variables used in loop
 	int index=-1, house=-1, dest=-1, numHouses=-1;
 
-	// prep accounting for multiple micro=unit per location
-	int nMicro =0; // total number of micro units
-	for(int i=0; i< *L; i++){
-	  nMicro += maxInfest[i];
-	}
-	int microToMacro[nMicro]; // item = micro, each with location id
-	int k = 0;
-	for(int i=0; i< *L; i++){
-	  for(int j=0; j< maxInfest[i];j++){
-	    microToMacro[k] = i;
-	    k++;
-	  }
-	}
-
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
 	// printf("endIndex:%i\n",*endIndex);
-	while(currentTime + nextEvent < *endTime && *endIndex+1 < nMicro){
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < *nMicro){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
 		
@@ -677,7 +663,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		  	index = -1; // the infesting location index
 			house = -1; // the infesting location
 			rand = UNICONG;
-			int microDest = rand* nMicro;
+			int microDest = rand* *nMicro;
 			dest = microToMacro[microDest];
 		}else{ // new move
 			//pick a location to be infesting house
@@ -712,24 +698,27 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			// fflush(stdout);
 		}
 
-		if(dest != house){
+		// if(dest != house){
 
 		  // if(*endIndex<3){
 		  //   printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
 		  // }
+		  // need to add a draw on if if falls in existing or not
 		  if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
-		    printf("");
+		    // printf("c: %i m:%i\n",*(infested+dest),*(maxInfest+dest));
 		    *endIndex+=1;
 		    *(infested+dest) += 1;
 		    *(indexInfest + *endIndex) = dest;
 		    *(age + *endIndex) = currentTime;
+		  }else{
+		    // printf("eI: %i",*endIndex);
 		  }
-		}
+		// }
 
-		if(*endIndex<3){
-		  printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
-		      index, house,*endIndex,dest);
-		}
+		// if(*endIndex<3){
+		//   printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
+		//       index, house,*endIndex,dest);
+		// }
 
 		//calculate time to next event again
 		rand = UNICONG;
@@ -831,9 +820,20 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* endInfest, int* en
 		//for each grid system		
 		//traverse through all infested houses and populate
 		//note that endIndex delineates the last spot that is occupied 
-		for(int house=0; house<=*endIndex; house++){
-			infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
-			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[endInfest[house]]; //the number of positive is now the number of positive subunits at the current house (unit)
+		
+		// // Was making a segfault please check following 
+		// for(int house=0; house<=*endIndex; house++){
+		// 	infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
+		// 	gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[endInfest[house]]; //the number of positive is now the number of positive subunits at the current house (unit)
+
+		// 	//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
+		// }
+		
+		// may not be the fastest but fair if multiple +
+		// per macro
+		for(int iMacro=0; iMacro<*L; iMacro++){
+			infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
+			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit
 
 			//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
 		}
@@ -1356,12 +1356,27 @@ void noKernelMultiGilStat(
 	
 	int valEndIndex = *endIndex;	
 	int infestedInit[*L];
-  	int indexInfestInit[*L];
 
 	//if atRisk stats are called
 	int noDists = 1; //haven't made distance matrix yet
 	double* dists = NULL; //distance matrix
 	printf("valEndIndex: %i\n",valEndIndex);
+
+	// prep accounting for multiple micro=unit per location
+	int nMicro =0; // total number of micro units
+	for(int i=0; i< *L; i++){
+	  nMicro += maxInfest[i];
+	}
+	int microToMacro[nMicro]; // item = micro, each with location id
+	int k = 0;
+	for(int i=0; i< *L; i++){
+	  for(int j=0; j< maxInfest[i];j++){
+	    microToMacro[k] = i;
+	    k++;
+	  }
+	}
+	printf("nMicro: %i",nMicro);
+  	int indexInfestInit[nMicro];
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
 	  printf("rep: %i\n",rep);
@@ -1370,6 +1385,8 @@ void noKernelMultiGilStat(
 		if(valEndIndex <0){ // draw init
 		  for(int h=0;h<*L;h++){
 		    infestedInit[h]=0;
+		  }
+		  for(int h=0;h<nMicro;h++){
 		    indexInfestInit[h]=0;	
 		  }
 		  double rand = UNICONG;
@@ -1379,7 +1396,9 @@ void noKernelMultiGilStat(
 		  *endIndex=0; 
 		}else{ // restore to init
 		  // initialisation simul
-		  for(int h=0;h<*L;h++){
+		  for(int h=0;h<*L;h++){ 
+		    	// to be adapted if want to account
+		    	// for time
 		    infestedInit[h]=*(infested+h);
 		    indexInfestInit[h]=*(indexInfest+h);	
 		  }
@@ -1389,8 +1408,12 @@ void noKernelMultiGilStat(
 
 	 	if(*simul==1){ // run a normal simulation
 	 		
-	 		stratGillespie(infestedInit,maxInfest,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
+	 		stratGillespie(infestedInit,maxInfest,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,
+			    microToMacro,&nMicro,
+			    indexInfestInit,age,rateMove, rateIntro, seed);
 
+			printf("L: %i, endIndex: %i, dR: %.2f, s %i\n",
+			    *L,*endIndex,*detectRate,*seed);
 			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
 	 		for(int h=0;h<*L;h++){

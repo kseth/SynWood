@@ -16,7 +16,7 @@ void modBinItWithStreets(int* n, int* dist_index, double* inf_data, double* star
 
 void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *endTime, int *indexInfest, double *age, double *movePerTunit, int *seed);
 
-void stratGillespie(int* infested,int * maxInfest,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed);
+void stratGillespie(int* infested,int * maxInfest,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int *microToMacro, int *nMicro,  int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed);
 
 void polynomialfit(int obs, int degree, double *dx, double *dy, double *store);
 
