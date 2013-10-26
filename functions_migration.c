@@ -1385,7 +1385,7 @@ void noKernelMultiGilStat(
 		    age[h]=0;
 		  }
 		  double rand = UNICONG;
-		  int h = (int)(rand* (*L+1));
+		  int h = (int)(rand* (*L));
 		  infestedInit[h]=1;
 		  indexInfestInit[0]=h;	
 		  *endIndex=0; 
