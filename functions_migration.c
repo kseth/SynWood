@@ -625,8 +625,8 @@ void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* m
     int rowP = rowPointer[*macroOrigin]+iLocMacro;
     *dest = colInd[rowP];
     // printf("rP: %i d: %i\n",rowP,*dest);
-  }else{ //else, stay
-    *dest = *macroOrigin;	
+  // }else{ //else, stay
+  //   *dest = *macroOrigin;	
   }
 }
 
@@ -699,15 +699,17 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		}
 
 		// need a draw to know if falls in infested micro
-		double ratioInf = 
-		  (double)*(infested+dest)/(double)*(maxInfest+dest);
-		if(UNICONG > ratioInf){
-		  *endIndex+=1;
-		  *(infested+dest) += 1;
-		  *(indexInfest + *endIndex) = dest;
-		  *(age + *endIndex) = currentTime;
-		}else{
-		  // printf("eI: %i",*endIndex);
+		if(dest>-1){
+		  double ratioInf = 
+		    (double)*(infested+dest)/(double)*(maxInfest+dest);
+		  if(UNICONG > ratioInf){
+		    *endIndex+=1;
+		    *(infested+dest) += 1;
+		    *(indexInfest + *endIndex) = dest;
+		    *(age + *endIndex) = currentTime;
+		  }else{
+		    // printf("eI: %i",*endIndex);
+		  }
 		}
 
 		// if(*endIndex<3){
@@ -1304,9 +1306,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	 	if(*simul==0){ // no simulations, just stats 
 	 		break; // to exit loop even if Nrep!=1
 	 	}
-
 	}
-	
 }
 
 void noKernelMultiGilStat(
