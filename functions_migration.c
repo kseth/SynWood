@@ -1383,6 +1383,7 @@ void noKernelMultiGilStat(
 		  }
 		  for(int h=0;h<nMicro;h++){
 		    indexInfestInit[h]=0;	
+		    age[h]=0;
 		  }
 		  double rand = UNICONG;
 		  int h = (int)(rand* (*L+1));
@@ -1392,10 +1393,11 @@ void noKernelMultiGilStat(
 		}else{ // restore to init
 		  // initialisation simul
 		  for(int h=0;h<*L;h++){ 
-		    	// to be adapted if want to account
-		    	// for time
 		    infestedInit[h]=*(infested+h);
+		  }
+		  for(int h=0;h<nMicro;h++){
 		    indexInfestInit[h]=*(indexInfest+h);	
+		    age[h]=*(age+h);
 		  }
 
 		  *endIndex=valEndIndex; 
