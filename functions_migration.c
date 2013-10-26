@@ -663,8 +663,8 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 	}
 
 	//the gillespie loop
-	printf("entering gillespie loop (endtime: %.4f)",*endTime);
-	printf("endIndex:%i\n",*endIndex);
+	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
+	// printf("endIndex:%i\n",*endIndex);
 	while(currentTime + nextEvent < *endTime && *endIndex+1 < nMicro){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
@@ -682,8 +682,9 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		}else{ // new move
 			//pick a location to be infesting house
 			rand = UNICONG;
-			index = (int)(rand* (*endIndex+1));
-			house = *(indexInfest + index);
+			index = (int)(rand* (*endIndex+1));  // in all micro
+			house = *(indexInfest + index);  
+				// indexInfest is macro but one per micro
 
 			//pick whether next move is hop/skip/jump
 			
@@ -713,9 +714,9 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 
 		if(dest != house){
 
-		  if(*endIndex<3){
-		    printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
-		  }
+		  // if(*endIndex<3){
+		  //   printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
+		  // }
 		  if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
 		    printf("");
 		    *endIndex+=1;
