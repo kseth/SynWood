@@ -38,7 +38,7 @@ makeDistMat<-function(xs,ys){
 # lowerLimitJump - the lower limit for long distance movement
 # blockIndex - should blocks be used to make skips (upper distance class), pass blockIndices (same length as coords)
 # lowerLimitSkip - if no blocks but still want skips, pass a lower limit for skips
-generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump=0, blockIndex=NULL, lowerLimitSkip=NULL)
+generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJump=0, blockIndex=NULL, lowerLimitSkip=NULL,autLocalHops=FALSE)
 {
 
 	###=====================
@@ -111,11 +111,27 @@ generate_stratified_mat <- function(coords, limitHopSkip, limitJump, lowerLimitJ
 			skipMat <- skipMat - hopMat
 			skipMat <- as.spam(skipMat)
 		}
+	if(autLocalHops){
+	  diag(hopMat) <- 1
+	}
+
 	if(!exists("skipMat"))
 		return(list(hopMat = hopMat, jumpMat = jumpMat))
 	else
 		return(list(hopMat = hopMat, skipMat = skipMat, jumpMat = jumpMat))
 
+}
+
+# visualisation of 
+VisuHSJ<-function(maps,stratHopSkipJump,house){
+  plot(maps$X,maps$Y,asp=1,pch=".") #all
+  with(maps[house,],points(X,Y,col="blue")) # house
+  with(maps[which(stratHopSkipJump$hopMat[,house]==1),],
+       points(X,Y,col="red")) # hops
+  with(maps[which(stratHopSkipJump$skipMat[,house]==1),],
+       points(X,Y,col="green")) # skip
+  with(maps[which(stratHopSkipJump$jumpMat[,house]==1),],
+       points(X,Y,col="purple")) # jump
 }
 
 #======================
@@ -1104,16 +1120,21 @@ if(class(importOk)!="try-error"){
 
 		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
 		# also pass 0 as the value to blockIndex
+
+		skipColIndex <- if(!is.null(stratHopSkipJump$skipMat)){
+		  as.integer(stratHopSkipJump$skipMat@colindices-1)
+		}else{
+		  as.integer(-1)
+		}
+		skipRowPointer <-if(!is.null(stratHopSkipJump$skipMat)){
+		  as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
+		    as.integer(-1)}
 		out<- .C("noKernelMultiGilStat",
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
-			 skipColIndex = if(!is.null(stratHopSkipJump$skipMat)){
-			   as.integer(stratHopSkipJump$skipMat@colindices-1)}else{
-			     as.integer(0)}, # if no skips, pass dummy skip
-			     skipRowPointer = if(!is.null(stratHopSkipJump$skipMat)){
-			       as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
-				 as.integer(0)}, # if no skips, pass dummy skip
+			 skipColIndex = skipColIndex, # if no skips, pass dummy skip
+			 skipRowPointer = skipRowPointer, # if no skips, pass dummy skip
 				 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
 				 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
 				 rateHopInMove = as.numeric(rateHopInMove), 

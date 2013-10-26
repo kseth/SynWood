@@ -660,42 +660,45 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		//pick whether new move or new introduction
 		rand = UNICONG;
 		if(rand < percentIntro){ // new introduction
-		  	index = -1; // the infesting location index
-			house = -1; // the infesting location
-			rand = UNICONG;
-			int microDest = rand* *nMicro;
-			dest = microToMacro[microDest];
+		  index = -1; // the infesting location index
+		  house = -1; // the infesting location
+		  rand = UNICONG;
+		  int microDest = rand* *nMicro;
+		  dest = microToMacro[microDest];
 		}else{ // new move
-			//pick a location to be infesting house
-			rand = UNICONG;
-			index = (int)(rand* (*endIndex+1));  // in all micro
-			house = *(indexInfest + index);  
-				// indexInfest is macro but one per micro
+		  //pick whether next move is hop/skip/jump
+		  dest = -1; //the move location
+		  rand = UNICONG; // draw for move type
+		  // TODO (Corentin): allow jumps to go everywhere
 
-			//pick whether next move is hop/skip/jump
-			
-			dest = -1; //the move location
-			rand = UNICONG; // draw for move type
-			
-			// TODO (Corentin): unify the three following 
-			// if in an arbitrary number of levels
-			if(rand < *rateHopInMove){
-			  // next move is hop
-			  DrawFromLinked(hopRowPointer,hopColIndex,
-			      &house,&dest,maxInfest);
-			}else if(*rateHopInMove < rand && 
-			    rand < (*rateHopInMove + *rateSkipInMove)){
-			  // next move is skip
-			  DrawFromLinked(skipRowPointer,skipColIndex,
-			      &house,&dest,maxInfest);
-			}else{
-				// next move is jump
-			  DrawFromLinked(jumpRowPointer,jumpColIndex,
-			      &house,&dest,maxInfest);
-			}
-	
-			// printf("new infested: %i\n", dest);
-			// fflush(stdout);
+		  //pick a location to be infesting house
+		  rand = UNICONG;
+		  index = (int)(rand* (*endIndex+1));  // in all micro
+		  house = *(indexInfest + index);  
+		  // indexInfest is macro but one per micro
+
+		  // TODO (Corentin): unify the three following 
+		  // if in an arbitrary number of levels
+		  if(rand < *rateHopInMove){
+		    // next move is hop
+		    DrawFromLinked(hopRowPointer,hopColIndex,
+			&house,&dest,maxInfest);
+		    // printf("hop %i->%i",house,dest);
+		  }else if(*rateHopInMove < rand && 
+		      rand < (*rateHopInMove + *rateSkipInMove)){
+		    // next move is skip
+		    DrawFromLinked(skipRowPointer,skipColIndex,
+			&house,&dest,maxInfest);
+		    // printf("skip %i->%i",house,dest);
+		  }else{
+		    // next move is jump
+		    DrawFromLinked(jumpRowPointer,jumpColIndex,
+			&house,&dest,maxInfest);
+		    // printf("jump %i->%i",house,dest);
+		  }
+
+		  // printf("new infested: %i\n", dest);
+		  // fflush(stdout);
 		}
 
 		// need a draw to know if falls in infested micro
@@ -722,7 +725,6 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
 		percentIntro = *movePerTunit * (*endIndex+1) + *introPerTunit;
 		percentIntro = *introPerTunit/percentIntro;
-
 	}
 
 	*seed=(int)jcong;
@@ -1343,7 +1345,7 @@ void noKernelMultiGilStat(
 
 	// if no blocks but still pass a rate skip
 	// passing rateskip = 0 will prevent gillespie from skipping
-	if(*skipColIndex == 0 && *skipRowPointer==0 && *rateSkipInMove != 0){
+	if(*skipColIndex == -1 && *skipRowPointer== -1 && *rateSkipInMove != 0){
 		printf("no skips given but rateSkipInMove!=0\n");
 		return;
 	}
