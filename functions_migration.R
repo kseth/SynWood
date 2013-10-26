@@ -882,10 +882,9 @@ if(class(importOk)!="try-error"){
 		weightJumpInMove, 
 		Nrep, 
 		coords, 
-		breaksGenVar, 
 		seed=1, 
 		simul=TRUE,
-        maxInfest=NULL, 
+		maxInfest=rep(1,dim(coords)[1]), 
 		getStats=TRUE, 
 		dist_out = NULL, 
 		map.partitions = NULL, 
@@ -906,14 +905,19 @@ if(class(importOk)!="try-error"){
 		rateHopInMove <- (1-weightJumpInMove)*(1-weightSkipInMove)	
 	
 	  	L<-dim(coords)[1]
-		indexInfest <- rep(-1, L)
-		timeI <- rep(-1, L)
+		indexInfest <- rep(-1, sum(maxInfest)) 
+		timeI <- rep(-1, sum(maxInfest))
 		infested <- rep(0, L)
-		if(is.null(infestH)){ infestH <- round(runif(1,min=1,max=L))}
-		indexInfest[1:length(infestH)] <- infestH - 1
-		timeI[1:length(timeH)] <- timeH
-		infested[infestH] <- 1
-		infestedDens<-rep(0,length(infested))
+		infestedDens<-rep(0,L)
+		endIndex <- as.integer(length(infestH) - 1)
+		cat("tot maxInfest:",sum(maxInfest),"\n");
+		if(length(infestH)>0){
+		  indexInfest[1:length(infestH)] <- infestH - 1
+		  timeI[1:length(timeH)] <- timeH
+		  infested[infestH] <- 1
+		}else{
+		  infestH <- -1 # avoid to pass a NULL to .C
+		}
 
 		# if stratHopSkipJump, throw error 	
 		if(is.null(stratHopSkipJump)){
@@ -1105,69 +1109,69 @@ if(class(importOk)!="try-error"){
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
 			 skipColIndex = if(!is.null(stratHopSkipJump$skipMat)){
-				 		as.integer(stratHopSkipJump$skipMat@colindices-1)}else{
-						as.integer(0)}, # if no skips, pass dummy skip
-			 skipRowPointer = if(!is.null(stratHopSkipJump$skipMat)){
-				 	 	as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
-						as.integer(0)}, # if no skips, pass dummy skip
-			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
-			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
-			 rateHopInMove = as.numeric(rateHopInMove), 
-			 rateSkipInMove = as.numeric(rateSkipInMove), 
-			 rateJumpInMove = as.numeric(rateJumpInMove), 
-			 blockIndex = if(haveBlocks){as.integer(blockIndex)}else{as.integer(0)},
-			 simul = as.integer(simul),
-			 infested = as.integer(infested),
-			 maxInfest = as.integer(maxInfest),
-			 infestedDens = as.numeric(infestedDens),
-			 endIndex = as.integer(length(infestH) - 1),
-			 L = as.integer(L),
-			 endTime = as.numeric(endTime),
-			 indexInfest = as.integer(indexInfest),
-			 timeI = as.numeric(timeI),
-			 rateMove = as.numeric(rateMove),
-			 rateIntro = as.numeric(rateIntro),
-			 seed = as.integer(seed),
-			 Nrep = as.integer(Nrep),
-			 # stats
-			 getStats=as.integer(getStats),
-			 matchStats=as.integer(matchStats),
-			 lengthStats=as.integer(length(matchStats)),
-			 nbins = as.integer(nbins),
-			 cbin = as.integer(cbin),
-			 cbinas = as.integer(cbinas),
-			 cbinsb = as.integer(cbinsb),
-			 indices = as.integer(dist_indices),
-			 semivar.statsTable = as.numeric(semivar.statsTable),
-			 semivar.nbStats = as.integer(semivar.nbStats),
-			 haveBlocks = as.integer(haveBlocks),
-			 numDiffGrids = as.integer(numDiffGrids),
-			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
-			 gridNumCells = as.integer(gridNumCells),
-			 gridCountCells = as.integer(gridCountCells),
-			 grid.nbStats = as.integer(grid.nbStats),
-			 grid.numCoeffs = as.integer(grid.numCoeffs),
-			 grid.numLmoments = as.integer(grid.numLmoments),
-			 grid.statsTable = as.numeric(grid.statsTable),
-			 numDiffCircles = as.integer(numDiffCircles),
-			 numDiffCenters = as.integer(numDiffCenters),
-			 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
-			 circleCounts = as.integer(circleCounts),
-			 circle.nbStats = as.integer(circle.nbStats),
-			 circle.statsTable = as.numeric(circle.statsTable),
-			 inf.nbStats = as.integer(inf.nbStats),
-			 inf.statsTable = as.numeric(inf.statsTable), 
-			 atRisk.trs = as.numeric(atRisk.trs),
-			 atRisk.ntrs = as.integer(length(atRisk.trs)),
-			 atRisk.statsTable = as.numeric(atRisk.statsTable),
-			 atRisk.nbCoefs = as.integer(atRisk.nbCoefs),
-			 xs = as.numeric(coords$X),
-			 ys = as.numeric(coords$Y),
-			 detectRate = as.numeric(detectRate) 
-			 )
+			   as.integer(stratHopSkipJump$skipMat@colindices-1)}else{
+			     as.integer(0)}, # if no skips, pass dummy skip
+			     skipRowPointer = if(!is.null(stratHopSkipJump$skipMat)){
+			       as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
+				 as.integer(0)}, # if no skips, pass dummy skip
+				 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
+				 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
+				 rateHopInMove = as.numeric(rateHopInMove), 
+				 rateSkipInMove = as.numeric(rateSkipInMove), 
+				 rateJumpInMove = as.numeric(rateJumpInMove), 
+				 blockIndex = if(haveBlocks){as.integer(blockIndex)}else{as.integer(0)},
+				 simul = as.integer(simul),
+				 infested = as.integer(infested),
+				 maxInfest = as.integer(maxInfest),
+				 infestedDens = as.numeric(infestedDens),
+				 endIndex = endIndex,
+				 L = as.integer(L),
+				 endTime = as.numeric(endTime),
+				 indexInfest = as.integer(indexInfest),
+				 timeI = as.numeric(timeI),
+				 rateMove = as.numeric(rateMove),
+				 rateIntro = as.numeric(rateIntro),
+				 seed = as.integer(seed),
+				 Nrep = as.integer(Nrep),
+				 # stats
+				 getStats=as.integer(getStats),
+				 matchStats=as.integer(matchStats),
+				 lengthStats=as.integer(length(matchStats)),
+				 nbins = as.integer(nbins),
+				 cbin = as.integer(cbin),
+				 cbinas = as.integer(cbinas),
+				 cbinsb = as.integer(cbinsb),
+				 indices = as.integer(dist_indices),
+				 semivar.statsTable = as.numeric(semivar.statsTable),
+				 semivar.nbStats = as.integer(semivar.nbStats),
+				 haveBlocks = as.integer(haveBlocks),
+				 numDiffGrids = as.integer(numDiffGrids),
+				 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
+				 gridNumCells = as.integer(gridNumCells),
+				 gridCountCells = as.integer(gridCountCells),
+				 grid.nbStats = as.integer(grid.nbStats),
+				 grid.numCoeffs = as.integer(grid.numCoeffs),
+				 grid.numLmoments = as.integer(grid.numLmoments),
+				 grid.statsTable = as.numeric(grid.statsTable),
+				 numDiffCircles = as.integer(numDiffCircles),
+				 numDiffCenters = as.integer(numDiffCenters),
+				 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
+				 circleCounts = as.integer(circleCounts),
+				 circle.nbStats = as.integer(circle.nbStats),
+				 circle.statsTable = as.numeric(circle.statsTable),
+				 inf.nbStats = as.integer(inf.nbStats),
+				 inf.statsTable = as.numeric(inf.statsTable), 
+				 atRisk.trs = as.numeric(atRisk.trs),
+				 atRisk.ntrs = as.integer(length(atRisk.trs)),
+				 atRisk.statsTable = as.numeric(atRisk.statsTable),
+				 atRisk.nbCoefs = as.integer(atRisk.nbCoefs),
+				 xs = as.numeric(coords$X),
+				 ys = as.numeric(coords$Y),
+				 detectRate = as.numeric(detectRate) 
+				 )
 
 		out$infestedDens<-out$infestedDens/Nrep;
-	
+
 		# make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 

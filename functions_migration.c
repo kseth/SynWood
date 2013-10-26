@@ -595,6 +595,40 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	*seed=(int)jcong;
 	// printf("final seed:%i",*seed);
 }
+// if pointers is a rowpointer in spam
+void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* microInMacro){ 
+  double rand = UNICONG;
+  int nMacro = rowPointer[*macroOrigin+1] - rowPointer[*macroOrigin];
+
+  if(nMacro > 0){ // if can infest, move
+    // need to get the number of micro to draw from and the number of pos
+    double cumulMicroPerMacro[nMacro];
+    int nMicro  = 0;
+    for( int iLocMacro=0; iLocMacro<nMacro;iLocMacro++){
+      int rowP = rowPointer[*macroOrigin]+iLocMacro;
+      int iMacro = colInd[rowP];
+      int nLocMicro = microInMacro[iMacro];
+      nMicro += nLocMicro;
+      cumulMicroPerMacro[iLocMacro] = (double) nMicro;
+    }
+    // printf("nMicro: %i ",nMicro);
+    
+    // draw uniformly in the number of micro to draw from
+    double iMicro = (rand*nMicro);
+    // printf("iMicro: %.1f ",iMicro);
+       
+    // get back to the Macro selected among the neighbors
+    int iLocMacro = fulldichot(cumulMicroPerMacro,iMicro,0,nMacro);
+    // printf("iLocMacro: %i",iLocMacro);
+    
+    // get back to the Macro selected among all
+    int rowP = rowPointer[*macroOrigin]+iLocMacro;
+    *dest = colInd[rowP];
+    // printf("rP: %i d: %i\n",rowP,*dest);
+  }else{ //else, stay
+    *dest = *macroOrigin;	
+  }
+}
 
 void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
 	
@@ -612,11 +646,26 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 	double currentTime = 0;
 	
 	//variables used in loop
-	int index, house, dest, numHouses;
+	int index=-1, house=-1, dest=-1, numHouses=-1;
+
+	// prep accounting for multiple micro=unit per location
+	int nMicro =0; // total number of micro units
+	for(int i=0; i< *L; i++){
+	  nMicro += maxInfest[i];
+	}
+	int microToMacro[nMicro]; // item = micro, each with location id
+	int k = 0;
+	for(int i=0; i< *L; i++){
+	  for(int j=0; j< maxInfest[i];j++){
+	    microToMacro[k] = i;
+	    k++;
+	  }
+	}
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
-	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
+	// printf("endIndex:%i\n",*endIndex);
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < nMicro){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
 		
@@ -625,73 +674,63 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		//pick whether new move or new introduction
 		rand = UNICONG;
 		if(rand < percentIntro){ // new introduction
-
+		  	index = -1; // the infesting location index
+			house = -1; // the infesting location
 			rand = UNICONG;
-			dest = (int)(rand* *L);	//the introduction location
-		}
-		else{ // new move
-
+			int microDest = rand* nMicro;
+			dest = microToMacro[microDest];
+		}else{ // new move
 			//pick a location to be infesting house
 			rand = UNICONG;
-			index = (int)(rand* (*endIndex+1));
-			house = *(indexInfest + index);
+			index = (int)(rand* (*endIndex+1));  // in all micro
+			house = *(indexInfest + index);  
+				// indexInfest is macro but one per micro
 
-			// printf("infesting: %i; ", house);
-			
-	
 			//pick whether next move is hop/skip/jump
 			
 			dest = -1; //the move location
-			rand = UNICONG;
+			rand = UNICONG; // draw for move type
 			
 			// TODO (Corentin): unify the three following 
 			// if in an arbitrary number of levels
 			if(rand < *rateHopInMove){
-				// next move is hop
-				// pick new house to become infested
-				// printf("hop ");
-				rand = UNICONG;
-				numHouses = hopRowPointer[house+1] - hopRowPointer[house];
-
-				if(numHouses > 0) // if can infest, move
-					dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)];
-				else //else, stay
-					dest = house;	
-			}
-			else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
-				// next move is skip
-				rand = UNICONG;
-				numHouses = skipRowPointer[house+1] - skipRowPointer[house];
-
-				if(numHouses > 0)
-					dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)];
-				else
-					dest = house;		
-			}
-			else{
+			  // next move is hop
+			  DrawFromLinked(hopRowPointer,hopColIndex,
+			      &house,&dest,maxInfest);
+			}else if(*rateHopInMove < rand && 
+			    rand < (*rateHopInMove + *rateSkipInMove)){
+			  // next move is skip
+			  DrawFromLinked(skipRowPointer,skipColIndex,
+			      &house,&dest,maxInfest);
+			}else{
 				// next move is jump
-				rand = UNICONG;
-				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
-
-				if(numHouses > 0)
-					dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)];
-			 	else
-					dest = house;	
+			  DrawFromLinked(jumpRowPointer,jumpColIndex,
+			      &house,&dest,maxInfest);
 			}
 	
 			// printf("new infested: %i\n", dest);
 			// fflush(stdout);
-		}			
-
-        if(dest != house){
-		if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
-			*endIndex+=1;
-			*(infested+dest) += 1;
-			*(indexInfest + *endIndex) = dest;
-			*(age + *endIndex) = currentTime;
 		}
-        }
-	
+
+		if(dest != house){
+
+		  // if(*endIndex<3){
+		  //   printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
+		  // }
+		  if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
+		    printf("");
+		    *endIndex+=1;
+		    *(infested+dest) += 1;
+		    *(indexInfest + *endIndex) = dest;
+		    *(age + *endIndex) = currentTime;
+		  }
+		}
+
+		if(*endIndex<3){
+		  printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
+		      index, house,*endIndex,dest);
+		}
+
 		//calculate time to next event again
 		rand = UNICONG;
 		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
@@ -1328,17 +1367,31 @@ void noKernelMultiGilStat(
 	//if atRisk stats are called
 	int noDists = 1; //haven't made distance matrix yet
 	double* dists = NULL; //distance matrix
+	printf("valEndIndex: %i\n",valEndIndex);
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
+	  printf("rep: %i\n",rep);
 		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
-	 	// initialisation simul
-	 	for(int h=0;h<*L;h++){
-	 		infestedInit[h]=*(infested+h);
-	 		indexInfestInit[h]=*(indexInfest+h);	
-	 	}
-	 	
-	 	*endIndex=valEndIndex; 
+		if(valEndIndex <0){ // draw init
+		  for(int h=0;h<*L;h++){
+		    infestedInit[h]=0;
+		    indexInfestInit[h]=0;	
+		  }
+		  double rand = UNICONG;
+		  int h = (int)(rand* (*L+1));
+		  infestedInit[h]=1;
+		  indexInfestInit[0]=h;	
+		  *endIndex=0; 
+		}else{ // restore to init
+		  // initialisation simul
+		  for(int h=0;h<*L;h++){
+		    infestedInit[h]=*(infested+h);
+		    indexInfestInit[h]=*(indexInfest+h);	
+		  }
+
+		  *endIndex=valEndIndex; 
+		}
 
 	 	if(*simul==1){ // run a normal simulation
 	 		

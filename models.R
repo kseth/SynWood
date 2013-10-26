@@ -243,19 +243,28 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 	}
 	
 	#pass all variables correctly!
-	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
-			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
-			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
-			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
-			    Nrep = Data$Nrep, 
-			    coords = Data$maps[, c("X", "Y")], 
-			    seed=seed,
-			    getStats=getStats,
-			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]),
-			    whichPairwise=Data$whichPairwise)
+	out <- noKernelMultiGilStat(
+		stratHopSkipJump = Data$stratHopSkipJump, 
+		blockIndex = Data$blockIndex, 
+		infestH = Data$infestH, 
+		timeH = Data$timeH, 
+		endTime = Data$nbit, 
+		rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
+		weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+		weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
+		Nrep = Data$Nrep, 
+		coords = Data$maps[, c("X", "Y")], 
+		seed=seed,
+		simul=TRUE,
+		maxInfest=Data$maxInfest, 
+		getStats=getStats,
+		dist_out=Data$dist_out, 
+		map.partitions=Data$map.partitions, 
+		conc.circs=Data$conc.circs, 
+		typeStat=Data$useStats,
+		whichPairwise=Data$whichPairwise,
+		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
 
 	end <- Sys.time()
 
@@ -267,6 +276,7 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		yhat<-out$infestedDens
 		LL<-NA
 		LP<-NA
+		Lprioronly <- 0 #keep track of just the prior sum
 	}else{
 		yhat<-out$statsTable[,1]
 		# synthetic likelihood
@@ -392,18 +402,24 @@ binomNoKernelModel <- function(theta,Data,postDraw=FALSE){
 	getStats <- FALSE
 	
 	#pass all variables correctly!
-	out <- noKernelMultiGilStat(stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
-			    infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
-			    rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
-			    weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
-			    weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
-			    Nrep = Data$Nrep, 
-			    coords = Data$maps[, c("X", "Y")], 
-			    seed=seed,
-			    getStats=getStats,
-			    dist_out=Data$dist_out, map.partitions=Data$map.partitions, conc.circs=Data$conc.circs, typeStat=Data$useStats,
-			    detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
-			    rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
+	out <- noKernelMultiGilStat(
+		stratHopSkipJump = Data$stratHopSkipJump, blockIndex = Data$blockIndex, 
+		infestH = Data$infestH, timeH = Data$timeH, endTime = Data$nbit, 
+		rateMove = ifelse("rateMove" %in% Data$parmNames, theta["rateMove"], Data$default["rateMove"]),
+		weightSkipInMove = ifelse("weightSkipInMove" %in% Data$parmNames, theta["weightSkipInMove"], Data$default["weightSkipInMove"]),
+		weightJumpInMove = ifelse("weightJumpInMove" %in% Data$parmNames,theta["weightJumpInMove"], Data$default["weightJumpInMove"]),
+		Nrep = Data$Nrep, 
+		coords = Data$maps[, c("X", "Y")], 
+		seed=seed,
+		simul=TRUE,
+		maxInfest=Data$maxInfest,
+		getStats=getStats,
+		dist_out=Data$dist_out, 
+		map.partitions=Data$map.partitions, 
+		conc.circs=Data$conc.circs, 
+		typeStat=Data$useStats,
+		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
 
 	end <- Sys.time()
 	# cat("t multiGil:",end-start,"\n")

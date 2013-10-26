@@ -101,7 +101,20 @@ rateMove <- 1
 rateJumpInMove <-0.5 
 seed <- 100000
 
-out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1000, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = 1, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    weightSkipInMove = 0, 
+			    weightJumpInMove = rateJumpInMove, 
+			    Nrep = 1, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
 
 ## all houses should be infested
 expect_true(!(any(out$infestedDens == 0)))
@@ -333,4 +346,79 @@ expect_equal(percGroups,correct)
 	# plot_reel(maps$X,maps$Y,test,base=0,top=1)
 	# dump("maps",file="maps_basic_regression.R")
 # })
+
+# =============================
+# Test of the  DrawFromLinked in C
+# =============================
+
+test_that("DrawFromLinked in C ok with simple microInMacro",{
+	  set.seed(777)
+# source("SynWood/models.R",chdir=TRUE)
+X <- seq(0,100)
+Y <- seq(200,300)
+maps<-as.data.frame(cbind(X,Y))
+maps$microInMacro <- 1
+
+stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip=10, limitJump=50, lowerLimitJump=10, blockIndex=NULL, lowerLimitSkip=5)
+
+dest <- -1
+macroOrigin <- 50
+
+nRep <- 10000
+dests<-rep(-1,nRep)
+
+# hops
+colInd <- stratHopSkipJump$hopMat@colindices
+rowPoint <- stratHopSkipJump$hopMat@rowpointers
+
+for(i in 1:nRep){
+  out<-.C("DrawFromLinked",
+	  rowPointer = as.integer(rowPoint-1),
+	  colPointer = as.integer(colInd-1),
+	  macroOrigin = as.integer(macroOrigin-1),
+	  dest = as.integer(dest),
+	  microInMacro = as.integer(maps$microInMacro)
+	  )
+  dests[i] <- out$dest+1
+}
+# everything present
+okSet <- colInd[rowPoint[macroOrigin]:(rowPoint[macroOrigin+1]-1)]
+expect_true(setequal(dests,okSet)) # may fail every nRep times...
+
+# everything present in right proportion
+okN<-maps$microInMacro[okSet]
+okProba<-okN/sum(okN)
+
+testN<- table(dests)
+testProba <- testN/sum(testN)
+expect_true(sum(abs(testProba-okProba))/length(okProba)<100/nRep)
+# plot(maps$X,maps$Y)
+# with(maps[macroOrigin,],points(X,Y,pch=19,col="blue"))
+# with(maps[dests,],points(X,Y,col="yellow"))
+
+# with wild microInMacro
+maps$microInMacro <- 1+rpois(dim(maps)[1],lambda=3)
+for(i in 1:nRep){
+  out<-.C("DrawFromLinked",
+	  rowPointer = as.integer(rowPoint-1),
+	  colPointer = as.integer(colInd-1),
+	  macroOrigin = as.integer(macroOrigin-1),
+	  dest = as.integer(dest),
+	  microInMacro = as.integer(maps$microInMacro)
+	  )
+  dests[i] <- out$dest+1
+}
+# everything present
+okSet <- colInd[rowPoint[macroOrigin]:(rowPoint[macroOrigin+1]-1)]
+expect_true(setequal(dests,okSet)) # may fail every nRep times...
+
+# everything present in right proportion
+okN<-maps$microInMacro[okSet]
+okProba<-okN/sum(okN)
+
+testN<- table(dests)
+testProba <- testN/sum(testN)
+expect_true(sum(abs(testProba-okProba))/length(okProba)<100/nRep)
+
+})
 
