@@ -698,22 +698,17 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			// fflush(stdout);
 		}
 
-		// if(dest != house){
-
-		  // if(*endIndex<3){
-		  //   printf("d!=h, Oinf:%i, Minf:%i ",*(infested+dest),*(maxInfest+dest));
-		  // }
-		  // need to add a draw on if if falls in existing or not
-		  if(*(infested+dest)<*(maxInfest+dest)){ // not yet at max
-		    // printf("c: %i m:%i\n",*(infested+dest),*(maxInfest+dest));
-		    *endIndex+=1;
-		    *(infested+dest) += 1;
-		    *(indexInfest + *endIndex) = dest;
-		    *(age + *endIndex) = currentTime;
-		  }else{
-		    // printf("eI: %i",*endIndex);
-		  }
-		// }
+		// need a draw to know if falls in infested micro
+		double ratioInf = 
+		  (double)*(infested+dest)/(double)*(maxInfest+dest);
+		if(UNICONG > ratioInf){
+		  *endIndex+=1;
+		  *(infested+dest) += 1;
+		  *(indexInfest + *endIndex) = dest;
+		  *(age + *endIndex) = currentTime;
+		}else{
+		  // printf("eI: %i",*endIndex);
+		}
 
 		// if(*endIndex<3){
 		//   printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
