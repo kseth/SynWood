@@ -700,41 +700,23 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 			// TODO (Corentin): unify the three following 
 			// if in an arbitrary number of levels
 			if(rand < *rateHopInMove){
-			  
-				// next move is hop
-				// pick new house to become infested
-				// printf("hop ");
-				rand = UNICONG;
-				numHouses = hopRowPointer[house+1] - hopRowPointer[house];
-
-				if(numHouses > 0) // if can infest, move
-					dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)];
-				else //else, stay
-					dest = house;	
+			  // next move is hop
+			  DrawFromLinked(hopRowPointer,hopColIndex,
+			      &house,&dest,maxInfest);
 			}else if(*rateHopInMove < rand && 
 			    rand < (*rateHopInMove + *rateSkipInMove)){
-				// next move is skip
-				rand = UNICONG;
-				numHouses = skipRowPointer[house+1] - skipRowPointer[house];
-
-				if(numHouses > 0)
-					dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)];
-				else
-					dest = house;		
+			  // next move is skip
+			  DrawFromLinked(skipRowPointer,skipColIndex,
+			      &house,&dest,maxInfest);
 			}else{
 				// next move is jump
-				rand = UNICONG;
-				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
-
-				if(numHouses > 0)
-					dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)];
-			 	else
-					dest = house;	
+			  DrawFromLinked(jumpRowPointer,jumpColIndex,
+			      &house,&dest,maxInfest);
 			}
 	
 			// printf("new infested: %i\n", dest);
 			// fflush(stdout);
-		}			
+		}
 
 		if(dest != house){
 
