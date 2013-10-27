@@ -792,7 +792,7 @@ int double_compare(const void *a, const void *b){
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
 //have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
+void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
@@ -814,10 +814,10 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* en
 	int currentCellStartingPoint = 0;	
 	int infestedCell = 0;
 
-//   // The things I had implemented to debug:
-// 		for(int iMacro=0; iMacro<*L; iMacro++){
-// 			infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
-// 			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit
+	//// The things I had implemented to debug:
+	// for(int iMacro=0; iMacro<*L; iMacro++){
+	//	infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
+	//		gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit}
 	for(int house=0; house<*L; house++){
 		currentCellStartingPoint = 0;
 		for(int grid=0; grid<*numDiffGrids; grid++){	
@@ -828,14 +828,14 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* en
 		}
 	}
 
-	int count2 = 0;
-	for(int grid=0; grid<*numDiffGrids; grid++){
-		for(int cell=0; cell<gridNumCells[grid]; cell++){
-			// printf("%03d %03d %03d %03d\n", grid, cell, gridEmptyCells[count2], gridMaxInfestCells[count2]); 
-			count2++;
-		}
-		// printf("\n");
-	}
+	// int count2 = 0;
+	// for(int grid=0; grid<*numDiffGrids; grid++){
+	// 	for(int cell=0; cell<gridNumCells[grid]; cell++){
+	// 		printf("%03d %03d %03d %03d\n", grid, cell, gridEmptyCells[count2], gridMaxInfestCells[count2]); 
+	// 		count2++;
+	// 	}
+	// 	printf("\n");
+	// }
 
 	//compute statistics
 	//the first stat inserted will be num positive cells
@@ -1031,7 +1031,18 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 
 	//store the stats in the right place
 	double* stats = infstats + (*rep * *infnbstats);	
-	*(stats + 0) = *endIndex + 1;
+
+	int totalMacroUnits = 0;
+	for(int spot = 0; spot < *L; spot++)
+		totalMacroUnits += (infestedInit[spot] > 0);
+
+	*(stats + 0) = totalMacroUnits;
+
+	// total number of microUnits that are positve
+	*(stats + 1) = *endIndex + 1;
+
+	// total number of microUnits positive / total number of macroUnits positive
+	*(stats + 2) = *(stats + 1) / *(stats + 0);
 
 	if(*haveBlocks == 1){	
 		//now calculate 2 more stats:
@@ -1072,8 +1083,8 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 				infBlockCount++;
 		
 		// save the corresponding stats
-		*(stats + 1) = (double)infBlockCount;
-		*(stats + 2) = ((double)(*endIndex + 1))/((double)infBlockCount);
+		*(stats + 4) = (double)infBlockCount;
+		*(stats + 5) = ((double)(*endIndex + 1))/((double)infBlockCount);
 	}	
 }
 
@@ -1438,7 +1449,7 @@ void noKernelMultiGilStat(
 
 				switch(matchStats[stat]){
 	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
+					case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
 					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
 					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
 							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
@@ -1465,7 +1476,6 @@ void noKernelMultiGilStat(
 	for(int h=0;h<*L;h++){
 	  infested[h]=infestedInit[h];
 	}
-
 
 	if(dists != NULL)
 		free(dists); //free malloc'ed dists

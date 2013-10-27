@@ -22,7 +22,7 @@ void polynomialfit(int obs, int degree, double *dx, double *dy, double *store);
 
 int double_compare(const void *a, const void *b);
 
-void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats);
+void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridEmptyCells, int* gridCountCells, int* numCoeffs, double* gridstats);
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats);
 

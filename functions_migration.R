@@ -995,11 +995,13 @@ if(class(importOk)!="try-error"){
 				# 1 if no blocks, 3 if blocks
 				# stats selection
 				##===============
-				# Number Infested
+				# Number Locations Infested (location or macrounits > 0)
+				# Number Units infested (total microunits +)
+				# Number Units Infested / Number Locations Infested
 				# If haveBlocks:
 				#	Number Blocks Infested
 				#	Number Infested / Number Blocks Infested
-				inf.nbStats <- 1 + haveBlocks*2
+				inf.nbStats <- 3 + haveBlocks*2
 				inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)
 			}	
 
