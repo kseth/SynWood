@@ -953,7 +953,7 @@ if(class(importOk)!="try-error"){
 		if(length(infestH)>0){
 		  indexInfest[1:length(infestH)] <- infestH - 1
 		  timeI[1:length(timeH)] <- timeH
-		  infested <- MakeNinfestFromIndex(infestH)
+		  infested <- MakeNinfestFromIndex(infestH,L)
 		}else{
 		  infestH <- -1 # avoid to pass a NULL to .C
 		}
