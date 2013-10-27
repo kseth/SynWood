@@ -45,6 +45,23 @@ test_mat <- as.spam(test_mat)
 expect_equal(totalmat, test_mat)
 })
 
+test_that("MakeIndexFromNinfest ok",{
+	  set.seed(777)
+	  nInfs<-rpois(10,1)
+ind<-MakeIndexFromNinfest(nInfs)
+expect_equal(length(ind),sum(nInfs))
+tabInd <- table(ind)
+tabIndFrom_nInfs<-nInfs[as.numeric(names(tabInd))]
+attributes(tabInd)<-NULL
+
+expect_equal(tabIndFrom_nInfs,tabInd)
+
+nInfsBack <- MakeNinfestFromIndex(ind,length(nInfs))
+
+expect_equal(nInfsBack,nInfs)
+})
+
+
 #============================
 # Test that get_stats_grid works fine with integral input
 # Where the input is the number of positive per site (positive houses in block, positive bugs in house, etc.)

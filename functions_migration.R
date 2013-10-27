@@ -22,6 +22,29 @@ makeDistMat<-function(xs,ys){
 	return(dists)
 }
 
+# create an infestH/indexInfest vector:
+# from a vector with the number of positive unit per location
+# for each positive unit gives the index of the location 
+# assumes not specific order for infestation
+MakeIndexFromNinfest <- function(nInfs){
+  indInf <- rep(0,sum(nInfs))
+  b<-1
+  for(i in 1:length(nInfs)){
+    if(nInfs[i]>0){
+      e<- b+nInfs[i]-1
+      indInf[b:e]<-i
+      b<-e+1
+    }
+  }
+  return(indInf)
+}
+
+MakeNinfestFromIndex <- function(ind,nMacro){
+  nInfs<-rep(0,nMacro)
+  nInfs[as.numeric(names(table(ind)))] <- table(ind)
+  return(nInfs)
+}
+
 
 
 #======================
@@ -930,7 +953,7 @@ if(class(importOk)!="try-error"){
 		if(length(infestH)>0){
 		  indexInfest[1:length(infestH)] <- infestH - 1
 		  timeI[1:length(timeH)] <- timeH
-		  infested[infestH] <- 1
+		  infested <- MakeNinfestFromIndex(infestH)
 		}else{
 		  infestH <- -1 # avoid to pass a NULL to .C
 		}
