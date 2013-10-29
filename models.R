@@ -155,7 +155,9 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		Lprioronly <- 0 #keep track of just the prior sum
 
 		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
-			if(Data$priorType[name] == "lnorm")
+			if(is.function(Data$priorType[name]))
+				priorLL <- Data$priorType[name](theta[name])
+			else if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)

@@ -29,3 +29,5 @@ print(quantile(1/Monitored$rateMove, c(0.025, 0.5, 0.975))/52)
 print(quantile(Monitored$weightJumpInMove, c(0.025, 0.5, 0.975)))
 print(quantile((1-Monitored$weightJumpInMove)*Monitored$weightSkipInMove, c(0.025, 0.5, 0.975)))
 print(quantile((1-Monitored$weightJumpInMove)*(1-Monitored$weightSkipInMove), c(0.025, 0.5, 0.975)))
+
+
