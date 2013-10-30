@@ -320,22 +320,26 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0 #keep track of just the prior sum
 
-		# TODO: the lnorm should have either mean on the log or 
-		#       do real conversion (see spatcontrol MeanSdTo..
-		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
-			if(Data$priorType[name] == "lnorm")
-				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
-			else if(Data$priorType[name] == "norm")
-				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
-			else if(Data$priorType[name] == "boundednorm")
-				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
-			else if(Data$priorType[name] == "boundedlnorm")
-				priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
-			else priorLL <- 0
+		if(class(priorType)=="function"){
+			Lprioronly <- priorType(theta,Data,...)
+		}else{
+			# TODO: the lnorm should have either mean on the log or 
+			#       do real conversion (see spatcontrol MeanSdTo..
+			for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+				if(Data$priorType[name] == "lnorm")
+					priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
+				else if(Data$priorType[name] == "norm")
+					priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
+				else if(Data$priorType[name] == "boundednorm")
+					priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
+				else if(Data$priorType[name] == "boundedlnorm")
+					priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
+					else priorLL <- 0
 
-			attributes(priorLL)<-NULL
-			LP <- LP + priorLL
-			Lprioronly <- Lprioronly + priorLL
+					attributes(priorLL)<-NULL
+					LP <- LP + priorLL
+					Lprioronly <- Lprioronly + priorLL
+			}
 		}
 
 		# LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
