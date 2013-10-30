@@ -916,9 +916,9 @@ if(class(importOk)!="try-error"){
 		infestH, 
 		timeH, 
 		endTime, 
-		rateMove, 
-		weightSkipInMove, 
-		weightJumpInMove, 
+		rateHop, 
+		rateSkip, 
+		rateJump, 
 		Nrep, 
 		coords, 
 		seed=1, 
@@ -938,10 +938,10 @@ if(class(importOk)!="try-error"){
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
-		# convert weightSkipInMove, weightJumpInMove to rates by nested multiplications (rates needed by c code)
-		rateJumpInMove <- weightJumpInMove
-		rateSkipInMove <- (1-weightJumpInMove)*weightSkipInMove
-		rateHopInMove <- (1-weightJumpInMove)*(1-weightSkipInMove)	
+		rateMove <- rateHop + rateSkip + rateJump
+		rateHopInMove <- rateHop/rateMove
+		rateSkipInMove <- rateSkip/rateMove
+		rateJumpInMove <- rateJump/rateMove
 	
 	  	L<-dim(coords)[1]
 		indexInfest <- rep(-1, sum(maxInfest)) 
