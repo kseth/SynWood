@@ -320,6 +320,8 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		LP <- LL
 		Lprioronly <- 0 #keep track of just the prior sum
 
+		# TODO: the lnorm should have either mean on the log or 
+		#       do real conversion (see spatcontrol MeanSdTo..
 		for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
 			if(Data$priorType[name] == "lnorm")
 				priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
