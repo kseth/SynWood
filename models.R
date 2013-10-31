@@ -224,8 +224,7 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 ###	     parmNames=names(priorMeans), # parameters names (like in Model and Initial.Values)
 ###	     sampling=sampling # method of sampling parameters
 ###		)
-
-noKernelModel <- function(theta,Data,postDraw=FALSE){
+noKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 
 	theta<-theta
 	names(theta)<-Data$parmNames
@@ -254,6 +253,155 @@ noKernelModel <- function(theta,Data,postDraw=FALSE){
 		rateHop = ifelse("rateHop" %in% Data$parmNames, theta["rateHop"], Data$default["rateHop"]),
 		rateSkip = ifelse("rateSkip" %in% Data$parmNames, theta["rateSkip"], Data$default["rateSkip"]),
 		rateJump = ifelse("rateJump" %in% Data$parmNames,theta["rateJump"], Data$default["rateJump"]),
+		Nrep = Data$Nrep, 
+		coords = Data$maps[, c("X", "Y")], 
+		seed=seed,
+		simul=TRUE,
+		maxInfest=Data$maxInfest, 
+		getStats=getStats,
+		dist_out=Data$dist_out, 
+		map.partitions=Data$map.partitions, 
+		conc.circs=Data$conc.circs, 
+		typeStat=Data$useStats,
+		whichPairwise=Data$whichPairwise,
+		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
+
+	end <- Sys.time()
+
+	cat("t multiGil: ")
+	print(end-start)
+
+	start <- Sys.time()
+	if(postDraw){
+		yhat<-out$infestedDens
+		LL<-NA
+		LP<-NA
+		Lprioronly <- 0 #keep track of just the prior sum
+	}else{
+		yhat<-out$statsTable[,1]
+		# synthetic likelihood
+		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
+		if(length(degen) > 0){ #if some stats degenerate
+			if(length(degen) == length(Data$y))
+				ll <- -Inf
+			else{
+				degenY <- Data$y[degen]
+				degenTheta <- out$statsTable[degen, 1]
+
+				numGood <- length(which(degenY - degenTheta == 0)) # stats exactly correct
+				
+				if(numGood == length(degenY)){ #if all degenerate stats match their actual values
+					# still try() b/c could have cov issues (cov==0 if stats are proportional)
+					success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
+					if(class(success)=="try-error")
+						  ll<-minLLever
+					else
+						  minLLever<<-min(ll,minLLever)	
+				}else{ #if even one degenerate stat does not match actual value
+						ll <- -Inf
+				}
+			}
+		}else{
+			# still try() b/c could have cov issues (cor==1 if stats are proportional)
+			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
+
+			if(class(success)=="try-error")
+				  ll<-minLLever
+			else
+				  minLLever<<-min(ll,minLLever)	
+		}
+
+		# get likelihood with priors
+		LL<-ll
+		attributes(LL)<-NULL
+
+		LP <- LL
+		Lprioronly <- 0 #keep track of just the prior sum
+
+		if(class(priorType)=="function"){
+			Lprioronly <- priorType(theta,Data,...)
+		}else{
+			# TODO: the lnorm should have either mean on the log or 
+			#       do real conversion (see spatcontrol MeanSdTo..
+			for(name in Data$parmNames){ #factor the priors in (if don't want to use priors, just pass priorType not listed)
+				if(Data$priorType[name] == "lnorm")
+					priorLL <- dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE)
+				else if(Data$priorType[name] == "norm")
+					priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
+				else if(Data$priorType[name] == "boundednorm")
+					priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
+				else if(Data$priorType[name] == "boundedlnorm")
+					priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
+					else priorLL <- 0
+
+					attributes(priorLL)<-NULL
+					LP <- LP + priorLL
+					Lprioronly <- Lprioronly + priorLL
+			}
+		}
+
+		# LP <- LL + sum(dlnorm(theta, meanlog=log(Data$priorMeans), sdlog=Data$priorSdlog, log = TRUE))
+		# LP<-LL+sum(dnorm(log(theta),mean=log(Data$priorMeans),sd=1, log = TRUE))
+		# cat("LL:",LL,"LP:",LP,"\n")
+	}
+
+	end <- Sys.time()
+	cat("t synLik: ")
+	print(end-start)
+	
+	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, # likelihood of parmeters according only to the prior
+			 Dev=-2*LL, # deviance, probably not to be changed
+			 monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 yhat=yhat, # data generated for that set of parameter
+			 	    # will be used for posterior check
+			 parm=theta # the parameters, possibly constrained by the model
+			 )
+
+	return(Modelout)
+}
+noKernelModelRates <- function(theta,Data,postDraw=FALSE){
+
+	theta<-theta
+	names(theta)<-Data$parmNames
+	
+	# set seed for c simulations
+	seed <-runif(1,min=0,(2^16-1)) 
+	
+	# simulations
+	start <- Sys.time()
+	
+	if(postDraw){
+		getStats<-FALSE
+		# then in wrapper use infested if Nrep =1 and infested$Dens if Nrep=a few
+		# to show a posterior predictive map
+	}else{
+		getStats<-TRUE
+	}
+	rateHop  <- ifelse("rateHop" %in% Data$parmNames, 
+			   theta["rateHop"], Data$default["rateHop"])
+	rateSkip <- ifelse("rateSkip" %in% Data$parmNames, 
+			   theta["rateSkip"], Data$default["rateSkip"])
+	rateJump <- ifelse("rateJump" %in% Data$parmNames,
+			   theta["rateJump"], Data$default["rateJump"])
+
+	rateMove <- rateHop + rateSkip + rateJump
+	rateHopInMove <- rateHop/rateMove
+	rateSkipInMove <- rateSkip/rateMove
+	rateJumpInMove <- rateJump/rateMove
+	
+	#pass all variables correctly!
+	out <- noKernelMultiGilStat(
+		stratHopSkipJump = Data$stratHopSkipJump, 
+		blockIndex = Data$blockIndex, 
+		infestH = Data$infestH, 
+		timeH = Data$timeH, 
+		endTime = Data$nbit, 
+		rateHopInMove = rateHopInMove,
+		rateSkipInMove = rateSkipInMove,
+		rateJumpInMove = rateJumpInMove,
 		Nrep = Data$Nrep, 
 		coords = Data$maps[, c("X", "Y")], 
 		seed=seed,
