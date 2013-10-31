@@ -916,9 +916,10 @@ if(class(importOk)!="try-error"){
 		infestH, 
 		timeH, 
 		endTime, 
-		rateHop, 
-		rateSkip, 
-		rateJump, 
+		rateMove,
+		rateHopInMove, 
+		rateSkipInMove, 
+		rateJumpInMove, 
 		Nrep, 
 		coords, 
 		seed=1, 
@@ -938,11 +939,6 @@ if(class(importOk)!="try-error"){
 		# do we have blocks?
 		haveBlocks <- !is.null(blockIndex)
 
-		rateMove <- rateHop + rateSkip + rateJump
-		rateHopInMove <- rateHop/rateMove
-		rateSkipInMove <- rateSkip/rateMove
-		rateJumpInMove <- rateJump/rateMove
-	
 	  	L<-dim(coords)[1]
 		indexInfest <- rep(-1, sum(maxInfest)) 
 		timeI <- rep(-1, sum(maxInfest))
