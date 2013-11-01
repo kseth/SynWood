@@ -1,8 +1,9 @@
 source("functions_migration.R")
 library(sn)
+library(msm)
 
 # stupid utility function
-getParamInData <- function(nameParam){
+GetParam <- function(nameParam,theta,Data){
 	return(ifelse(nameParam %in% Data$parmNames, 
 		      theta[nameParam], Data$default[nameParam]))
 }
@@ -160,7 +161,8 @@ skewNoKernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
-		Lprioronly <- AutoPriorLL(theta,Data,...)
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
 
 	}
 
@@ -225,14 +227,25 @@ AutoPriorLL <- function(theta,Data,...){
 			else if(Data$priorType[name] == "norm")
 				priorLL <- dnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], log = TRUE)
 			else if(Data$priorType[name] == "boundednorm")
-				priorLL <- dtnorm(theta[name], mean = Data$priorMeans[name], sd = Data$priorSd[name], lower = Data$priorIntervals[[name]][1], upper = Data$priorIntervals[[name]][2], log = TRUE)
-			else if(Data$priorType[name] == "boundedlnorm")
-				priorLL <- {if(theta[name] > Data$priorIntervals[[name]][1] && theta[name] < Data$priorIntervals[[name]][2]) dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), sdlog = Data$priorSd[name], log = TRUE) else -Inf}
-				else priorLL <- 0
+				priorLL <- dtnorm(theta[name], 
+						  mean = Data$priorMeans[name], 
+						  sd = Data$priorSd[name], 
+						  lower = Data$priorIntervals[[name]][1], 
+						  upper = Data$priorIntervals[[name]][2], log = TRUE)
+			else if(Data$priorType[name] == "boundedlnorm"){
+				priorLL <- {
+					if(theta[name] > Data$priorIntervals[[name]][1] 
+					   && theta[name] < Data$priorIntervals[[name]][2]) 
+						dlnorm(theta[name], meanlog = log(Data$priorMeans[name]), 
+						       sdlog = Data$priorSd[name], log = TRUE) 
+					else -Inf
+				}
+			}else{
+				priorLL <- 0
+			}
 
-				attributes(priorLL)<-NULL
-				LP <- LP + priorLL
-				Lprioronly <- Lprioronly + priorLL
+			attributes(priorLL)<-NULL
+			Lprioronly <- Lprioronly + priorLL
 		}
 	}
 	return(Lprioronly)
@@ -267,17 +280,16 @@ noKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 		getStats<-TRUE
 	}
 	
-	rateMove  <- getParamInData("rateMove")
-	weightHop  <- getParamInData("weightHop")
-	weightSkip  <- getParamInData("weightSkip")
-	weightJump  <- getParamInData("weightJump")
+	rateMove  <- GetParam("rateMove",theta,Data)
+	weightHop  <- GetParam("weightHop",theta,Data)
+	weightSkip  <- GetParam("weightSkip",theta,Data)
+	weightJump  <- GetParam("weightJump",theta,Data)
 
 	sumWeights <- weightHop + weightSkip + weightJump
 	rateHopInMove <-  weightHop/sumWeights
 	rateSkipInMove <- weightSkip/sumWeights
 	rateJumpInMove <- weightJump/sumWeights
 	
-
 	#pass all variables correctly!
 	out <- noKernelMultiGilStat(
 		stratHopSkipJump = Data$stratHopSkipJump, 
@@ -353,7 +365,8 @@ noKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
-		Lprioronly <- AutoPriorLL(theta,Data,...)
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
 
 	}
 
@@ -479,7 +492,259 @@ noKernelModelRates <- function(theta,Data,postDraw=FALSE){
 
 		LP <- LL
 
-		Lprioronly <- AutoPriorLL(theta,Data,...)
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
+	}
+
+	end <- Sys.time()
+	cat("t synLik: ")
+	print(end-start)
+	
+	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, # likelihood of parmeters according only to the prior
+			 Dev=-2*LL, # deviance, probably not to be changed
+			 monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 yhat=yhat, # data generated for that set of parameter
+			 	    # will be used for posterior check
+			 parm=theta # the parameters, possibly constrained by the model
+			 )
+
+	return(Modelout)
+}
+
+noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
+
+	theta<-theta
+	names(theta)<-Data$parmNames
+	
+	# set seed for c simulations
+	seed <-runif(1,min=0,(2^16-1)) 
+	
+	# simulations
+	start <- Sys.time()
+	
+	if(postDraw){
+		getStats<-FALSE
+		# then in wrapper use infested if Nrep =1 and infested$Dens if Nrep=a few
+		# to show a posterior predictive map
+	}else{
+		getStats<-TRUE
+	}
+	
+	rateMove  <- GetParam("rateMove",theta,Data)
+	weightSkip  <- GetParam("weightSkip",theta,Data)
+	weightJump  <- GetParam("weightJump",theta,Data)
+
+	rateHopInMove <-  (1-weightJump)*(1-weightSkip)
+	rateSkipInMove <- (1-weightJump)*weightSkip
+	rateJumpInMove <- weightJump
+
+	#pass all variables correctly!
+	out <- noKernelMultiGilStat(
+		stratHopSkipJump = Data$stratHopSkipJump, 
+		blockIndex = Data$blockIndex, 
+		infestH = Data$infestH, 
+		timeH = Data$timeH, 
+		endTime = Data$nbit, 
+		rateMove = rateMove,
+		rateHopInMove = rateHopInMove,
+		rateSkipInMove = rateSkipInMove,
+		rateJumpInMove = rateJumpInMove,
+		Nrep = Data$Nrep, 
+		coords = Data$maps[, c("X", "Y")], 
+		seed=seed,
+		simul=TRUE,
+		maxInfest=Data$maxInfest, 
+		getStats=getStats,
+		dist_out=Data$dist_out, 
+		map.partitions=Data$map.partitions, 
+		conc.circs=Data$conc.circs, 
+		typeStat=Data$useStats,
+		whichPairwise=Data$whichPairwise,
+		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
+
+	end <- Sys.time()
+
+	cat("t multiGil: ")
+	print(end-start)
+
+	start <- Sys.time()
+	if(postDraw){
+		yhat<-out$infestedDens
+		LL<-NA
+		LP<-NA
+		Lprioronly <- 0 #keep track of just the prior sum
+	}else{
+		yhat<-out$statsTable[,1]
+		# synthetic likelihood
+		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
+		if(length(degen) > 0){ #if some stats degenerate
+			if(length(degen) == length(Data$y))
+				ll <- -Inf
+			else{
+				degenY <- Data$y[degen]
+				degenTheta <- out$statsTable[degen, 1]
+
+				numGood <- length(which(degenY - degenTheta == 0)) # stats exactly correct
+				
+				if(numGood == length(degenY)){ #if all degenerate stats match their actual values
+					# still try() b/c could have cov issues (cov==0 if stats are proportional)
+					success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
+					if(class(success)=="try-error")
+						  ll<-minLLever
+					else
+						  minLLever<<-min(ll,minLLever)	
+				}else{ #if even one degenerate stat does not match actual value
+						ll <- -Inf
+				}
+			}
+		}else{
+			# still try() b/c could have cov issues (cor==1 if stats are proportional)
+			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
+
+			if(class(success)=="try-error")
+				  ll<-minLLever
+			else
+				  minLLever<<-min(ll,minLLever)	
+		}
+
+		# get likelihood with priors
+		LL<-ll
+		attributes(LL)<-NULL
+
+		LP <- LL
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
+
+	}
+
+	end <- Sys.time()
+	cat("t synLik: ")
+	print(end-start)
+	
+	Modelout <- list(LP=LP, # joint posterior
+			 LL=LL, # likelihood of stats w/o prior
+			 Lprioronly=Lprioronly, # likelihood of parmeters according only to the prior
+			 Dev=-2*LL, # deviance, probably not to be changed
+			 monitor=c(LL,LP,theta), # to be monitored/ploted, carefull to change namesMonitor if modified
+			 yhat=yhat, # data generated for that set of parameter
+			 	    # will be used for posterior check
+			 parm=theta # the parameters, possibly constrained by the model
+			 )
+
+	return(Modelout)
+}
+
+noKernelModelRates <- function(theta,Data,postDraw=FALSE){
+
+	theta<-theta
+	names(theta)<-Data$parmNames
+	
+	# set seed for c simulations
+	seed <-runif(1,min=0,(2^16-1)) 
+	
+	# simulations
+	start <- Sys.time()
+	
+	if(postDraw){
+		getStats<-FALSE
+		# then in wrapper use infested if Nrep =1 and infested$Dens if Nrep=a few
+		# to show a posterior predictive map
+	}else{
+		getStats<-TRUE
+	}
+	rateHop  <- ifelse("rateHop" %in% Data$parmNames, 
+			   theta["rateHop"], Data$default["rateHop"])
+	rateSkip <- ifelse("rateSkip" %in% Data$parmNames, 
+			   theta["rateSkip"], Data$default["rateSkip"])
+	rateJump <- ifelse("rateJump" %in% Data$parmNames,
+			   theta["rateJump"], Data$default["rateJump"])
+
+	rateMove <- rateHop + rateSkip + rateJump
+	rateHopInMove <- rateHop/rateMove
+	rateSkipInMove <- rateSkip/rateMove
+	rateJumpInMove <- rateJump/rateMove
+	
+	#pass all variables correctly!
+	out <- noKernelMultiGilStat(
+		stratHopSkipJump = Data$stratHopSkipJump, 
+		blockIndex = Data$blockIndex, 
+		infestH = Data$infestH, 
+		timeH = Data$timeH, 
+		endTime = Data$nbit, 
+		rateMove = rateMove,
+		rateHopInMove = rateHopInMove,
+		rateSkipInMove = rateSkipInMove,
+		rateJumpInMove = rateJumpInMove,
+		Nrep = Data$Nrep, 
+		coords = Data$maps[, c("X", "Y")], 
+		seed=seed,
+		simul=TRUE,
+		maxInfest=Data$maxInfest, 
+		getStats=getStats,
+		dist_out=Data$dist_out, 
+		map.partitions=Data$map.partitions, 
+		conc.circs=Data$conc.circs, 
+		typeStat=Data$useStats,
+		whichPairwise=Data$whichPairwise,
+		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
+
+	end <- Sys.time()
+
+	cat("t multiGil: ")
+	print(end-start)
+
+	start <- Sys.time()
+	if(postDraw){
+		yhat<-out$infestedDens
+		LL<-NA
+		LP<-NA
+		Lprioronly <- 0 #keep track of just the prior sum
+	}else{
+		yhat<-out$statsTable[,1]
+		# synthetic likelihood
+		degen <- out$degenerateStats # the degenerate stats all have dirac distributions	
+		if(length(degen) > 0){ #if some stats degenerate
+			if(length(degen) == length(Data$y))
+				ll <- -Inf
+			else{
+				degenY <- Data$y[degen]
+				degenTheta <- out$statsTable[degen, 1]
+
+				numGood <- length(which(degenY - degenTheta == 0)) # stats exactly correct
+				
+				if(numGood == length(degenY)){ #if all degenerate stats match their actual values
+					# still try() b/c could have cov issues (cov==0 if stats are proportional)
+					success<-try(ll<-synLik(out$statsTable[-degen,],Data$y[-degen],Data$trans))
+					if(class(success)=="try-error")
+						  ll<-minLLever
+					else
+						  minLLever<<-min(ll,minLLever)	
+				}else{ #if even one degenerate stat does not match actual value
+						ll <- -Inf
+				}
+			}
+		}else{
+			# still try() b/c could have cov issues (cor==1 if stats are proportional)
+			success<-try(ll<-synLik(out$statsTable,Data$y,Data$trans))
+
+			if(class(success)=="try-error")
+				  ll<-minLLever
+			else
+				  minLLever<<-min(ll,minLLever)	
+		}
+
+		# get likelihood with priors
+		LL<-ll
+		attributes(LL)<-NULL
+
+		LP <- LL
+
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
 	}
 
 	end <- Sys.time()
@@ -544,10 +809,10 @@ binomNoKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 	# we don't need the summary statistics
 	getStats <- FALSE
 
-	rateMove  <- getParamInData("rateMove")
-	weightHop  <- getParamInData("weightHop")
-	weightSkip  <- getParamInData("weightSkip")
-	weightJump  <- getParamInData("weightJump")
+	rateMove  <- GetParam("rateMove",theta,Data)
+	weightHop  <- GetParam("weightHop",theta,Data)
+	weightSkip  <- GetParam("weightSkip",theta,Data)
+	weightJump  <- GetParam("weightJump",theta,Data)
 
 	sumWeights <- weightHop + weightSkip + weightJump
 	rateHopInMove <-  weightHop/sumWeights
@@ -592,7 +857,8 @@ binomNoKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 
 		LP <- LL
 
-		Lprioronly <- AutoPriorLL(theta,Data,...)
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
 	}
 
 	Modelout <- list(LP=LP, # joint posterior
@@ -716,7 +982,8 @@ kernelModel <- function(theta,Data,postDraw=FALSE){
 		attributes(LL)<-NULL
 
 		LP <- LL
-		Lprioronly <- AutoPriorLL(theta,Data,...)
+		Lprioronly <- AutoPriorLL(theta,Data)
+		LP <- LP+ Lprioronly
 
 	}
 	
