@@ -256,6 +256,9 @@ PriorOnly <- function(theta,data,...){
 	mon<- c(ll,theta)
 	names(mon)[1]<- "ll"
 	names(mon)[(1:length(theta))+1]<- data$parmNames
+	if(!is.finite(ll)){
+		ll<- -1e-13
+	}
 
 	return(list(LP=ll,LL=0,Lprioronly=ll,monitor=mon))
 }
