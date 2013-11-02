@@ -1150,6 +1150,7 @@ if(class(importOk)!="try-error"){
 		skipRowPointer <-if(!is.null(stratHopSkipJump$skipMat)){
 		  as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
 		    as.integer(-1)}
+
 		out<- .C("noKernelMultiGilStat",
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
