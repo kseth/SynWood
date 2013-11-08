@@ -1,7 +1,8 @@
+library("ADGofTest") ## anderson-darling test for uniformity
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
-nameSimul <- "Circles"
-daisyChainSeeds <- 201:235*1000 
+nameSimul <- "Partitions_Lmoments_normal"
+daisyChainSeeds <- 201:217*1000 
 
 #=======================
 # Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)
@@ -172,16 +173,22 @@ dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
 
 #convert q_dist to Cook's p
 #transform cook's q to a chisq then to a p value:
-cookp <- rep(0, length(realMeans)) 
-names(cookp) <- names(realMeans)
+# cookp <- rep(0, length(realMeans)) 
+# names(cookp) <- names(realMeans)
+# 
+# for(param in names(realMeans)[names(realMeans)%in%names(allRuns)]){
+# 
+# 	cookchisq <- sum(qnorm(prior_q_distribution[[param]])^2)
+# 	cookp[param] <- pchisq(cookchisq, df = length(daisyChainSeeds))
+# }
+# 
+# cookp <- 1-cookp
 
-for(param in names(realMeans)[names(realMeans)%in%names(allRuns)]){
-
-	cookchisq <- sum(qnorm(prior_q_distribution[[param]])^2)
-	cookp[param] <- pchisq(cookchisq, df = length(daisyChainSeeds))
-}
-
-cookp <- 1-cookp
+cookp <- rep(0, length(prior_q_distribution))
+names(cookp) <- names(prior_q_distribution)
+for(name in names(cookp))
+	if(!is.null(prior_q_distribution[[name]]))
+	cookp[name] <- ad.test(prior_q_distribution[[name]])$p.value
 
 #plot Cook's q, p
 dev.new()
@@ -199,3 +206,9 @@ abline(h=1, col="green")
 ## abline(h = 1, col = "green")
 
 dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
+
+##width of credible intervals
+print(mean(quantile_each[, 4]-quantile_each[,3]))
+print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
+print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
+print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))
