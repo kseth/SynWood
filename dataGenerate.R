@@ -17,7 +17,7 @@ plot_reel(maps$X, maps$Y, infested, base = 0, top = 1)
 
 # run 1 gillespie simulation to give second timepoint data 
 start <- Sys.time()
-secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startingInfested, timeH=timeH, endTime = nbit, rateMove = rateMove, weightSkipInMove = weightSkipInMove, weightJumpInMove = weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
+secondTimePointSimul <- noKernelMultiGilStat(stratHopSkipJump = stratHopSkipJump, blockIndex = blockIndex, infestH = startingInfested, timeH=timeH, endTime = nbit, rateMove = rateMove, rateHopInMove = weightHop, rateSkipInMove = weightSkip, rateJumpInMove = weightJump, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro)
 print(Sys.time() - start)
 
 # plot results of gillespie
@@ -42,7 +42,7 @@ binomialEndInfested <- binomEndInfested_noisy
 endInfestedHouses <- endingInfested_noisy
 
 # calculate statistics
-secondTimePointStats2 <- noKernelMultiGilStat(stratHopSkipJump=stratHopSkipJump, blockIndex=blockIndex, infestH =endInfestedHouses, timeH=timeH, endTime=nbit, rateMove=rateMove, weightSkipInMove=weightSkipInMove, weightJumpInMove=weightJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro, whichPairwise=whichPairwise)
+secondTimePointStats2 <- noKernelMultiGilStat(stratHopSkipJump=stratHopSkipJump, blockIndex=blockIndex, infestH =endInfestedHouses, timeH=timeH, endTime=nbit, rateMove=0, rateHopInMove=0, rateSkipInMove =0, rateJumpInMove=0, Nrep = 1, coords = maps[, c("X", "Y")], simul=FALSE, getStats = TRUE, seed = seedSimul, dist_out = bin_dist_out, typeStat = useStats, map.partitions = map.partitions, conc.circs = circles, rateIntro = rateIntro, whichPairwise=whichPairwise)
 	
 # obtain stats from the second gillespie simulation now messed up via observation error
 if(!is.vector(secondTimePointStats2$statsTable)){

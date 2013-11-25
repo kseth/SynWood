@@ -1274,8 +1274,8 @@ if(class(importOk)!="try-error"){
 
 		# make matrix out of inf.statsTable
 		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
-		if(sum(maxInfest) = length(maxInfest)) # throw away macro/micro unit statistics
-			out$inf.statsTable <- out$inf.statsTable[, -(2:3)]
+		if(sum(maxInfest) == length(maxInfest)) # throw away macro/micro unit statistics
+			out$inf.statsTable <- out$inf.statsTable[-(2:3), ]
 
 		# make matrix out of atRisk.statsTable
 		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
