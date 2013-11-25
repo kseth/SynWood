@@ -4,6 +4,24 @@ library(geoR)
 library(testthat)
 # source("RanalysisFunctions.R")
 
+# compile the .c if needed
+compilLoad<-function(sourcef,options=""){
+	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
+	if(file.exists(sourcef)){
+		exitCode<-system(paste("R CMD SHLIB",options,sourcef))
+		if(exitCode!=0){
+			stop("Compilation of ",sourcef," failed")
+		}else{
+			importOk<-try(dyn.load(gsub(".c$",".so",sourcef)),silent=TRUE)
+		}
+	}else{
+		importOk<-paste(sourcef,"missing")
+		class(importOk)<-"try-error"
+
+	}
+	return(importOk)
+}
+
 #======================
 # Basic functions
 #======================
@@ -392,7 +410,10 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 }
 
 importkmeans_Ok <- try(dyn.load("kmeans.so"), silent=TRUE)
-
+if(class(importkmeans_Ok)=="try-error"){
+	importkmeans_Ok <-compilLoad("kmeans.c")
+	
+}
 ## X the x coords of the points
 ## Y the y coords of the points
 ## num_clusts - the number of clusters to make
@@ -637,7 +658,10 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 
 # import C functions if possible
 importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
-
+if(class(importOk)=="try-error"){
+	importOk <-compilLoad("functions_migration.c","-lgsl -lgslcblas -lm samlmu.f")
+	
+}
 # define migration functions and 
 # change all entries in A bigger than maxtobesetnull to 0
 if(class(importOk)!="try-error"){
