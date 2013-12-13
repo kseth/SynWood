@@ -320,8 +320,8 @@ noKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 
 	end <- Sys.time()
 
-	cat("t multiGil: ")
-	print(end-start)
+	## cat("t multiGil: ")
+	##print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -374,8 +374,8 @@ noKernelModelWeights <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	cat("t synLik: ")
-	print(end-start)
+	## cat("t synLik: ")
+	##print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior
@@ -446,8 +446,8 @@ noKernelModelRates <- function(theta,Data,postDraw=FALSE){
 
 	end <- Sys.time()
 
-	cat("t multiGil: ")
-	print(end-start)
+	## cat("t multiGil: ")
+	##print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -500,8 +500,8 @@ noKernelModelRates <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	cat("t synLik: ")
-	print(end-start)
+	## cat("t synLik: ")
+	##print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior
@@ -570,8 +570,8 @@ noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
 
 	end <- Sys.time()
 
-	cat("t multiGil: ")
-	print(end-start)
+	#cat("t multiGil: ")
+	#print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -624,8 +624,8 @@ noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	cat("t synLik: ")
-	print(end-start)
+	#cat("t synLik: ")
+	#print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior
@@ -697,8 +697,8 @@ noKernelModelRates <- function(theta,Data,postDraw=FALSE){
 
 	end <- Sys.time()
 
-	cat("t multiGil: ")
-	print(end-start)
+	##cat("t multiGil: ")
+	##print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -751,8 +751,8 @@ noKernelModelRates <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	cat("t synLik: ")
-	print(end-start)
+	##cat("t synLik: ")
+	##print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior

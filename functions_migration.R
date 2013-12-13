@@ -969,7 +969,7 @@ if(class(importOk)!="try-error"){
 		infested <- rep(0, L)
 		infestedDens<-rep(0,L)
 		endIndex <- as.integer(length(infestH) - 1)
-		cat("tot maxInfest:",sum(maxInfest),"\n");
+		# cat("tot maxInfest:",sum(maxInfest),"\n");
 		if(length(infestH)>0){
 		  indexInfest[1:length(infestH)] <- infestH - 1
 		  timeI[1:length(timeH)] <- timeH

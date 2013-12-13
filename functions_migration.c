@@ -1367,7 +1367,7 @@ void noKernelMultiGilStat(
 	//if atRisk stats are called
 	int noDists = 1; //haven't made distance matrix yet
 	double* dists = NULL; //distance matrix
-	printf("valEndIndex: %i\n",valEndIndex);
+	// printf("valEndIndex: %i\n",valEndIndex);
 
 	// prep accounting for multiple micro=unit per location
 	int nMicro =0; // total number of micro units
