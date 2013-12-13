@@ -1382,7 +1382,7 @@ void noKernelMultiGilStat(
 	    k++;
 	  }
 	}
-	printf("nMicro: %i",nMicro);
+	// printf("nMicro: %i",nMicro);
   	int indexInfestInit[nMicro];
 
 	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat

@@ -570,8 +570,8 @@ noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
 
 	end <- Sys.time()
 
-	#cat("t multiGil: ")
-	#print(end-start)
+	# cat("\nt multiGil: ")
+	# print(end-start)
 
 	start <- Sys.time()
 	if(postDraw){
@@ -624,8 +624,8 @@ noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
 	}
 
 	end <- Sys.time()
-	#cat("t synLik: ")
-	#print(end-start)
+	# cat("\nt synLik: ")
+	# print(end-start)
 	
 	Modelout <- list(LP=LP, # joint posterior
 			 LL=LL, # likelihood of stats w/o prior
