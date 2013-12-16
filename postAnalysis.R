@@ -171,6 +171,9 @@ arrows(1:length(allLengths), quantile_each[, 3], 1:length(allLengths), quantile_
 
 dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
 
+names(quantile_each) <- c("param1_minCI","param1_maxCI","param2_minCI","param2_maxCI")
+save(quantile_each,file="quantilesEach.Rda")
+
 #convert q_dist to Cook's p
 #transform cook's q to a chisq then to a p value:
 # cookp <- rep(0, length(realMeans)) 
