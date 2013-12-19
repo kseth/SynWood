@@ -9,7 +9,7 @@ daisyChainSeeds <- 201:217*1000
 # Store the lengths of each of the MCMCs so they can be accessed independently
 #=======================
 # outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
-outfiles <- list.files(".",pattern="thetasamples_all.*.txt")
+outfiles <- list.files(".",pattern="^thetasamples_all.*.txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
 allLengths <- dim(allRuns)[1]
 
@@ -41,7 +41,7 @@ for(param in names(realMeans)){
 		get.estimate(allRuns[[param]],true.val=realMeans[param], name=param, xlim = lims[, param])
 }
 
-dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
 graphics.off()
 
 ## determine mean(sd(eachRun))/sd(allRuns)
@@ -170,7 +170,7 @@ plot(1:length(allLengths), median_each[, 2], xlab = "MCMC Chain Index", ylab = "
 abline(h = realMeans["rateJump"], col = "green")
 arrows(1:length(allLengths), quantile_each[, 3], 1:length(allLengths), quantile_each[, 4], code = 3, angle=90, length=0.01)
 
-dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
 
 names(quantile_each) <- c("param1_minCI","param1_maxCI","param2_minCI","param2_maxCI")
 save(quantile_each,file="quantilesEach.Rda")
@@ -209,7 +209,7 @@ abline(h=1, col="green")
 ## plot(wjDens, xlim = c(0.001, 0.999), main = "rate jump", xlab = "quantile", ylab = "density")
 ## abline(h = 1, col = "green")
 
-dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
 
 ##width of credible intervals
 print(mean(quantile_each[, 4]-quantile_each[,3]))
