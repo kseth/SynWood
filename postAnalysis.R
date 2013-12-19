@@ -1,3 +1,5 @@
+# CBC
+# execute a synthesis of the thetasamples_allXXX.txt files in a folder
 library("ADGofTest") ## anderson-darling test for uniformity
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
