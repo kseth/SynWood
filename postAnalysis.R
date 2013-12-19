@@ -8,7 +8,8 @@ daisyChainSeeds <- 201:217*1000
 # Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)
 # Store the lengths of each of the MCMCs so they can be accessed independently
 #=======================
-outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
+# outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
+outfiles <- list.files(".",pattern="thetasamples_all.*.txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
 allLengths <- dim(allRuns)[1]
 
