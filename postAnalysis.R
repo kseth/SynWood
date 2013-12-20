@@ -15,8 +15,8 @@ outfiles <- list.files(".",pattern="^thetasamples_all.*.txt")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
 allLengths <- dim(allRuns)[1]
 
-for(nums in 2:length(outfiles)){
-	allRuns <- rbind(allRuns, read.table(file = outfiles[nums], header = TRUE))
+for(num in 1:length(outfiles)){
+	allRuns <- rbind(allRuns, read.table(file = outfiles[num], header = TRUE))
 	allLengths <- c(allLengths, dim(allRuns)[1])
 }
 
