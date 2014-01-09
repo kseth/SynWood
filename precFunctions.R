@@ -9,11 +9,12 @@ library(geometry)
 
 convertgridfromsample <- function(gridfromsample, setNA=0){
 
-	z <- gridfromsample$zs
 	xs <- gridfromsample$xs
-	x <- rep(xs, ncol(z)) 
 	ys <- gridfromsample$ys
-	y <- rep(ys, each=nrow(z))
+	z <- gridfromsample$zs
+	
+	x <- rep(xs, length(ys)) 
+	y <- rep(ys, each=length(xs))
 	z <- as.vector(z)
 
 	bad <- which(is.na(z))
@@ -66,6 +67,105 @@ normal_check<-function(entry){
 	pval <- ks.test(entry, pnorm, mean=mea, sd=s)$p.value
 	return(pval)
 }
+
+#===================================
+# computes the synthetic likelihood at all points on the grid of parameter sets
+# Nota: use at all points the structure of the SL at the true value
+#===================================
+# function to get the synthetic likelihood structure from stats at true value 
+#! value: list by type of likelihood of lists by likelihood summary stats of matrix 
+#     of likelihoods by parameter sets
+GetSynLikStructure <- function(true_stats,colNums,typeSL="mvn"){
+	# compute the synthetic likelihood structure at the true value
+	statsFits <- list()
+	if(length(colNums) > 1){
+		if("smvn" %in% typeSL){
+			# cat("calculating skewnormal params\n")
+			statsFits[["smvn"]] <- msn.mle(y=true_stats[, colNums])$dp
+		}
+
+		if("mvn" %in% typeSL){
+			# cat("calculating normal params\n")
+			statsFits[["mvn"]] <- robust.vcov(sY=t(true_stats[,colNums]))
+		}
+	}else{
+		if("smvn" %in% typeSL){
+			# cat("calculating skewnormal params\n")
+			param <- sn.mle(y=true_stats[, colNums], plot.it=FALSE)$cp
+			param <- cp.to.dp(param)
+			statsFits[["smvn"]] <- param
+		}
+
+		if("mvn" %in% typeSL){
+			# cat("calculating normal params\n")
+			statsFits[["mvn"]] <- c(mean=mean(true_stats[,colNums]), sd=sd(true_stats[,colNums]))
+		}
+	}
+		return(statsFits)
+}
+
+# function summarizing a bunch of synthetic likelihoods
+VectSummaryStatsOfLLs<-function(lls){
+	med <- median(lls, na.rm=TRUE)
+	mea <- mean(lls, na.rm=TRUE)
+	std <- sd(lls, na.rm=TRUE)
+	qua <- quantile(lls, probs=c(0.025, 0.975), na.rm=TRUE)
+	if(std == 0 ||  mea == 0){ 
+		rse <- 0 
+	}else{ 
+		rse <- std/mea 
+	}
+
+	sim_ll<-c(med,mea,std,qua,rse)
+
+	return(sim_ll)
+}
+## calculate the summary for skew normal synthetic likelihood
+LLsSumStatsSMVN <- function(stats,colNums,statsFit){
+	if(length(colNums) > 1){
+		lls <- dmsn(stats[, colNums], dp=statsFit,log=FALSE)
+	}else{
+		lls <- dsn(stats[, colNums], dp=statsFit,log=FALSE)
+	}	
+	return(VectSummaryStatsOfLLs(lls))
+}
+## calculate the summary for normal synthetic likelihood
+LLsSumStatsMVN <- function(stats,colNums,statsFit){
+	if(length(colNums) > 1){
+		lls <- exp(synLik(t(stats[,colNums]),er=statsFit,
+				  sY=NULL, trans=NULL))
+		lls <- as.numeric(lls) ## remove attributes
+	}else{
+		lls <- dnorm(as.vector(stats[, colNums]), 
+			     mean=statsFit["mean"], 
+			     sd=statsFit["sd"],log=FALSE)
+	}
+	return(VectSummaryStatsOfLLs(lls))
+}
+SynLikAllInTrue <- function(true_stats, otherStats,colNums=(1:dim(true_stats)[2]),
+			    typeSL="mvn"){
+	nVal <- length(otherStats)
+
+	cat("Computing Synthetic Likelihood structure\n")
+	statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+
+	cat("Computing Synthetic Likelihood for each point\n")
+	sim_ll<-list()
+	namesSumStats <- c("median","mean","sd","loCrI","hiCrI","rse")
+	if("mvn" %in% typeSL){
+		sim_ll[["mvn"]] <- t(simplify2array(mclapply(otherStats,LLsSumStatsMVN,
+							   colNums,statsFits[["mvn"]],mc.cores=nCores)))
+		colnames(sim_ll[["mvn"]]) <- namesSumStats
+	}
+	if("smvn" %in% typeSL){
+		sim_ll[["smvn"]] <- t(simplify2array(mclapply(otherStats,LLsSumStatsSMVN,
+							    colNums,statsFits[["smvn"]],mc.cores=nCores)))
+		colnames(sim_ll[["smvn"]]) <- namesSumStats
+	}
+	return(sim_ll)
+}
+
+
 
 #========================
 # checking the normality/skew-normality
@@ -229,7 +329,7 @@ trapz3d <- function(x, y, z, tri=NULL){
 ## steps is the number of steps at which to bin the area
 ## prI is the quantiles of precision wanted
 ## ... passed to the smooth.spline function
-oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPoints = FALSE, xlim, ylim, ...){
+oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPoints = FALSE, xlim, ylim,xlab="Parameter value",ylab="density", col="grey",...){
 
 	pred_smooth <- smooth.spline(x, y, ...)
 	px <- seq(min(x), max(x), length.out=steps+1)
@@ -244,14 +344,14 @@ oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPo
 	trap_heights <- apply(ypairs, 1, mean)
 	trap_areas <- trap_widths * trap_heights
 
-	print(sum(trap_areas))
+	# print(sum(trap_areas))
 	py <- py / sum(trap_areas) #normalize py
 	trap_heights <- trap_heights / sum(trap_areas) #normalize trap_heights
 	ypairs <- ypairs/sum(trap_areas) # normalize the py pair values
 	trap_areas <- trap_areas / sum(trap_areas) # normalize trap_areas
 
 	if(missing(xlim) && missing(ylim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density")
+		plot(px, py, col = col, type = "l", xlab = xlab, ylab = ylab)
 	else if(missing(xlim))
 		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", ylim=ylim)
 	else if(missing(ylim))
@@ -286,20 +386,30 @@ oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPo
 
 ## where x1, x2 are the input variables or planar coordinates (params)
 ## and y is the output variable (ll) or height coordinate
-## x1, x2 should be strictly increasing
+## xy should contain on each linee parameters sets corresponding to the entries of y
+## x1, x2 should be strictly increasing (if xy not defined)
 ## y should be a matrix of lls for dim(x1, x2) - or all combinations of x1 and x2
 ## prI gives the intervals to be found
 ## ... are parameters passed to the image display 
 ## if x1, x2, y are scatterplot data
 ## 	use grid.from.sample(x1, x2, y, steps=100, tr=1, kern=gaussianKernel, xlim=c(min(x1), max(x1)), ylim=c(min(x2), max(x2)))
 ##	and pass the out$xs, out$ys, out$zs
-twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
+twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
 
-	grid_smooth <- list(xs=x1, ys=x2, zs=y)
-	pred_smooth <- convertgridfromsample(grid_smooth)
-	px1 <- pred_smooth$x
-	px2 <- pred_smooth$y
-	py <- pred_smooth$z
+	if(is.null(xy)){
+		grid_smooth <- list(xs=x1, ys=x2, zs=y)
+		pred_smooth <- convertgridfromsample(grid_smooth)
+		px1 <- pred_smooth$x
+		px2 <- pred_smooth$y
+		py <- pred_smooth$z
+	}else{
+		px1 <- xy[,1]
+		px2 <- xy[,2]
+		x1 <- sort(unique(px1))
+		x2 <- sort(unique(px2))
+		py <- as.vector(y)
+		py[which(is.na(py))] <- 0
+	}
 
 	tri <- delaunayn(data.frame(px1=px1, px2=px2)) #triangulate the grid
 	volume_out <- trapz3d(px1, px2, py, tri) #find the volume	
@@ -309,7 +419,7 @@ twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
 	indiv_tri_vols <- indiv_tri_vols/volume_out #normalize tri volumes
 	py <- py/volume_out #normalize lls
 
-	print(volume_out)
+	# print(volume_out)
 
 	zmat <- t(matrix(py, nrow=length(x2), byrow=TRUE))
 	if(!plotLog)
@@ -328,9 +438,9 @@ twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
 	
 	for(i in 0:(length(prI)-1)){
 		mch <- max(which(whichInterval == i))
-		print(mch)
+		# print(mch)
 		cutoff_index <- match_tri_index[mch]
-		print(median(py[tri[cutoff_index, ]]))
+		# print(median(py[tri[cutoff_index, ]]))
 		cutoff_ll[i+1] <- median(py[tri[cutoff_index, ]])
 	}
 
