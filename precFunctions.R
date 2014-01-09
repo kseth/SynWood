@@ -5,25 +5,6 @@ library(geometry)
 #========================
 # Helper functions
 #========================
-## helper annotation function
-annotateStatCor<-function(statcolsname, ntotstats, values=eval(parse(text=statcolsname)),y=1.07){
-	par(xpd=NA)
-	shift<- 1/(2*(ntotstats-1))
-	x<-min(values-1)/(ntotstats-1)-shift
-	lines(c(x,x),c(-shift,1+shift))	
-	lines(c(-shift,1+shift),c(x,x))	
-	# text(x,y,statcolsname,pos=4)
-}
-
-## annotates all the name_stats using the top helper function
-## name_stats, names of each of the stats
-## ntotstats, the total # of stats (not just length(name_stats) but the sum stats in each class)
-## ypos - yposition of annotation (recommended 1.07)
-annote.image.stats<-function(name_stats, ntotstats, ypos){
-	for(name in name_stats)
-		annotateStatCor(name, ntotstats, y=ypos[name])
-}
-
 ## takes a grid.from.sample object and makes it usable for crI purposes
 
 convertgridfromsample <- function(gridfromsample, setNA=0){
@@ -119,15 +100,35 @@ stats.norm.check <- function(stats, whichstats, plot=T, alpha=0.05){
 #========================
 # checking the covariance/correlation structure
 #========================
+## helper annotation function
+annotateStatCor<-function(statcolsname, ntotstats, values=eval(parse(text=statcolsname)),y=1.07){
+	par(xpd=NA)
+	shift<- 1/(2*(ntotstats-1))
+	x<-min(values-1)/(ntotstats-1)-shift
+	lines(c(x,x),c(-shift,1+shift))	
+	lines(c(-shift,1+shift),c(x,x))	
+	text(x,y,statcolsname,pos=4,offset=0)
+}
+
+## annotates all the name_stats using the top helper function
+## name_stats, names of each of the stats
+## ntotstats, the total # of stats (not just length(name_stats) but the sum stats in each class)
+## ypos - yposition of annotation (recommended 1.07)
+annote.image.stats<-function(name_stats,values=NULL, ntotstats, ypos=1.07){
+	for(i in 1:length(name_stats)){
+		annotateStatCor(name_stats[i], ntotstats,values=values[i], y=max(ypos[i],ypos[1],na.rm=TRUE))
+	}
+}
+
 ## checks the correlation of the stats against themselves
 ## example given below
-correlation.check <- function(stats, name_stats, ypos, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
+correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL, ypos=1.07, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
 	ntotstats<-dim(stats)[2]
 	correlation<-cor(stats)
 
 	image(abs(correlation), xlab= "correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
-	annote.image.stats(name_stats, ntotstats, ypos)
-	return(correlation)
+	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
+	return(invisible(correlation))
 }
 # example:
 # name_stats <- c("grid_var_stats", "circ_stats", "semivar_newnew_stats", "semivar_oldnew_stats", "moran_stats", "geary_stats", "ripley_stats", "num_inf_stats")
@@ -150,20 +151,28 @@ get.partial.cor <- function(er){
 
 # partial correlation on real value simulations
 # example given below
-partial.correlation.check <- function(stats, name_stats, ypos, vcov.obj=NULL, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
+partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL, ypos=1.07, vcov.obj=NULL, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
 	ntotstats<-dim(stats)[2]
 
-	if(is.null(vcov.obj))
-		vcov.obj <- robust.vcov(t(stats))
+	if(is.null(vcov.obj)){
+		nObs<-dim(stats)[1]
+		nStats<-dim(stats)[2]
+		if(nObs<nStats){
+			warning("Need at least",nStats,"observations to compute the partial correlation\n")
+			return(NULL)
+		}else{
+			vcov.obj <- robust.vcov(t(stats))
+		}
+	}
 
 	er <- vcov.obj$E
 	out <- get.partial.cor(er)
 	
 	image(abs(out$partCor), xlab= "partial correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
-	annote.image.stats(name_stats, ntotstats, ypos)
+	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
 
 	ret <- list(partCor=out$partCor, vcov.obj=vcov.obj)
-	return(ret)
+	return(invisible(ret))
 }	
 # example:
 # name_stats <- c("grid_var_stats", "circ_stats", "semivar_newnew_stats", "semivar_oldnew_stats", "moran_stats", "geary_stats", "ripley_stats", "num_inf_stats")
