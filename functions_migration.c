@@ -1027,15 +1027,16 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 	//	}
 }
 
+// Get stats linked to the number of infested households
 void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int* infestedInit, int* endIndex, int* blockIndex, int* haveBlocks){
 
 	//store the stats in the right place
 	double* stats = infstats + (*rep * *infnbstats);	
 
+	// total number of macroUnits that have at least one microUnit positive
 	int totalMacroUnits = 0;
 	for(int spot = 0; spot < *L; spot++)
 		totalMacroUnits += (infestedInit[spot] > 0);
-
 	*(stats + 0) = totalMacroUnits;
 
 	// total number of microUnits that are positve
