@@ -199,19 +199,29 @@ SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
 
 			statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
 			ok<-TRUE
-			for(type in length(typeSL)){
+			for(type in typeSL){
 				if(class(statsFits[[type]])=="try-error"){
 					ok <- FALSE
 					keepId <- keepId[-idTVInKeepId]
+				}else{
+					# check that the fit is not whatever
+					lls <- synLik(t(true_stats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
+					maxProba<-exp(max(lls))
+					if(!is.finite(maxProba) || maxProba ==0 ){
+						ok <- FALSE
+						keepId <- keepId[-idTVInKeepId]
+					}
 				}
 			}
 		}
 	}
 
+
 	cat("Computing Synthetic Likelihood for each point\n")
 	sim_ll<-list()
 	namesSumStats <- c("median","mean","sd","loCrI","hiCrI","rse")
 	if("mvn" %in% typeSL){
+
 		sim_ll[["mvn"]] <- t(simplify2array(mclapply(otherStats,LLsSumStatsMVN,
 							   colNums,statsFits[["mvn"]],mc.cores=nCores)))
 		colnames(sim_ll[["mvn"]]) <- namesSumStats
