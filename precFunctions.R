@@ -81,17 +81,17 @@ GetSynLikStructure <- function(true_stats,colNums,typeSL="mvn"){
 	if(length(colNums) > 1){
 		if("smvn" %in% typeSL){
 			# cat("calculating skewnormal params\n")
-			statsFits[["smvn"]] <- msn.mle(y=true_stats[, colNums])$dp
+			statsFits[["smvn"]] <- try(msn.mle(y=true_stats[, colNums])$dp)
 		}
 
 		if("mvn" %in% typeSL){
 			# cat("calculating normal params\n")
-			statsFits[["mvn"]] <- robust.vcov(sY=t(true_stats[,colNums]))
+			statsFits[["mvn"]] <- try(robust.vcov(sY=t(true_stats[,colNums])))
 		}
 	}else{
 		if("smvn" %in% typeSL){
 			# cat("calculating skewnormal params\n")
-			param <- sn.mle(y=true_stats[, colNums], plot.it=FALSE)$cp
+			param <- try(sn.mle(y=true_stats[, colNums], plot.it=FALSE)$cp)
 			param <- cp.to.dp(param)
 			statsFits[["smvn"]] <- param
 		}
@@ -142,12 +142,71 @@ LLsSumStatsMVN <- function(stats,colNums,statsFit){
 	}
 	return(VectSummaryStatsOfLLs(lls))
 }
-SynLikAllInTrue <- function(true_stats, otherStats,colNums=(1:dim(true_stats)[2]),
+### Isolate the parameter set in paramSets closer to given couple
+WhichInParamSets<-function(vect,paramSets){
+	if(length(vect)==1){
+		return(which.min(abs(paramSets-vect)))
+	}else{
+		expect_equal(length(vect),dim(paramSets)[2])	
+		diff <- 0*paramSets
+		for(i in 1:length(vect)){
+			diff[,i] <- abs(paramSets[,i]-vect[i])
+		}
+	}
+	overAllDist<-apply(diff,1,sum)
+	return(which.min(overAllDist))
+}
+# Tests
+a<- cbind(rep(1:5,5),rep(1:5,each=5))
+b<-WhichInParamSets(c(2,5),a)
+expect_equal(b,22)
+b<-WhichInParamSets(c(1,1),a)
+expect_equal(b,1)
+b<-WhichInParamSets(c(5,5),a)
+expect_equal(b,25)
+
+
+# compute the synthetic likelihood 
+# at all points of otherStats according to true_stats
+# only use in otherStats and true_stats the columns colNums (choice of stats)
+# typeSL allow to choose the type:
+#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
+# if true_stats is not given, can specify a parameter set the 
+#    that can serve as reference if giving: trueVals and paramSets
+# trueVals is a vector of parameters to be used as trueValue
+# paramSets a matrix with parameter values for otherStats columns are different
+#    parameters and lines are different parameter sets
+SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
+			    colNums=(1:dim(otherStats[[1]])[2]),
+			    trueVals=NULL,paramSets=NULL,
 			    typeSL="mvn"){
 	nVal <- length(otherStats)
 
-	cat("Computing Synthetic Likelihood structure\n")
-	statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+	## manage to always get something as a likelihood structure
+	if(!is.null(true_stats)){
+		cat("Computing Synthetic Likelihood structure\n")
+		statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+	}else{
+		expect_equal(nVal,dim(paramSets)[1])
+		ok <- FALSE
+		keepId<- 1:nVal
+		while(!ok | length(keepId)<nVal/10){
+			## identify the stats to use as comming from true value
+			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
+			idTV <- keepId[idTVInKeepId]
+			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
+			true_stats <- otherStats[[idTV]]
+
+			statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+			ok<-TRUE
+			for(type in length(typeSL)){
+				if(class(statsFits[[type]])=="try-error"){
+					ok <- FALSE
+					keepId <- keepId[-idTVInKeepId]
+				}
+			}
+		}
+	}
 
 	cat("Computing Synthetic Likelihood for each point\n")
 	sim_ll<-list()
