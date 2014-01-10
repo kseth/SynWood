@@ -1657,6 +1657,7 @@ noKernelMultiGilStatTweak <- function(
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
 
 		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 
+		## TODO: make that clearer and easier to set in call
 		keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0))
 		out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
 
