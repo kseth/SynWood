@@ -630,7 +630,19 @@ void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* m
   }
 }
 
-void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int *microToMacro, int *nMicro, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
+void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, 
+    double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, 
+    int* hopColIndex, int* hopRowPointer,    // hopable macrounits
+    int* skipColIndex, int* skipRowPointer,  // skipable macrounits
+    int* jumpColIndex, int* jumpRowPointer,  // jumpable macrounits
+    double* endTime,  // ending time for the simulation
+    int *microToMacro,  // ith element contains the index of the macro unit containing the ith microunit
+    int *nMicro,  // number of micro units (sum of all in maxInfest)
+    int* indexInfest, // index of the households with an event (output)
+    double* age, // times of the events (output)
+    double* movePerTunit, // number of migrations per infested unit and per time unit
+    double* introPerTunit,  // number of new invasions from outside the map per time unit
+    int* seed){ // seed for random number generator
 	
 	jcong = (unsigned long)*seed;
 	// printf("seed: %li \n",jcong);
@@ -678,7 +690,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		  // indexInfest is macro but one per micro
 
 		  // TODO (Corentin): unify the three following 
-		  // if in an arbitrary number of levels
+		  // to handle an arbitrary number of levels
 		  if(rand < *rateHopInMove){
 		    // next move is hop
 		    DrawFromLinked(hopRowPointer,hopColIndex,
@@ -714,11 +726,6 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, double
 		    // printf("eI: %i",*endIndex);
 		  }
 		}
-
-		// if(*endIndex<3){
-		//   printf("infesting ind: %i, h: %i, T: %i, d:%i\n",
-		//       index, house,*endIndex,dest);
-		// }
 
 		//calculate time to next event again
 		rand = UNICONG;
@@ -1417,7 +1424,11 @@ void noKernelMultiGilStat(
 
 	 	if(*simul==1){ // run a normal simulation
 	 		
-	 		stratGillespie(infestedInit,maxInfest,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,
+	 		stratGillespie(infestedInit,maxInfest,endIndex,L,
+			    rateHopInMove,rateSkipInMove,rateJumpInMove,
+			    hopColIndex,hopRowPointer,
+			    skipColIndex,skipRowPointer,
+			    jumpColIndex,jumpRowPointer,endTime,
 			    microToMacro,&nMicro,
 			    indexInfestInit,age,rateMove, rateIntro, seed);
 
