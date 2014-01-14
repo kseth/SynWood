@@ -418,6 +418,7 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.5, 0.75, 0.95), pl
 		py <- as.vector(y)
 		py[which(is.na(py))] <- 0
 	}
+	# TODO: can handle any xy and not just on a grid
 
 	tri <- delaunayn(data.frame(px1=px1, px2=px2)) #triangulate the grid
 	volume_out <- trapz3d(px1, px2, py, tri) #find the volume	
