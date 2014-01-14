@@ -392,67 +392,6 @@ trapz3d <- function(x, y, z, tri=NULL){
 	return(volume)						  
 }
 
-
-## x is the parameter values
-## y is the density at the parameter values
-## steps is the number of steps at which to bin the area
-## prI is the quantiles of precision wanted
-## ... passed to the smooth.spline function
-oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPoints = FALSE, xlim, ylim,xlab="Parameter value",ylab="density", col="grey",...){
-
-	pred_smooth <- smooth.spline(x, y, ...)
-	px <- seq(min(x), max(x), length.out=steps+1)
-        py <- predict(pred_smooth, px)$y
-
-	py[which(py < 0)] <- 0 #set things with negative density to zero density	
-
-	xpairs <- matrix(c(px[1:(length(px)-1)], px[2:length(px)]), ncol = 2)
-	ypairs <- matrix(c(py[1:(length(py)-1)], py[2:length(py)]), ncol = 2)
-
-	trap_widths <- apply(xpairs, 1, function(xpair){return(abs(xpair[2]-xpair[1]))})
-	trap_heights <- apply(ypairs, 1, mean)
-	trap_areas <- trap_widths * trap_heights
-
-	# print(sum(trap_areas))
-	py <- py / sum(trap_areas) #normalize py
-	trap_heights <- trap_heights / sum(trap_areas) #normalize trap_heights
-	ypairs <- ypairs/sum(trap_areas) # normalize the py pair values
-	trap_areas <- trap_areas / sum(trap_areas) # normalize trap_areas
-
-	if(missing(xlim) && missing(ylim))
-		plot(px, py, col = col, type = "l", xlab = xlab, ylab = ylab)
-	else if(missing(xlim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", ylim=ylim)
-	else if(missing(ylim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim)
-	else
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim, ylim=ylim)
-	
-	if(plotPoints)
-		points(x, y, pch = ".")
-
-	#order the trap areas in reverse order
-	rev_trap_areas <- rev(sort(trap_areas))
-	rev_trap_index <- rev(order(trap_areas))
-	cum_rev_trap_areas <- cumsum(rev_trap_areas)
-
-	whichInterval <- findInterval(cum_rev_trap_areas, prI, rightmost.closed=TRUE)
-
-	cutoff_ll <- mat.or.vec(length(prI), 1)
-	
-	for(i in 0:(length(prI)-1)){
-		cutoff_ll[i+1] <- which.min((trap_heights[rev_trap_index])[whichInterval == i])
-		cutoff_ll[i+1] <- min(ypairs[rev_trap_index, ][whichInterval==i, ][cutoff_ll[i+1], ])
-		abline(h=cutoff_ll[i+1], lty = 2)
-		text(min(px), cutoff_ll[i+1], label = prI[i+1])
-	}
-
-	names(cutoff_ll) <- prI
-
-	out <- list(cutoff_ll=cutoff_ll, px=px, py=py, x=x, y=y)
-	return(out)
-}
-
 ## where x1, x2 are the input variables or planar coordinates (params)
 ## and y is the output variable (ll) or height coordinate
 ## xy should contain on each linee parameters sets corresponding to the entries of y
@@ -519,7 +458,6 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.5, 0.75, 0.95), pl
 
 	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat)
 	return(out)
-
 }
 
 #========================
