@@ -234,7 +234,79 @@ SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
 	return(sim_ll)
 }
 
+## calculate the summary for normal synthetic likelihood
+LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
+	statsFit<-GetSynLikStructure(ref_stats,colNums,typeSL=typeSL)[[typeSL]]
+	if(length(colNums) > 1){
+		lls <- synLik(t(rbind(stats[,colNums],ref_stats[,colNums])),er=statsFit,
+				  sY=NULL, trans=NULL)
+		lls <- as.numeric(lls) ## remove attributes
+	}else{
+		lls <- dnorm(as.vector(stats[, colNums]), 
+			     mean=statsFit["mean"], 
+			     sd=statsFit["sd"],log=TRUE)
+	}
+	return(lls)
+}
+# compute the synthetic likelihood 
+# at all simulations at true_stats according to otherStats
+# only use in otherStats and true_stats the columns colNums (choice of stats)
+# typeSL allow to choose the type:
+#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
+# if true_stats is not given, can specify a parameter set the 
+#    that can serve as reference if giving: trueVals and paramSets
+# trueVals is a vector of parameters to be used as trueValue
+# paramSets a matrix with parameter values for otherStats columns are different
+#    parameters and lines are different parameter sets
+SynLikTrueInAll <- function(true_stats=NULL, otherStats=NULL,
+			    colNums=(1:dim(otherStats[[1]])[2]),
+			    trueVals=NULL,paramSets=NULL,
+			    typeSL="mvn"){
+	nVal <- length(otherStats)
 
+	## manage to always get something as a likelihood structure
+	if(!is.null(true_stats)){
+		cat("Computing Synthetic Likelihood structure\n")
+		statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+	}else{
+		expect_equal(nVal,dim(paramSets)[1])
+		ok <- FALSE
+		keepId<- 1:nVal
+		while(!ok | length(keepId)<nVal/10){
+			## identify the stats to use as comming from true value
+			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
+			idTV <- keepId[idTVInKeepId]
+			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
+			true_stats <- otherStats[[idTV]]
+
+			statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+			ok<-TRUE
+			for(type in typeSL){
+				if(class(statsFits[[type]])=="try-error"){
+					ok <- FALSE
+					keepId <- keepId[-idTVInKeepId]
+				}else{
+					# check that the fit is not whatever
+					lls <- synLik(t(true_stats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
+					maxProba<-exp(max(lls))
+					if(!is.finite(maxProba) || maxProba ==0 ){
+						ok <- FALSE
+						keepId <- keepId[-idTVInKeepId]
+					}
+				}
+			}
+		}
+	}
+
+
+	cat("Computing Synthetic Likelihood for each point\n")
+	sim_ll<-list()
+	for(type in typeSL){
+		sim_ll[[type]] <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
+							   true_stats,colNums,type,mc.cores=nCores)))
+	}
+	return(sim_ll)
+}
 
 #========================
 # checking the normality/skew-normality
