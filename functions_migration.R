@@ -934,6 +934,401 @@ if(class(importOk)!="try-error"){
 	##		- conc.circs is a result of the call to conc.circles
 	##		- no blockwise statistics
 	## pass detectRate < 1 to cause noKernelMultiGilStat to withhold data (i.e. if 0.7, ~30% of data will be randomly withheld when generating statistics)  
+
+	ToCstratHopSkipJump <- function(stratHopSkipJump){
+	  for(i in 1:length(stratHopSkipJump)){
+	    stratHopSkipJump@colindices <- as.integer(stratHopSkipJump@colindices-1L)
+	  }
+
+	  return(stratHopSkipJump)
+	}
+noKernelMultiGilStatTweak <- function(
+	    stratHopSkipJump, 
+		blockIndex, 
+		infestH, 
+		timeH, 
+		endTime, 
+		rateMove,
+		rateHopInMove, 
+		rateSkipInMove, 
+		rateJumpInMove, 
+		Nrep, 
+		coords, 
+		seed=1, 
+		simul=TRUE,
+		maxInfest=rep(1,dim(coords)[1]), 
+		getStats=TRUE, 
+		dist_out = NULL, 
+		map.partitions = NULL, 
+		conc.circs = NULL, 
+		atRisk.trs = NULL,
+		atRisk.ncoefs = NULL,
+		typeStat = "semivariance",
+	        whichPairwise = c("semivariance", "moran", "geary", "ripley"),	
+		detectRate = 1, 
+		rateIntro = 0){
+
+		# do we have blocks?
+		haveBlocks <- !is.null(blockIndex)
+
+	  	L<-dim(coords)[1]
+		indexInfest <- rep(-1, sum(maxInfest)) 
+		timeI <- rep(-1, sum(maxInfest))
+		infested <- rep(0, L)
+		infestedDens<-rep(0,L)
+		endIndex <- as.integer(length(infestH) - 1)
+		cat("tot maxInfest:",sum(maxInfest),"\n");
+		if(length(infestH)>0){
+		  indexInfest[1:length(infestH)] <- infestH - 1
+		  timeI[1:length(timeH)] <- timeH
+		  infested <- MakeNinfestFromIndex(infestH,L)
+		}else{
+		  infestH <- -1 # avoid to pass a NULL to .C
+		}
+
+		# if stratHopSkipJump, throw error 	
+		if(is.null(stratHopSkipJump)){
+			stop("need to pass a stratified hop/skip/jump matrix; see generate_stratifed_mat")
+		}
+
+		# implemented stats
+		implStats <- c("semivariance", "grid", "circles", "atRisk", "num_inf")
+
+		# initialize all the statistics to 0
+		matchStats <- 0
+
+		# if getStats and specific statistics are used, then change their value
+		# semivariance statistics
+		nbins <- 0
+		dist_indices <- 0
+		cbin <- 0
+		cbinas <- 0
+		cbinsb <- 0
+		semivar.nbStats <- 0
+		semivar.statsTable <- 0
+
+		# grid/partition statistics
+		numDiffGrids <- 0
+		gridIndexes <- 0
+		gridNumCells <- 0
+		gridCountCells <- 0
+		grid.nbStats <- 0
+		grid.numCoeffs <- 0 
+		grid.numLmoments <- 0
+		grid.statsTable <- 0
+
+		#circle statistics
+		numDiffCircles <- 0
+		numDiffCenters <- 0
+		circleIndexes <- 0
+		circleCounts <- 0
+		circle.nbStats <- 0
+		circle.statsTable <- 0
+
+		# num_inf statistics
+		inf.nbStats <- 0
+		inf.statsTable <- 0
+
+		# at_risk statistics
+		atRisk.nbCoefs<-0
+		atRisk.statsTable<-0
+
+		if(getStats){
+
+			## pass the corresponding matched numbers to C instead of the name of the statistics
+			matchStats <- match(typeStat, implStats)
+
+			if(any(is.na(matchStats))){ #throw an error regarding stats not yet implemented
+				stop(paste0(typeStat[is.na(matchStats)], " not implemented! Only implemented ", implStats))
+			}
+
+			if("num_inf" %in% typeStat){
+				# 1 if no blocks, 3 if blocks
+				# stats selection
+				##===============
+				# Number Locations Infested (location or macrounits > 0)
+				# Number Units infested (total microunits +)
+				# Number Units Infested / Number Locations Infested
+				# If haveBlocks:
+				#	Number Blocks Infested
+				#	Number Infested / Number Blocks Infested
+				inf.nbStats <- 3 + haveBlocks*2
+				inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)
+			}	
+
+			# if want to calculate semivariance stats
+			if("semivariance" %in% typeStat){
+				if(is.null(dist_out)){
+
+					stop("no semivariance dist_out object passed, cannot execute!")
+				}
+
+				dist_indices <- dist_out$CClassIndex
+				cbin <- dist_out$classSize
+				nbins <- length(cbin) + 1 #number of breaks not bins
+
+				# stats selection
+				###===================================
+				## CURRENT STATS:
+				## General Semivariance (new - new)
+				## Moran's I
+				## Geary's C
+				## Ripley's L
+				##	= 4 * length(cbin)
+				## if haveBlocks
+				##	By block Semivariance (same block - across streets)
+				##	By block Semivariance Std. Dev
+				## 	= 6 * length(cbin)
+				## DEPRECATED STATS:
+				## General Semivariance Std. Dev. (new - new)
+				## General Semivariance (old - new)
+				## General Semivariance Std. Dev (old - new)
+				###===================================
+				if(!haveBlocks)
+					semivar.nbStats <- 4*length(cbin)
+				else{
+					semivar.nbStats <- 6*length(cbin)
+					cbinas <- dist_out$classSizeAS
+					cbinsb <- dist_out$classSizeSB
+				}
+
+				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
+			}
+
+			if("grid" %in% typeStat){
+
+				if(is.null(map.partitions)){ # if an indexing of the map hasn't yet been passed, throw error
+					stop("map.partitions passed as null, cannot execute!")
+				}
+				
+				## the number of different indexings present in gridIndexes
+				numDiffGrids <- length(map.partitions)
+
+				## unlist the first list
+				map.partitions <- unlist(map.partitions, recursive = FALSE)
+		
+				## define the indexing systems
+				## every house should have numDiffGrids indexes
+				gridIndexes <- map.partitions[which(names(map.partitions) %in% "index")]
+				gridIndexes <- unlist(gridIndexes)
+				names(gridIndexes) <- NULL
+
+				## the length of each indexing - the number of cells per grid/index system
+				gridNumCells <- map.partitions[which(names(map.partitions) %in% "num_cells")] 
+				gridNumCells <- unlist(gridNumCells)
+				names(gridNumCells) <- NULL
+
+				# countCells will keep track of total number of houses per cell
+				gridCountCells <- map.partitions[which(names(map.partitions) %in% "housesPerCell")]
+				gridCountCells <- unlist(gridCountCells)
+				names(gridCountCells) <- NULL
+
+				# stats selection
+				###===================================
+				## CURRENT STATS 
+				## (by grid system):
+				## Variance of % positive per cell
+				## Number Cells with at least 1 positive 
+				## Fit quantile distribution to polynomial
+				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
+			        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
+			       	## L-moment statistics (taken from quantile distribution)
+			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
+				## L-mean should be ~ to median (also to num_inf)	
+				###===================================
+				grid.numCoeffs <- rep(1, length(gridNumCells)) #should normally be 4, 1 for quickness #grid.numCoeffs <- c(2, 4, 6, 6, 4, 2)
+				grid.numLmoments <- 3 #should be 3
+				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
+				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
+			}
+
+			if("circles" %in% typeStat){
+				if(is.null(conc.circs)){ # if an indexing of concentric circles hasn't yet been passed, throw error
+					stop("conc.circles passed as null, cannot execute!")
+				}
+
+				numDiffCenters <- dim(conc.circs$counts)[1]
+				numDiffCircles <- dim(conc.circs$counts)[2]
+				circleIndexes <- t(conc.circs$circleIndexes) 
+				circleCounts <- t(conc.circs$counts) 
+
+				# stats selection
+				###===================================
+				## CURRENT STATS 
+				## (by numDiffCircles):
+				## Variance of % positive (across initInfested)
+				## Mean of % positive (across initInfested) 
+				##	= 2 * numDiffCircles
+				###===================================
+				circle.nbStats <- 2*numDiffCircles
+				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
+			}
+			
+			if("atRisk" %in% typeStat){
+				atRisk.nbCoefs<-atRisk.ncoefs
+				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
+				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
+			}
+		}
+
+		# if don't have blocks, pass 0 as the value for skipColIndex + skipRowPointer (note, these values should never be used since rateSkipInMove == 0)
+		# also pass 0 as the value to blockIndex
+
+		skipColIndex <- if(!is.null(stratHopSkipJump$skipMat)){
+		  as.integer(stratHopSkipJump$skipMat@colindices-1L)
+		}else{
+		  as.integer(-1L)
+		}
+		skipRowPointer <-if(!is.null(stratHopSkipJump$skipMat)){
+		  as.integer(stratHopSkipJump$skipMat@rowpointers-1L)}else{
+		    as.integer(-1L)}
+
+		out<- .C("noKernelMultiGilStat",
+			 # simulation parameters
+			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1L),
+			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1L), 
+			 skipColIndex = skipColIndex, # if no skips, pass dummy skip
+			 skipRowPointer = skipRowPointer, # if no skips, pass dummy skip
+			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1L),
+			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1L),
+			 rateHopInMove = as.numeric(rateHopInMove), 
+			 rateSkipInMove = as.numeric(rateSkipInMove), 
+			 rateJumpInMove = as.numeric(rateJumpInMove), 
+			 blockIndex = if(haveBlocks){as.integer(blockIndex)}else{as.integer(0)},
+			 simul = as.integer(simul),
+			 infested = as.integer(infested),
+			 maxInfest = as.integer(maxInfest),
+			 infestedDens = as.numeric(infestedDens),
+			 endIndex = endIndex,
+			 L = as.integer(L),
+			 endTime = as.numeric(endTime),
+			 indexInfest = as.integer(indexInfest),
+			 timeI = as.numeric(timeI),
+			 rateMove = as.numeric(rateMove),
+			 rateIntro = as.numeric(rateIntro),
+			 seed = as.integer(seed),
+			 Nrep = as.integer(Nrep),
+			 # stats
+			 getStats=as.integer(getStats),
+			 matchStats=as.integer(matchStats),
+			 lengthStats=as.integer(length(matchStats)),
+			 nbins = as.integer(nbins),
+			 cbin = as.integer(cbin),
+			 cbinas = as.integer(cbinas),
+			 cbinsb = as.integer(cbinsb),
+			 indices = as.integer(dist_indices),
+			 semivar.statsTable = as.numeric(semivar.statsTable),
+			 semivar.nbStats = as.integer(semivar.nbStats),
+			 haveBlocks = as.integer(haveBlocks),
+			 numDiffGrids = as.integer(numDiffGrids),
+			 gridIndexes = as.integer(gridIndexes-1), #subtract 1 because C is 0 indexed
+			 gridNumCells = as.integer(gridNumCells),
+			 gridCountCells = as.integer(gridCountCells),
+			 grid.nbStats = as.integer(grid.nbStats),
+			 grid.numCoeffs = as.integer(grid.numCoeffs),
+			 grid.numLmoments = as.integer(grid.numLmoments),
+			 grid.statsTable = as.numeric(grid.statsTable),
+			 numDiffCircles = as.integer(numDiffCircles),
+			 numDiffCenters = as.integer(numDiffCenters),
+			 circleIndexes = as.integer(circleIndexes), #already C indexed (was computed in C)
+			 circleCounts = as.integer(circleCounts),
+			 circle.nbStats = as.integer(circle.nbStats),
+			 circle.statsTable = as.numeric(circle.statsTable),
+			 inf.nbStats = as.integer(inf.nbStats),
+			 inf.statsTable = as.numeric(inf.statsTable), 
+			 atRisk.trs = as.numeric(atRisk.trs),
+			 atRisk.ntrs = as.integer(length(atRisk.trs)),
+			 atRisk.statsTable = as.numeric(atRisk.statsTable),
+			 atRisk.nbCoefs = as.integer(atRisk.nbCoefs),
+			 xs = as.numeric(coords$X),
+			 ys = as.numeric(coords$Y),
+			 detectRate = as.numeric(detectRate) 
+			 )
+
+		out$infestedDens<-out$infestedDens/Nrep;
+
+		# make matrix out of semivar.statsTable
+		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
+
+		# need to remove the ones that are NAN
+		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
+
+		# which of the pairwise to keep in final statistics
+		orderPairwise <- c("semivariance", "moran", "geary", "ripley")
+		whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
+		
+		if(any(is.na(whichkeep))){
+			warning("some pairwise supplied that are NA")
+	      		whichkeep <- whichkeep[!is.na[whichkeep]]
+		}
+
+		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
+	
+		# make matrix out of grid.statsTable
+		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
+
+		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 
+		keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0))
+		out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
+
+		## only keep regression coefficients
+		## keepCoeffs <- which((1:dim(out$grid.statsTable)[1] %% 7) %in% c(3, 4, 5, 6))
+		## out$grid.statsTable <- out$grid.statsTable[keepCoeffs, ]
+
+		# make matrix out of circle.statsTable
+		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
+
+		# make matrix out of inf.statsTable
+		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
+
+		# make matrix out of atRisk.statsTable
+		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
+
+		statsTable <- 0
+		degenerateStats <- integer(0)
+
+		if(getStats){ ## if want to get statistics, need to make the statsTable
+	
+			# put all the stats into one list for making statsTable
+			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable, out$atRisk.statsTable, out$inf.statsTable)
+			if(Nrep==1){
+				## if only one repetition, stats have to be handled as vectors
+				for(statsWant in matchStats)
+			 		statsTable <- c(statsTable, allStats[[statsWant]])
+
+				statsTable <- statsTable[-1]
+			}else{
+
+				statsTable <- matrix(0, 1, Nrep)
+				for(statsWant in matchStats)
+					statsTable <- rbind(statsTable, allStats[[statsWant]])
+				
+				statsTable <- statsTable[-1, ]
+				
+				#figure out which stats are degenerate (important to do prestats removal!)
+				vars <- apply(statsTable, 1, var)
+				degenerateStats <- which(vars == 0)
+			}
+		}
+
+		infestH <- out$indexInfest
+		infestH <- infestH[which(infestH != -1)] + 1
+		out$indexInfest <- infestH
+		timeH <- out$timeI
+		timeH <- timeH[which(infestH != -1)]
+		out$timeI <- timeH
+
+		## add the compiled statsTable and degenerateStats to out
+		oldnames <- names(out)
+		length(out) <- length(out) + 2 
+		names(out) <- c(oldnames, "statsTable", "degenerateStats")
+		out$statsTable <- statsTable
+		out$degenerateStats <- degenerateStats
+			
+		return(out)
+	}
 	noKernelMultiGilStat <- function(
 	    stratHopSkipJump, 
 		blockIndex, 
@@ -1167,22 +1562,22 @@ if(class(importOk)!="try-error"){
 		# also pass 0 as the value to blockIndex
 
 		skipColIndex <- if(!is.null(stratHopSkipJump$skipMat)){
-		  as.integer(stratHopSkipJump$skipMat@colindices-1)
+		  as.integer(stratHopSkipJump$skipMat@colindices-1L)
 		}else{
-		  as.integer(-1)
+		  as.integer(-1L)
 		}
 		skipRowPointer <-if(!is.null(stratHopSkipJump$skipMat)){
-		  as.integer(stratHopSkipJump$skipMat@rowpointers-1)}else{
-		    as.integer(-1)}
+		  as.integer(stratHopSkipJump$skipMat@rowpointers-1L)}else{
+		    as.integer(-1L)}
 
 		out<- .C("noKernelMultiGilStat",
 			 # simulation parameters
-			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1),
-			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1), 
+			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1L),
+			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1L), 
 			 skipColIndex = skipColIndex, # if no skips, pass dummy skip
 			 skipRowPointer = skipRowPointer, # if no skips, pass dummy skip
-			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1),
-			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1),
+			 jumpColIndex = as.integer(stratHopSkipJump$jumpMat@colindices-1L),
+			 jumpRowPointer = as.integer(stratHopSkipJump$jumpMat@rowpointers-1L),
 			 rateHopInMove = as.numeric(rateHopInMove), 
 			 rateSkipInMove = as.numeric(rateSkipInMove), 
 			 rateJumpInMove = as.numeric(rateJumpInMove), 
@@ -1262,6 +1657,7 @@ if(class(importOk)!="try-error"){
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
 
 		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 
+		## TODO: make that clearer and easier to set in call
 		keepLmoments <- which((1:dim(out$grid.statsTable)[1] %% 6) %in% c(4, 5, 0))
 		out$grid.statsTable <- out$grid.statsTable[keepLmoments, ] 
 
