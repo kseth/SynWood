@@ -75,30 +75,30 @@ normal_check<-function(entry){
 # function to get the synthetic likelihood structure from stats at true value 
 #! value: list by type of likelihood of lists by likelihood summary stats of matrix 
 #     of likelihoods by parameter sets
-GetSynLikStructure <- function(true_stats,colNums,typeSL="mvn"){
+GetSynLikStructure <- function(trueStats,colNums,typeSL="mvn"){
 	# compute the synthetic likelihood structure at the true value
 	statsFits <- list()
 	if(length(colNums) > 1){
 		if("smvn" %in% typeSL){
 			# cat("calculating skewnormal params\n")
-			statsFits[["smvn"]] <- try(msn.mle(y=true_stats[, colNums])$dp)
+			statsFits[["smvn"]] <- try(msn.mle(y=trueStats[, colNums])$dp)
 		}
 
 		if("mvn" %in% typeSL){
 			# cat("calculating normal params\n")
-			statsFits[["mvn"]] <- try(robust.vcov(sY=t(true_stats[,colNums])))
+			statsFits[["mvn"]] <- try(robust.vcov(sY=t(trueStats[,colNums])))
 		}
 	}else{
 		if("smvn" %in% typeSL){
 			# cat("calculating skewnormal params\n")
-			param <- try(sn.mle(y=true_stats[, colNums], plot.it=FALSE)$cp)
+			param <- try(sn.mle(y=trueStats[, colNums], plot.it=FALSE)$cp)
 			param <- cp.to.dp(param)
 			statsFits[["smvn"]] <- param
 		}
 
 		if("mvn" %in% typeSL){
 			# cat("calculating normal params\n")
-			statsFits[["mvn"]] <- c(mean=mean(true_stats[,colNums]), sd=sd(true_stats[,colNums]))
+			statsFits[["mvn"]] <- c(mean=mean(trueStats[,colNums]), sd=sd(trueStats[,colNums]))
 		}
 	}
 		return(statsFits)
@@ -120,27 +120,44 @@ VectSummaryStatsOfLLs<-function(lls){
 
 	return(sim_ll)
 }
-## calculate the summary for skew normal synthetic likelihood
-LLsSumStatsSMVN <- function(stats,colNums,statsFit){
-	if(length(colNums) > 1){
-		lls <- dmsn(stats[, colNums], dp=statsFit,log=FALSE)
-	}else{
-		lls <- dsn(stats[, colNums], dp=statsFit,log=FALSE)
-	}	
-	return(VectSummaryStatsOfLLs(lls))
+# lls a matrix, stats in different columns lines are "repeats"
+SummaryStatsOfLLs<-function(lls){
+	med <- median(lls, na.rm=TRUE)
+	mea <- mean(lls, na.rm=TRUE)
+	std <- sd(lls, na.rm=TRUE)
+	qua <- quantile(lls, probs=c(0.025, 0.975), na.rm=TRUE)
+	if(std == 0 ||  mea == 0){ 
+		rse <- 0 
+	}else{ 
+		rse <- std/mea 
+	}
+
+	sim_ll<-c(med,mea,std,qua,rse)
+
+	return(sim_ll)
 }
-## calculate the summary for normal synthetic likelihood
-LLsSumStatsMVN <- function(stats,colNums,statsFit){
+## calculate the summary for skew normal synthetic likelihood
+LLsStatsSMVN <- function(stats,colNums,statsFit){
 	if(length(colNums) > 1){
-		lls <- exp(synLik(t(stats[,colNums]),er=statsFit,
-				  sY=NULL, trans=NULL))
+		lls <- dmsn(stats[, colNums], dp=statsFit,log=TRUE)
+	}else{
+		lls <- dsn(stats[, colNums], dp=statsFit,log=TRUE)
+	}	
+	return(lls)
+}
+
+## calculate the summary for normal synthetic likelihood
+LLsStatsMVN <- function(stats,colNums,statsFit){
+	if(length(colNums) > 1){
+		lls <- synLik(t(stats[,colNums]),er=statsFit,
+				  sY=NULL, trans=NULL)
 		lls <- as.numeric(lls) ## remove attributes
 	}else{
 		lls <- dnorm(as.vector(stats[, colNums]), 
 			     mean=statsFit["mean"], 
-			     sd=statsFit["sd"],log=FALSE)
+			     sd=statsFit["sd"],log=TRUE)
 	}
-	return(VectSummaryStatsOfLLs(lls))
+	return(lls)
 }
 ### Isolate the parameter set in paramSets closer to given couple
 WhichInParamSets<-function(vect,paramSets){
@@ -167,25 +184,25 @@ expect_equal(b,25)
 
 
 # compute the synthetic likelihood 
-# at all points of otherStats according to true_stats
-# only use in otherStats and true_stats the columns colNums (choice of stats)
+# at all points of otherStats according to trueStats
+# only use in otherStats and trueStats the columns colNums (choice of stats)
 # typeSL allow to choose the type:
 #    ("mvn": multivariate normal; "smvn": skew multivariate normale)
-# if true_stats is not given, can specify a parameter set the 
+# if trueStats is not given, can specify a parameter set the 
 #    that can serve as reference if giving: trueVals and paramSets
 # trueVals is a vector of parameters to be used as trueValue
 # paramSets a matrix with parameter values for otherStats columns are different
 #    parameters and lines are different parameter sets
-SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
+SynLikAllInTrue <- function(trueStats=NULL, otherStats=NULL,
 			    colNums=(1:dim(otherStats[[1]])[2]),
 			    trueVals=NULL,paramSets=NULL,
 			    typeSL="mvn"){
 	nVal <- length(otherStats)
 
 	## manage to always get something as a likelihood structure
-	if(!is.null(true_stats)){
+	if(!is.null(trueStats)){
 		cat("Computing Synthetic Likelihood structure\n")
-		statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+		statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
 	}else{
 		expect_equal(nVal,dim(paramSets)[1])
 		ok <- FALSE
@@ -195,9 +212,9 @@ SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
 			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
 			idTV <- keepId[idTVInKeepId]
 			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
-			true_stats <- otherStats[[idTV]]
+			trueStats <- otherStats[[idTV]]
 
-			statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+			statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
 			ok<-TRUE
 			for(type in typeSL){
 				if(class(statsFits[[type]])=="try-error"){
@@ -205,7 +222,7 @@ SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
 					keepId <- keepId[-idTVInKeepId]
 				}else{
 					# check that the fit is not whatever
-					lls <- synLik(t(true_stats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
+					lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
 					maxProba<-exp(max(lls))
 					if(!is.finite(maxProba) || maxProba ==0 ){
 						ok <- FALSE
@@ -217,19 +234,16 @@ SynLikAllInTrue <- function(true_stats=NULL, otherStats=NULL,
 	}
 
 
-	cat("Computing Synthetic Likelihood for each point\n")
+	cat("Computing Log Synthetic Likelihood for each point\n")
 	sim_ll<-list()
-	namesSumStats <- c("median","mean","sd","loCrI","hiCrI","rse")
 	if("mvn" %in% typeSL){
 
-		sim_ll[["mvn"]] <- t(simplify2array(mclapply(otherStats,LLsSumStatsMVN,
+		sim_ll[["mvn"]] <- t(simplify2array(mclapply(otherStats,LLsStatsMVN,
 							   colNums,statsFits[["mvn"]],mc.cores=nCores)))
-		colnames(sim_ll[["mvn"]]) <- namesSumStats
 	}
 	if("smvn" %in% typeSL){
-		sim_ll[["smvn"]] <- t(simplify2array(mclapply(otherStats,LLsSumStatsSMVN,
+		sim_ll[["smvn"]] <- t(simplify2array(mclapply(otherStats,LLsStatsSMVN,
 							    colNums,statsFits[["smvn"]],mc.cores=nCores)))
-		colnames(sim_ll[["smvn"]]) <- namesSumStats
 	}
 	return(sim_ll)
 }
@@ -249,25 +263,25 @@ LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
 	return(lls)
 }
 # compute the synthetic likelihood 
-# at all simulations at true_stats according to otherStats
-# only use in otherStats and true_stats the columns colNums (choice of stats)
+# at all simulations at trueStats according to otherStats
+# only use in otherStats and trueStats the columns colNums (choice of stats)
 # typeSL allow to choose the type:
 #    ("mvn": multivariate normal; "smvn": skew multivariate normale)
-# if true_stats is not given, can specify a parameter set the 
+# if trueStats is not given, can specify a parameter set the 
 #    that can serve as reference if giving: trueVals and paramSets
 # trueVals is a vector of parameters to be used as trueValue
 # paramSets a matrix with parameter values for otherStats columns are different
 #    parameters and lines are different parameter sets
-SynLikTrueInAll <- function(true_stats=NULL, otherStats=NULL,
+SynLikTrueInAll <- function(trueStats=NULL, otherStats=NULL,
 			    colNums=(1:dim(otherStats[[1]])[2]),
 			    trueVals=NULL,paramSets=NULL,
 			    typeSL="mvn"){
 	nVal <- length(otherStats)
 
 	## manage to always get something as a likelihood structure
-	if(!is.null(true_stats)){
+	if(!is.null(trueStats)){
 		cat("Computing Synthetic Likelihood structure\n")
-		statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+		statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
 	}else{
 		expect_equal(nVal,dim(paramSets)[1])
 		ok <- FALSE
@@ -277,9 +291,9 @@ SynLikTrueInAll <- function(true_stats=NULL, otherStats=NULL,
 			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
 			idTV <- keepId[idTVInKeepId]
 			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
-			true_stats <- otherStats[[idTV]]
+			trueStats <- otherStats[[idTV]]
 
-			statsFits<-GetSynLikStructure(true_stats,colNums,typeSL=typeSL)
+			statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
 			ok<-TRUE
 			for(type in typeSL){
 				if(class(statsFits[[type]])=="try-error"){
@@ -287,7 +301,7 @@ SynLikTrueInAll <- function(true_stats=NULL, otherStats=NULL,
 					keepId <- keepId[-idTVInKeepId]
 				}else{
 					# check that the fit is not whatever
-					lls <- synLik(t(true_stats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
+					lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
 					maxProba<-exp(max(lls))
 					if(!is.finite(maxProba) || maxProba ==0 ){
 						ok <- FALSE
@@ -303,7 +317,11 @@ SynLikTrueInAll <- function(true_stats=NULL, otherStats=NULL,
 	sim_ll<-list()
 	for(type in typeSL){
 		sim_ll[[type]] <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
-							   true_stats,colNums,type,mc.cores=nCores)))
+							   trueStats,colNums,type,mc.cores=nCores)))
+		nRepTV <- dim(trueStats)[1]
+		nRepOther <- dim(otherStats[[1]])[1]
+		sim_ll[[paste0(type,"Loc")]] <- sim_ll[[type]][,nRepTV+(1:nRepOther)]
+		sim_ll[[type]] <- sim_ll[[type]][,(1:nRepTV)]
 	}
 	return(sim_ll)
 }
@@ -474,8 +492,7 @@ trapz3d <- function(x, y, z, tri=NULL){
 ## if x1, x2, y are scatterplot data
 ## 	use grid.from.sample(x1, x2, y, steps=100, tr=1, kern=gaussianKernel, xlim=c(min(x1), max(x1)), ylim=c(min(x2), max(x2)))
 ##	and pass the out$xs, out$ys, out$zs
-twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
-
+twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, col=NULL,...){
 	if(is.null(xy)){
 		grid_smooth <- list(xs=x1, ys=x2, zs=y)
 		pred_smooth <- convertgridfromsample(grid_smooth)
@@ -490,6 +507,13 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.5, 0.75, 0.95), pl
 		py <- as.vector(y)
 		py[which(is.na(py))] <- 0
 	}
+	if(is.null(col)){
+		col <- colorRampPalette(c("red", "orange", 
+					  "yellow", 
+					  "green"))(length(x1))
+	}
+
+
 	# TODO: can handle any xy and not just on a grid
 
 	tri <- delaunayn(data.frame(px1=px1, px2=px2)) #triangulate the grid
