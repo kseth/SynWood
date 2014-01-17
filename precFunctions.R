@@ -110,31 +110,26 @@ VectSummaryStatsOfLLs<-function(lls){
 	mea <- mean(lls, na.rm=TRUE)
 	std <- sd(lls, na.rm=TRUE)
 	qua <- quantile(lls, probs=c(0.025, 0.975), na.rm=TRUE)
-	if(std == 0 ||  mea == 0){ 
-		rse <- 0 
-	}else{ 
-		rse <- std/mea 
+	rseDefined <- std == 0 ||  mea == 0
+	if(!is.na(rseDefined)){
+		if(rseDefined){ 
+			rse <- 0 
+		}else{ 
+			rse <- std/mea 
+		}
+	}else{
+		rse<-NA
 	}
-
 	sim_ll<-c(med,mea,std,qua,rse)
-
 	return(sim_ll)
 }
 # lls a matrix, stats in different columns lines are "repeats"
-SummaryStatsOfLLs<-function(lls){
-	med <- median(lls, na.rm=TRUE)
-	mea <- mean(lls, na.rm=TRUE)
-	std <- sd(lls, na.rm=TRUE)
-	qua <- quantile(lls, probs=c(0.025, 0.975), na.rm=TRUE)
-	if(std == 0 ||  mea == 0){ 
-		rse <- 0 
-	}else{ 
-		rse <- std/mea 
-	}
-
-	sim_ll<-c(med,mea,std,qua,rse)
-
-	return(sim_ll)
+SummaryStatsOfLLs<-function(lls,nCores){
+	liks <- exp(lls)
+	liksList <- split(liks,row(liks))
+	summary_lls<-mclapply(liksList,VectSummaryStatsOfLLs,mc.cores=nCores)
+	summary_lls<-t(simplify2array(summary_lls))
+	return(summary_lls)
 }
 ## calculate the summary for skew normal synthetic likelihood
 LLsStatsSMVN <- function(stats,colNums,statsFit){
@@ -183,82 +178,18 @@ b<-WhichInParamSets(c(5,5),a)
 expect_equal(b,25)
 
 
-# compute the synthetic likelihood 
-# at all points of otherStats according to trueStats
-# only use in otherStats and trueStats the columns colNums (choice of stats)
-# typeSL allow to choose the type:
-#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
-# if trueStats is not given, can specify a parameter set the 
-#    that can serve as reference if giving: trueVals and paramSets
-# trueVals is a vector of parameters to be used as trueValue
-# paramSets a matrix with parameter values for otherStats columns are different
-#    parameters and lines are different parameter sets
-SynLikAllInTrue <- function(trueStats=NULL, otherStats=NULL,
-			    colNums=(1:dim(otherStats[[1]])[2]),
-			    trueVals=NULL,paramSets=NULL,
-			    typeSL="mvn"){
-	nVal <- length(otherStats)
-
-	## manage to always get something as a likelihood structure
-	if(!is.null(trueStats)){
-		cat("Computing Synthetic Likelihood structure\n")
-		statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
-	}else{
-		expect_equal(nVal,dim(paramSets)[1])
-		ok <- FALSE
-		keepId<- 1:nVal
-		while(!ok | length(keepId)<nVal/10){
-			## identify the stats to use as comming from true value
-			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
-			idTV <- keepId[idTVInKeepId]
-			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
-			trueStats <- otherStats[[idTV]]
-
-			statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
-			ok<-TRUE
-			for(type in typeSL){
-				if(class(statsFits[[type]])=="try-error"){
-					ok <- FALSE
-					keepId <- keepId[-idTVInKeepId]
-				}else{
-					# check that the fit is not whatever
-					lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
-					maxProba<-exp(max(lls))
-					if(!is.finite(maxProba) || maxProba ==0 ){
-						ok <- FALSE
-						keepId <- keepId[-idTVInKeepId]
-					}
-				}
-			}
-		}
-	}
-
-
-	cat("Computing Log Synthetic Likelihood for each point\n")
-	sim_ll<-list()
-	if("mvn" %in% typeSL){
-
-		sim_ll[["mvn"]] <- t(simplify2array(mclapply(otherStats,LLsStatsMVN,
-							   colNums,statsFits[["mvn"]],mc.cores=nCores)))
-	}
-	if("smvn" %in% typeSL){
-		sim_ll[["smvn"]] <- t(simplify2array(mclapply(otherStats,LLsStatsSMVN,
-							    colNums,statsFits[["smvn"]],mc.cores=nCores)))
-	}
-	return(sim_ll)
-}
-
 ## calculate the summary for normal synthetic likelihood
 LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
 	statsFit<-GetSynLikStructure(ref_stats,colNums,typeSL=typeSL)[[typeSL]]
-	if(length(colNums) > 1){
-		lls <- synLik(t(rbind(stats[,colNums],ref_stats[,colNums])),er=statsFit,
-				  sY=NULL, trans=NULL)
-		lls <- as.numeric(lls) ## remove attributes
+	stats<-rbind(stats[,colNums],ref_stats[,colNums])
+	if(class(statsFit)!="try-error"){
+		if(typeSL == "mvn"){
+			lls<-LLsStatsMVN(stats,1:dim(stats)[2],statsFit)
+		}else if(typeSL == "smvn"){
+			lls<-LLsStatsSMVN(stats,1:dim(stats)[2],statsFit)
+		}
 	}else{
-		lls <- dnorm(as.vector(stats[, colNums]), 
-			     mean=statsFit["mean"], 
-			     sd=statsFit["sd"],log=TRUE)
+		lls<-rep(NA,dim(stats)[1])
 	}
 	return(lls)
 }
@@ -272,15 +203,17 @@ LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
 # trueVals is a vector of parameters to be used as trueValue
 # paramSets a matrix with parameter values for otherStats columns are different
 #    parameters and lines are different parameter sets
-SynLikTrueInAll <- function(trueStats=NULL, otherStats=NULL,
+SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 			    colNums=(1:dim(otherStats[[1]])[2]),
 			    trueVals=NULL,paramSets=NULL,
-			    typeSL="mvn"){
+			    typeSL="mvn",
+			    trueInAll=TRUE,
+			    summaryLLs=TRUE){
 	nVal <- length(otherStats)
 
 	## manage to always get something as a likelihood structure
+	cat("Computing Synthetic Likelihood structure at TV\n")
 	if(!is.null(trueStats)){
-		cat("Computing Synthetic Likelihood structure\n")
 		statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
 	}else{
 		expect_equal(nVal,dim(paramSets)[1])
@@ -312,18 +245,55 @@ SynLikTrueInAll <- function(trueStats=NULL, otherStats=NULL,
 		}
 	}
 
-
-	cat("Computing Synthetic Likelihood for each point\n")
 	sim_ll<-list()
 	for(type in typeSL){
-		sim_ll[[type]] <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
-							   trueStats,colNums,type,mc.cores=nCores)))
-		nRepTV <- dim(trueStats)[1]
-		nRepOther <- dim(otherStats[[1]])[1]
-		sim_ll[[paste0(type,"Loc")]] <- sim_ll[[type]][,nRepTV+(1:nRepOther)]
-		sim_ll[[type]] <- sim_ll[[type]][,(1:nRepTV)]
+		cat("Computing",type,"Synthetic Likelihood for each point\n")
+		sim_ll[[type]]<-list()
+		if(trueInAll){
+			lls <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
+								    trueStats,colNums,type,mc.cores=nCores)))
+			nRepTV <- dim(trueStats)[1]
+			sim_ll[[type]]$lls <- lls[,(1:nRepTV)]
+
+			nRepOther <- dim(otherStats[[1]])[1]
+			sim_ll[[type]]$loc <- lls[,nRepTV+(1:nRepOther)]
+		}else{
+			if(type == "mvn"){
+				LLsFn <- LLsStatsMVN
+			}else if(type == "smvn"){
+				LLsFn <- LLsStatsSMVN
+			}
+			sim_ll[[type]]$lls <- t(simplify2array(mclapply(otherStats,LLsFn,
+								    colNums,statsFits[[type]],mc.cores=nCores)))
+		}
+		# make summary statistics of the lls
+		if(summaryLLs){
+			namesStats <- c("mean","median","sd","loCrI","hiCrI","rse")
+			cat("Computing summary stats of the likelihoods\n")
+			sim_ll[[type]]$summary <- SummaryStatsOfLLs(sim_ll[[type]]$lls,nCores)
+			colnames(sim_ll[[type]]$summary) <- namesStats
+			if(!is.null(sim_ll[[type]]$loc)){
+				sim_ll[[type]]$summaryLoc <- SummaryStatsOfLLs(sim_ll[[type]]$loc,nCores)
+				colnames(sim_ll[[type]]$summaryLoc) <- namesStats
+			}
+		}
 	}
 	return(sim_ll)
+}
+SynLikTrueInAll <- SynLikExistingStats
+
+# compute the synthetic likelihood 
+# at all points of otherStats according to trueStats
+# only use in otherStats and trueStats the columns colNums (choice of stats)
+# typeSL allow to choose the type:
+#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
+# if trueStats is not given, can specify a parameter set the 
+#    that can serve as reference if giving: trueVals and paramSets
+# trueVals is a vector of parameters to be used as trueValue
+# paramSets a matrix with parameter values for otherStats columns are different
+#    parameters and lines are different parameter sets
+SynLikAllInTrue <- function(...){
+	return(SynLikExistingStats(...,trueInAll=FALSE))
 }
 
 #========================
