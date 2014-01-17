@@ -659,6 +659,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L,
 	
 	//variables used in loop
 	int index=-1, house=-1, dest=-1, numHouses=-1;
+	double ratioInf=0;
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
@@ -675,13 +676,10 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L,
 		  index = -1; // the infesting location index
 		  house = -1; // the infesting location
 		  rand = UNICONG;
-		  int microDest = rand* *nMicro;
-		  dest = microToMacro[microDest];
+		  dest = microToMacro[(int)(rand* *nMicro)]; //pick microdestination then covert to macro
 		}else{ // new move
 		  //pick whether next move is hop/skip/jump
 		  dest = -1; //the move location
-		  rand = UNICONG; // draw for move type
-		  // TODO (Corentin): allow jumps to go everywhere
 
 		  //pick a location to be infesting house
 		  rand = UNICONG;
@@ -689,6 +687,7 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L,
 		  house = *(indexInfest + index);  
 		  // indexInfest is macro but one per micro
 
+		  rand = UNICONG; // draw for move type
 		  // TODO (Corentin): unify the three following 
 		  // to handle an arbitrary number of levels
 		  if(rand < *rateHopInMove){
@@ -715,9 +714,9 @@ void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L,
 
 		// need a draw to know if falls in infested micro
 		if(dest>-1){
-		  double ratioInf = 
-		    (double)*(infested+dest)/(double)*(maxInfest+dest);
-		  if(UNICONG > ratioInf){
+		  ratioInf = (double)*(infested+dest)/(double)*(maxInfest+dest);
+		  rand = UNICONG;
+		  if(rand > ratioInf){
 		    *endIndex+=1;
 		    *(infested+dest) += 1;
 		    *(indexInfest + *endIndex) = dest;
@@ -813,8 +812,12 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gr
 	int* gridEmptyCells = (int*) calloc(count, sizeof(int));
 	int* gridMaxInfestCells = (int*) calloc(count, sizeof(int));
 
-	if(gridEmptyCells == NULL && gridMaxInfestCells == NULL){
+	if(gridEmptyCells == NULL || gridMaxInfestCells == NULL){
 		printf("allocation error in get_stats_grid; possibly out of memory\n");
+		if(gridEmptyCells!=NULL)
+			free(gridEmptyCells);
+		if(gridMaxInfestCells!=NULL)
+			free(gridMaxInfestCells);
 		return;
 	}
 
@@ -895,6 +898,14 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gr
 
 		if(dx == NULL || dy == NULL || quant_coeff == NULL || lmoms == NULL){
 			printf("allocation error in get_stats_grid; possibly out of memory\n");
+			if(dx!=NULL)
+				free(dx);
+			if(dy!=NULL)
+				free(dy);
+			if(quant_coeff!=NULL)
+				free(quant_coeff);
+			if(lmoms!=NULL)
+				free(lmoms);
 			return;
 		}
 

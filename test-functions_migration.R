@@ -88,7 +88,7 @@ infested[which(infested < 0)] <- 0
 out <- get_stats_grid(infested, maxInfest, map.partitions)
 expect_true(!any(is.na(out)))
 
-## case where input is bnary, not poisson (check to see that it works!)
+## case where input is binary, not poisson (check to see that it works!)
 infested2 <- as.integer(round(runif(numHouses, 0, 1)))
 maxInfest2 <- rep(1, numHouses)
 out2 <- get_stats_grid(infested2, maxInfest2, map.partitions)
