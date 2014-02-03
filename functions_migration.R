@@ -967,7 +967,7 @@ if(class(importOk)!="try-error"){
 		typeStat = "semivariance",
 	        whichPairwise = c("semivariance", "moran", "geary", "ripley"),	
 		detectRate = 1, rateIntro = 0,
-		nPartCoefs = 0, iPartLMoments = c(1, 2){
+		nPartCoefs = 0, iPartLMoments = c(1, 2)){
 
 		# do we have blocks?
 		haveBlocks <- (!missing(blockIndex) && !is.null(blockIndex))
