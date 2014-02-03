@@ -454,7 +454,7 @@ trapz3d <- function(x, y, z, tri=NULL){
 
 ## where x1, x2 are the input variables or planar coordinates (params)
 ## and y is the output variable (ll) or height coordinate
-## xy should contain on each linee parameters sets corresponding to the entries of y
+## xy should contain on each line parameters sets corresponding to the entries of y
 ## x1, x2 should be strictly increasing (if xy not defined)
 ## y should be a matrix of lls for dim(x1, x2) - or all combinations of x1 and x2
 ## prI gives the intervals to be found

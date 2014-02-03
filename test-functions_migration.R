@@ -81,10 +81,6 @@ maxInfest <- rep(max(infested), numHouses)
 infested <- infested - 1
 infested[which(infested < 0)] <- 0
 
-## the first 2 are #positive, variance
-## 3rd is 1st coefficient from polynom fit
-## 4th-6th are 2nd, 3rd, 4th L-moments
-
 out <- get_stats_grid(infested, maxInfest, map.partitions)
 expect_true(!any(is.na(out)))
 
@@ -92,6 +88,17 @@ expect_true(!any(is.na(out)))
 infested2 <- as.integer(round(runif(numHouses, 0, 1)))
 maxInfest2 <- rep(1, numHouses)
 out2 <- get_stats_grid(infested2, maxInfest2, map.partitions)
+expect_true(!any(is.na(out2)))
+
+## test that only getting 2 partition Lmoments also works
+out3 <- get_stats_grid(infested, maxInfest, map.partitions, iPartLMoments = 1:2)
+expect_true(!any(is.na(out)))
+
+## case where input is binary, not poisson (check to see that it works!)
+## test that only getting 2 partition Lmoments also works
+infested2 <- as.integer(round(runif(numHouses, 0, 1)))
+maxInfest2 <- rep(1, numHouses)
+out4 <- get_stats_grid(infested2, maxInfest2, map.partitions, iPartLMoments = 1:2)
 expect_true(!any(is.na(out2)))
 
 })
