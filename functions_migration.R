@@ -554,7 +554,6 @@ basicMigration<-function(infestH, probMat){
 
   for(houseInit in infestH)
   {
-
     prob <- probMat[houseInit, ]
     rand <- runif(dim(probMat)[1])
     newInfestHouse <- union(newInfestHouse, which(prob>rand))
@@ -657,11 +656,12 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 #==========================
 
 # import C functions if possible
-importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
-if(class(importOk)=="try-error"){
+# importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
+# if(class(importOk)=="try-error"){
+# commented out to force actualization in case of modifications
 	importOk <-compilLoad("functions_migration.c","-lgsl -lgslcblas -lm samlmu.f")
 	
-}
+# }
 # define migration functions and 
 # change all entries in A bigger than maxtobesetnull to 0
 if(class(importOk)!="try-error"){
@@ -726,8 +726,7 @@ if(class(importOk)!="try-error"){
 
 	# make distance classes taking into account streets	
 	makeDistClassesWithStreets<-function(X,Y, breaks, blockIndex){
-	
-	  	# checks to avoid segfault
+	  # checks to avoid segfault
 	  if(length(X)!=length(Y) || length(X) != length(blockIndex))
 	    stop(paste("makeDistClassesWithStreets Abort\n
 		       length(X)=",length(X),
@@ -1101,7 +1100,6 @@ if(class(importOk)!="try-error"){
 			}
 
 			if("grid" %in% typeStat){
-
 				if(is.null(map.partitions)){ # if an indexing of the map hasn't yet been passed, throw error
 					stop("map.partitions passed as null, cannot execute!")
 				}
@@ -1185,11 +1183,12 @@ if(class(importOk)!="try-error"){
 		}else{
 		  as.integer(-1L)
 		}
+
 		skipRowPointer <-if(!is.null(stratHopSkipJump$skipMat)){
 		  as.integer(stratHopSkipJump$skipMat@rowpointers-1L)}else{
 		    as.integer(-1L)}
 
-		out<- .C("noKernelMultiGilStat",
+		out <- .C("noKernelMultiGilStat",
 			 # simulation parameters
 			 hopColIndex = as.integer(stratHopSkipJump$hopMat@colindices-1L),
 			 hopRowPointer = as.integer(stratHopSkipJump$hopMat@rowpointers-1L), 
