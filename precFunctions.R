@@ -233,8 +233,18 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 					ok <- FALSE
 					keepId <- keepId[-idTVInKeepId]
 				}else{
+
+					if(type == "mvn"){
+						LLsFn <- LLsStatsMVN
+					}else if(type == "smvn"){
+						LLsFn <- LLsStatsSMVN
+					}
+
+					# get the likelihood of the statistic
+					lls <- LLsFn(trueStats, colNums, statsFits[[type]])
+
+					# old code lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
 					# check that the fit is not whatever
-					lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
 					maxProba<-exp(max(lls))
 					if(!is.finite(maxProba) || maxProba ==0 ){
 						ok <- FALSE
@@ -244,7 +254,7 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 			}
 		}
 	}
-
+	
 	sim_ll<-list()
 	for(type in typeSL){
 		cat("Computing",type,"Synthetic Likelihood for each point\n")
@@ -252,6 +262,7 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 		if(trueInAll){
 			lls <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
 								    trueStats,colNums,type,mc.cores=nCores)))
+			print(lls)
 			nRepTV <- dim(trueStats)[1]
 			sim_ll[[type]]$lls <- lls[,(1:nRepTV)]
 
