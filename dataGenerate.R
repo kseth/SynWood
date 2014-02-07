@@ -1,6 +1,6 @@
 #===================
 # Run simulation 
-# Generate data 
+# Generate data for a second time point from startingInfested
 #===================
 # set the seed for the simulation
 set.seed(seedSimul)
