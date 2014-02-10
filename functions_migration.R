@@ -522,14 +522,14 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 	out <- makeDistClasses(X, Y, distClasses)
 
 	# since out$CClassIndex is triangular and the diagonals are 0
-	all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = length(X)) + matrix(out$CClassIndex, byrow = FALSE, nrow = length(X))
-
+	# all.indexes <- matrix(out$CClassIndex, byrow = TRUE, nrow = length(X)) + matrix(out$CClassIndex, byrow = FALSE, nrow = length(X))
+	all.indexes <- matrix(out$CClassIndex, nrow = length(X)) 
 
 	if(distClasses[1] != 0) #if dont want to include self in concentric circles
 		diag(all.indexes) <- -1
 
 	# return only the indexes of the initInfested
-	all.indexes <- all.indexes[initInfested, ]
+	all.indexes <- as.matrix(all.indexes[initInfested, ]) #as.matrix in case length(initInfested)==1
 
 	# count how many values exist per distance class per house to get prevalence
 	prev.counts <- mat.or.vec(length(initInfested), length(distClasses)-1)
@@ -962,7 +962,8 @@ if(class(importOk)!="try-error"){
 		simul=TRUE,
 		maxInfest=rep(1,dim(coords)[1]), 
 		getStats=TRUE, 
-		dist_out = NULL, map.partitions = NULL, conc.circs = NULL, atRisk.trs = NULL, atRisk.ncoefs = NULL,
+		dist_out = NULL, map.partitions = NULL, conc.circs = NULL, 
+		atRisk.trs = NULL, atRisk.ncoefs = NULL,
 		typeStat = "semivariance",
 	        whichPairwise = c("semivariance", "moran", "geary", "ripley"),	
 		detectRate = 1, rateIntro = 0,
@@ -1168,6 +1169,7 @@ if(class(importOk)!="try-error"){
 			}
 			
 			if("atRisk" %in% typeStat){
+				browser()
 				atRisk.nbCoefs<-atRisk.ncoefs
 				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
 				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
@@ -1489,15 +1491,35 @@ if(class(importOk)!="try-error"){
 				## General Semivariance (old - new)
 				## General Semivariance Std. Dev (old - new)
 				###===================================
+				orderPairwise <- c("semivariance", "moran", "geary", "ripley")
 				if(!haveBlocks)
-					semivar.nbStats <- 4*length(cbin)
+					semivar.nbStats <- length(orderPairwise)*length(cbin)
 				else{
-					semivar.nbStats <- 6*length(cbin)
+				  	
+					semivar.nbStats <- (length(orderPairwise)+2)*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
 				}
 
+				# table for all computable stats
 				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
+				
+				namesSemivar <- c()
+				for(i in 1:length(orderPairwise)){ 
+				  namesSemivar <- c(namesSemivar,paste0(orderPairwise[i],1:length(cbin)))
+				}
+
+				# which of the pairwise to keep in final statistics
+				whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
+				# corresponding lines
+				keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+				if(any(is.na(whichkeep))){
+				  error("some pairwise asked are not implemented")
+				  # whichkeep <- whichkeep[!is.na[whichkeep]]
+				}
+
+				namesSemivar <- namesSemivar[keepable]
 			}
 
 			if("grid" %in% typeStat){
@@ -1652,26 +1674,17 @@ if(class(importOk)!="try-error"){
 
 		out$infestedDens<-out$infestedDens/Nrep;
 
-		# make matrix out of semivar.statsTable
+		####  make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
 
-		# need to remove the ones that are NAN
-		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
+		# # need to remove the ones that are NAN
+		# notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
 
-		# which of the pairwise to keep in final statistics
-		orderPairwise <- c("semivariance", "moran", "geary", "ripley")
-		whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
-		
-		if(any(is.na(whichkeep))){
-			warning("some pairwise supplied that are NA")
-	      		whichkeep <- whichkeep[!is.na[whichkeep]]
-		}
 
-		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
-
-		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
+		# out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
+		out$semivar.statsTable <- out$semivar.statsTable[keepable, ]
 	
-		# make matrix out of grid.statsTable
+		####  make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
 
 		## only keep L-moments (if only want to keep 3rd, 4th, change to 5, 0) 

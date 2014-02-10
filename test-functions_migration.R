@@ -107,24 +107,44 @@ expect_true(!any(is.na(out2)))
 # Test that noKernelMultiGilStat works as expected
 # For high + low rate move
 #============================
+# test_that("noKernelMultiGilStat returns names correctly in statsTable",{
+source("baseModel.R")
+whichPairwise = c("semivariance", "moran", "geary", "ripley")	
+implStats <- c("semivariance", "grid", "circles",  "num_inf") # would need to either add "atRisk" or remove it from 
+								# noKernelMultiGilStat
+
+# for all names at once
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 10, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    rateIntro = 0)
+expect_equal(dim(out$statsTable),c(18,10))
+allNamesStats <- c()
+for(i in 1:length(whichPairwise)){
+  allNamesStats<-c(allNamesStats,paste0(whichPairwise[i],1:length(genIntervals)))
+}
+allNamesStats <- c(allNamesStats,
+expect_equal(rownames(out$statsTable),allNamesStats)
+
+# })
 test_that("noKernelMultiGilStat num infs calculation",{
-num.rows <- 10 
-num.cols <- 10
-row.dist <- 1
-maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
-
-limitHopSkip <- 2 
-lowerLimitSkip <- NULL 
-limitJump <-10 
-lowerLimitJump <- limitHopSkip 
-
-stratmat <- generate_stratified_mat(maps, limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, lowerLimitSkip=lowerLimitSkip)
-
-## very high movement should fill up the map so that all houses become filled
-rateMove <- 1
-rateJumpInMove <-0.5 
-seed <- 100000
-
+	  source("baseModel.R")
 out <- noKernelMultiGilStat(
 			    stratHopSkipJump = stratmat, 
 			    blockIndex = NULL, 
@@ -132,13 +152,15 @@ out <- noKernelMultiGilStat(
 			    timeH=rep(-2), 
 			    endTime = 1000, 
 			    rateMove = rateMove, 
-			    weightSkipInMove = 0, 
-			    weightJumpInMove = rateJumpInMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
 			    Nrep = 1, 
 			    coords = maps[, c("X", "Y")], 
 			    simul=TRUE, 
 			    getStats = TRUE, 
 			    seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+
 
 ## all houses should be infested
 expect_true(!(any(out$infestedDens == 0)))
@@ -147,7 +169,7 @@ expect_equal(out$statsTable, length(maps$X))
 ## very low movement should fill up the map so that only the initial house is positive
 rateMove <- 0.0000000001
 
-out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1, rateMove = rateMove, rateHopInMove=1-rateJumpInMove,rateSkipInMove = 0, rateJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
 
 ## only house 1 is infested
 expect_equal(out$statsTable, 1)

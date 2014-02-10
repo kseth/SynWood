@@ -144,7 +144,7 @@ void makeDistMat(double *xc // x of objects
 // initial determination of the distances 
 // and class indices for each pair
 void makeDistClasses(double *xc // x of objects
-		,int *L		// length of xc/yc
+		,int *L		// length of xc and yc
 		,double *yc	// y of objects
 		,int *cbin	// number of pairs per class
 		,int *indices	// indice of class for each pair ij
@@ -164,6 +164,7 @@ void makeDistClasses(double *xc // x of objects
 			*(dists + i* *L+j) = distance;
 			*(dists + j* *L+i) = distance;
 			*(indices + i* *L+j) = index;
+			*(indices + j* *L+i) = index;
 			
 			if(index != -1)
 				cbin[index]++;
