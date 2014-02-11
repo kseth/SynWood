@@ -109,10 +109,11 @@ expect_true(!any(is.na(out2)))
 #============================
 # test_that("noKernelMultiGilStat returns names correctly in statsTable",{
 source("baseModel.R")
+# for all names at once
 whichPairwise = c("semivariance", "moran", "geary", "ripley")	
 implStats <- c("semivariance", "grid", "circles",  "num_inf") # would need to either add "atRisk" or remove it from 
+lmomentsKept <- 1:3 # beginning at variance
 
-# for all names at once
 out <- noKernelMultiGilStat(
 			    stratHopSkipJump = stratmat, 
 			    blockIndex = NULL, 
@@ -132,17 +133,22 @@ out <- noKernelMultiGilStat(
 			    whichPairwise = whichPairwise,
 			    map.partitions = map.partitions, 
 			    conc.circs = circles, 
+			    iPartLMoments = lmomentsKept,
 			    rateIntro = 0)
-expect_equal(dim(out$statsTable),c(18,10))
+expect_equal(dim(out$statsTable),c(22,10))
 
 allNamesStats <- c()
 for(i in 1:length(whichPairwise)){
-  allNamesStats<-c(allNamesStats,paste0(whichPairwise[i],1:length(genIntervals)))
+  allNamesStats<-c(allNamesStats,paste0(whichPairwise[i],1:(length(genIntervals)-1)))
 }
-nClasses <- c(NA,length(map.partitions),length(circles),1)
-for(i in 2:length(implStats)){
-  allNamesStats <- c(allNamesStats,paste0(implStats[i],1:nClasses[i]))
+gridStatsNames <-c()
+shortsForLMom <- c("V","S","K")
+for(iGrid in 1:length(map.partitions)){
+  gridStatsNames <- c(gridStatsNames,paste0("grid",iGrid,shortsForLMom))
 }
+allNamesStats <- c(allNamesStats,gridStatsNames)
+allNamesStats <- c(allNamesStats,paste0("circles",1:length(circles$counts)))
+allNamesStats <- c(allNamesStats,paste0("nInf",1))
 
 expect_equal(rownames(out$statsTable),allNamesStats)
 
@@ -150,7 +156,6 @@ expect_equal(rownames(out$statsTable),allNamesStats)
 whichPairwise = c("moran")	
 implStats <- c("semivariance","num_inf") # would need to either add "atRisk" or remove it from 
 
-# for all names at once
 out <- noKernelMultiGilStat(
 			    stratHopSkipJump = stratmat, 
 			    blockIndex = NULL, 
@@ -172,13 +177,12 @@ out <- noKernelMultiGilStat(
 			    conc.circs = circles, 
 			    rateIntro = 0)
 
-expect_equal(rownames(out$statsTable),c("moran1","moran2","moran3","num_inf1"))
+expect_equal(rownames(out$statsTable),c("moran1","moran2","num_inf1"))
 
 # for just one
 whichPairwise = c("moran")	
 implStats <- c("num_inf") # would need to either add "atRisk" or remove it from 
 
-# for all names at once
 out <- noKernelMultiGilStat(
 			    stratHopSkipJump = stratmat, 
 			    blockIndex = NULL, 
