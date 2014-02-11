@@ -8,7 +8,7 @@
  *        Version:  1.0
  *        Created:  09/28/2012
  *       Revision:  none
- *       Compiler:  R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c
+ *       Compiler:  R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c samlmu.f 
  *       Nota: need gsl (ubuntu package libgsl0-dev)
  *
  * =====================================================================================
