@@ -538,6 +538,7 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 
 	# return only the indexes of the initInfested
 	all.indexes <- as.matrix(all.indexes[,initInfested]) #as.matrix in case length(initInfested)==1
+							# Nota: need ,initInfested for this to work
 
 	# count how many values exist per distance class per house to get prevalence
 	prev.counts <- mat.or.vec(length(initInfested), length(distClasses)-1)
@@ -547,7 +548,7 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 			prev.counts[house, class+1] <- howmany
 		} 
 	} 
-	all.indexes <- t(all.indexes)
+	all.indexes <- t(all.indexes) # for consistency with former format
 
 	return(list(circleIndexes = all.indexes, counts = prev.counts))
 }
