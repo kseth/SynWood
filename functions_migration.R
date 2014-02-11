@@ -2,24 +2,32 @@
 # data for the tests
 library(geoR)
 library(testthat)
+library(spam)
 # source("RanalysisFunctions.R")
 
 # compile the .c if needed
 compilLoad<-function(sourcef,options=""){
-	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
-	if(file.exists(sourcef)){
-		exitCode<-system(paste("R CMD SHLIB",options,sourcef))
-		if(exitCode!=0){
-			stop("Compilation of ",sourcef," failed")
-		}else{
-			importOk<-try(dyn.load(gsub(".c$",".so",sourcef)),silent=TRUE)
-		}
-	}else{
-		importOk<-paste(sourcef,"missing")
-		class(importOk)<-"try-error"
 
-	}
-	return(importOk)
+  # remove compiled files to force compilation
+  # try(file.remove(gsub(".[fc]",".o",sourcef)),silent=TRUE)
+
+  # smarter: touch the file
+  forceRecompile <- paste("touch",paste(sourcef,collapse=" "))
+  system(forceRecompile)
+
+  if(file.exists(sourcef[1])){
+    exitCode<-system(paste("R CMD SHLIB",options,paste(sourcef,collapse=" ")))
+    if(exitCode!=0){
+      stop("Compilation of ",sourcef," failed")
+    }else{
+      importOk<-try(dyn.load(gsub(".c$",".so",sourcef[1])),silent=TRUE)
+    }
+  }else{
+    importOk<-paste(sourcef,"missing")
+    class(importOk)<-"try-error"
+
+  }
+  return(importOk)
 }
 
 #======================
@@ -533,15 +541,14 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 
 	# count how many values exist per distance class per house to get prevalence
 	prev.counts <- mat.or.vec(length(initInfested), length(distClasses)-1)
-	for(house in 1:length(initInfested))
+	for(house in 1:length(initInfested)){
 		for(class in 0:(length(distClasses)-2)){
-
 			howmany <- length(which(all.indexes[house, ] == class))
 			prev.counts[house, class+1] <- howmany
 		} 
+	} 
 
 	return(list(circleIndexes = all.indexes, counts = prev.counts))
-
 }
 
 #=============================
@@ -659,7 +666,7 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 # importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
 # if(class(importOk)=="try-error"){
 # commented out to force actualization in case of modifications
-	importOk <-compilLoad("functions_migration.c","-lgsl -lgslcblas -lm samlmu.f")
+	importOk <-compilLoad(c("functions_migration.c","samlmu.f"),"-lgsl -lgslcblas -lm")
 	
 # }
 # define migration functions and 
