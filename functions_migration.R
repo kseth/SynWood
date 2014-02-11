@@ -947,7 +947,7 @@ if(class(importOk)!="try-error"){
 	#' @param whichPairwise which pairwise (semivariance) to calculate (defaults to c("semivariance", "moran", "geary", "ripley")), should be any or multiple of these
 	#' @param detectRate whether to withold data (defaults to 1, detectRate = 0.7, 30% of data randomly withheld when generating statistics + counts)
        	#' @param rateIntro the rate of introductions (new infestations per unit time, same as endTime, defaults to 0)	
-	#' @param nPartCoefs the number of partition regression coefficients to have per partition (defaults to 0)
+	#' @param nPartCoefs the number of partition regression coefficients to have per partition (defaults to 0, max 3?)
 	#' @param iPartLMoments the indices of the partition L-moments to have per partition (defaults to 1, 2, 3 or Variance, Skewness, Kurtosis)
 	#' @return a list with:\itemize{
 	#'         \item{ToBeAdded}{ The output least needs cleaning} 
@@ -1071,6 +1071,7 @@ if(class(importOk)!="try-error"){
 			}	
 
 			# if want to calculate semivariance stats
+			namesSemivar <- c()
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
 
@@ -1098,17 +1099,36 @@ if(class(importOk)!="try-error"){
 				## General Semivariance (old - new)
 				## General Semivariance Std. Dev (old - new)
 				###===================================
+				orderPairwise <- c("semivariance", "moran", "geary", "ripley")
 				if(!haveBlocks)
-					semivar.nbStats <- 4*length(cbin)
+					semivar.nbStats <- length(orderPairwise)*length(cbin)
 				else{
-					semivar.nbStats <- 6*length(cbin)
+				  	
+					semivar.nbStats <- (length(orderPairwise)+2)*length(cbin)
 					cbinas <- dist_out$classSizeAS
 					cbinsb <- dist_out$classSizeSB
 				}
 
+				# table for all computable stats
 				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
+				
+				for(i in 1:length(orderPairwise)){ 
+				  namesSemivar <- c(namesSemivar,paste0(orderPairwise[i],1:length(cbin)))
+				}
+
+				# which of the pairwise to keep in final statistics
+				whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
+				# corresponding lines
+				keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
+
+				if(any(is.na(whichkeep))){
+				  error("some pairwise asked are not implemented")
+				  # whichkeep <- whichkeep[!is.na[whichkeep]]
+				}
+
 			}
 
+			namesGrid <- c()
 			if("grid" %in% typeStat){
 				if(is.null(map.partitions)){ # if an indexing of the map hasn't yet been passed, throw error
 					stop("map.partitions passed as null, cannot execute!")
@@ -1140,19 +1160,37 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by grid system):
-				## Variance of % positive per cell
-				## Number Cells with at least 1 positive 
-				## Fit quantile distribution to polynomial
+				## 1)Number Cells with at least 1 positive 
+				## 2)Std dev of % positive per cell
+				## 3)Fit quantile distribution to polynomial (at least 1 dummy)
 				## a + bx + cx^2 + dx^3 + ... (grid.numCoeffs stats)
 			        ##      = 2*numDiffGrids + 2*sum(grid.numCoeffs)
-			       	## L-moment statistics (taken from quantile distribution)
+			       	## 4)L-moment statistics (taken from quantile distribution)
 			        ## (2nd, 3rd, 4th L-moments, L-scale, L-skewness, L-kurtosis)
-				## L-mean should be ~ to median (also to num_inf)	
+				## L-mean = usual mean (also to num_inf)	
 				###===================================
 				grid.numCoeffs <- rep(max(1, nPartCoefs), length(gridNumCells)) #take max of nPartCoefs, 1 - need to pass in dummy object
 				grid.numLmoments <- max(1, max(iPartLMoments)) #take the max of the indices 
 				grid.nbStats <- 2*numDiffGrids + sum(grid.numCoeffs) + grid.numLmoments*numDiffGrids	
 				grid.statsTable <- mat.or.vec(grid.nbStats, Nrep)
+
+				# identify the items to keep in the output from C function
+				# TODO: could this be slightly less esoteric?
+				nGridUniqueStats <- 2 + max(nPartCoefs, 1) + grid.numLmoments
+				if(nPartCoefs > 0)
+				  keepGrid <- 2 + c(1:nPartCoefs, nPartCoefs+iPartLMoments)
+				else
+				  keepGrid <- 2 + 1 + iPartLMoments
+				keepGrid = keepGrid %% nGridUniqueStats
+
+				keepIndicesGrid <- which((1:dim(grid.statsTable)[1] %% nGridUniqueStats) %in% keepGrid)
+				# make the names
+				shortsForLMom <- c("NCell+","sd(+perCell)",
+						   paste0(c("C"),1:max(nPartCoefs,1)),
+						   c("LV","LS","LK")[iPartLMoments])
+				for(iGrid in 1:numDiffGrids){
+				  namesGrid <- c(namesGrid,paste0("grid",iGrid,shortsForLMom))
+				}
 			}
 
 			if("circles" %in% typeStat){
@@ -1178,7 +1216,6 @@ if(class(importOk)!="try-error"){
 			}
 			
 			if("atRisk" %in% typeStat){
-				browser()
 				atRisk.nbCoefs<-atRisk.ncoefs
 				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
 				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
@@ -1263,37 +1300,15 @@ if(class(importOk)!="try-error"){
 
 		out$infestedDens<-out$infestedDens/Nrep;
 
-		# make matrix out of semivar.statsTable
+		####  make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
+		rownames(out$semivar.statsTable) <- namesSemivar
+		out$semivar.statsTable <- out$semivar.statsTable[keepable, ]
 
-		# need to remove the ones that are NAN
-		notNAN <- which(!is.nan(out$semivar.statsTable[, 1]))
-
-		# which of the pairwise to keep in final statistics
-		orderPairwise <- c("semivariance", "moran", "geary", "ripley")
-		whichkeep <- match(whichPairwise, orderPairwise) - 1 #positions are 0 indexed
-		
-		if(any(is.na(whichkeep))){
-			warning("some pairwise supplied that are NA")
-	      		whichkeep <- whichkeep[!is.na[whichkeep]]
-		}
-
-		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
-
-		out$semivar.statsTable <- out$semivar.statsTable[intersect(keepable, notNAN), ]
-	
-		# make matrix out of grid.statsTable
+		####  make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-
-		nGridUniqueStats <- 2 + max(nPartCoefs, 1) + grid.numLmoments
-		if(nPartCoefs > 0)
-			keepGrid <- 2 + c(1:nPartCoefs, nPartCoefs+iPartLMoments)
-		else
-			keepGrid <- 2 + 1 + iPartLMoments
-		keepGrid = keepGrid %% nGridUniqueStats
-		
-		keepIndices <- which((1:dim(out$grid.statsTable)[1] %% nGridUniqueStats) %in% keepGrid)
-		out$grid.statsTable <- out$grid.statsTable[keepIndices, ] 
+		rownames(out$grid.statsTable) <- namesGrid
+		out$grid.statsTable <- out$grid.statsTable[keepIndicesGrid, ] 
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
@@ -1313,6 +1328,7 @@ if(class(importOk)!="try-error"){
 	
 			# put all the stats into one list for making statsTable
 			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable, out$atRisk.statsTable, out$inf.statsTable)
+				browser()
 			if(Nrep==1){
 				## if only one repetition, stats have to be handled as vectors
 				for(statsWant in matchStats)
@@ -1522,7 +1538,6 @@ if(class(importOk)!="try-error"){
 		
 		keepIndices <- which((1:length(out$gridstats) %% nGridUniqueStats) %in% keepGrid)
 		out$gridstats_mod <- out$gridstats[keepIndices] 
-
 
 		return(list(gridstats = out$gridstats, gridstats_mod = out$gridstats_mod))
 		
