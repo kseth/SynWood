@@ -111,7 +111,6 @@ expect_true(!any(is.na(out2)))
 source("baseModel.R")
 whichPairwise = c("semivariance", "moran", "geary", "ripley")	
 implStats <- c("semivariance", "grid", "circles",  "num_inf") # would need to either add "atRisk" or remove it from 
-								# noKernelMultiGilStat
 
 # for all names at once
 out <- noKernelMultiGilStat(
@@ -135,12 +134,74 @@ out <- noKernelMultiGilStat(
 			    conc.circs = circles, 
 			    rateIntro = 0)
 expect_equal(dim(out$statsTable),c(18,10))
+
 allNamesStats <- c()
 for(i in 1:length(whichPairwise)){
   allNamesStats<-c(allNamesStats,paste0(whichPairwise[i],1:length(genIntervals)))
 }
-allNamesStats <- c(allNamesStats,
+nClasses <- c(NA,length(map.partitions),length(circles),1)
+for(i in 2:length(implStats)){
+  allNamesStats <- c(allNamesStats,paste0(implStats[i],1:nClasses[i]))
+}
+
 expect_equal(rownames(out$statsTable),allNamesStats)
+
+# for just two
+whichPairwise = c("moran")	
+implStats <- c("semivariance","num_inf") # would need to either add "atRisk" or remove it from 
+
+# for all names at once
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 10, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    rateIntro = 0)
+
+expect_equal(rownames(out$statsTable),c("moran1","moran2","moran3","num_inf1"))
+
+# for just one
+whichPairwise = c("moran")	
+implStats <- c("num_inf") # would need to either add "atRisk" or remove it from 
+
+# for all names at once
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 10, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    rateIntro = 0)
+
+expect_equal(rownames(out$statsTable),c("num_inf1"))
+
 
 # })
 test_that("noKernelMultiGilStat num infs calculation",{
@@ -177,6 +238,17 @@ expect_equal(sum(out$infestedDens), 1)
 expect_equal(which(out$infestedDens==1), 1)
 })
 
+test_that("circles.conc returns something ok",{
+	  source("baseModel.R")
+expect_equal(dim(circles$circleIndexes),c(1,121))
+expect_equal(dim(circles$counts),c(1,2))
+
+## TODO: ideally should also check that the following is consistent 
+# with(maps,plot(X,Y,asp=1))
+# with(maps[startingInfested,],points(X,Y,pch=19))
+# with(maps[circles$circleIndexes==0,],points(X,Y,col="blue",pch=19))
+# with(maps[circles$circleIndexes==1,],points(X,Y,col="grey",pch=19))
+})
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -216,7 +288,7 @@ expect_equal(distsNoRowNames,makeDistMat(xs,ys))
 # })
 
 ### test of at_risk
-# test_that("at_risk computation",{
+test_that("at_risk computation",{
 	  trs<-cumsum(1:10)
 
 set.seed(1234)
@@ -294,7 +366,7 @@ stat<-apply(at_risk3,2,sum)
 correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
 expect_equal(stat,correct)
 
-# })
+})
 
 ### test of percolation computations
 test_that("percolation computations",{

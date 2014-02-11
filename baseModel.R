@@ -36,4 +36,3 @@ map.partitions <- divideMap(maps, partitionSizes, typeDivide="kmeans", language=
 # make the concentric circles
 circles <- conc.circles(maps$X, maps$Y, circleRadii, startingInfested) 
 
-
