@@ -1048,6 +1048,8 @@ if(class(importOk)!="try-error"){
 		atRisk.statsTable<-0
 
 		if(getStats){
+		  keepIndices <- list()
+		  namesStats <- list()
 
 			## pass the corresponding matched numbers to C instead of the name of the statistics
 			matchStats <- match(typeStat, implStats)
@@ -1063,15 +1065,31 @@ if(class(importOk)!="try-error"){
 				# Number Locations Infested (location or macrounits > 0)
 				# Number Units infested (total microunits +)
 				# Number Units Infested / Number Locations Infested
-				# If haveBlocks:
+				# If haveBlocks (!= from macro units)
 				#	Number Blocks Infested
 				#	Number Infested / Number Blocks Infested
-				inf.nbStats <- 3 + haveBlocks*2
+			  	
+				inf.nbStats <- 3 
+				if(haveBlocks){
+				  inf.nbStats <- inf.nbStats + 2
+				}
 				inf.statsTable <- mat.or.vec(inf.nbStats, Nrep)
+				namesNPos <- c("nMacroPos",
+					       "nMicroPos",
+					       "ratioMicroMacroPos",
+					       "nBlocksPos",
+					       "nPosOverNBlockPos")
+				namesStats[["num_inf"]] <- namesNPos[1:inf.nbStats]
+
+				keepIndicesInf <- 1:inf.nbStats
+				if(sum(maxInfest) == length(maxInfest)){ # throw away macro/micro unit statistics
+				  keepIndicesInf <- keepIndicesInf[-(2:3)]
+				}
+				keepIndices[["num_inf"]] <- keepIndicesInf
+				namesStats[["num_inf"]] <- namesStats[["num_inf"]][keepIndicesInf]
 			}	
 
 			# if want to calculate semivariance stats
-			namesSemivar <- c()
 			if("semivariance" %in% typeStat){
 				if(is.null(dist_out)){
 
@@ -1112,6 +1130,7 @@ if(class(importOk)!="try-error"){
 				# table for all computable stats
 				semivar.statsTable<-mat.or.vec(semivar.nbStats,Nrep)
 				
+				namesSemivar <- c()
 				for(i in 1:length(orderPairwise)){ 
 				  namesSemivar <- c(namesSemivar,paste0(orderPairwise[i],1:length(cbin)))
 				}
@@ -1121,14 +1140,15 @@ if(class(importOk)!="try-error"){
 				# corresponding lines
 				keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
 
+				keepIndices[["semivariance"]] <- keepable
 				if(any(is.na(whichkeep))){
 				  error("some pairwise asked are not implemented")
 				  # whichkeep <- whichkeep[!is.na[whichkeep]]
 				}
+				namesStats[["semivariance"]] <- namesSemivar[keepable]
 
 			}
 
-			namesGrid <- c()
 			if("grid" %in% typeStat){
 				if(is.null(map.partitions)){ # if an indexing of the map hasn't yet been passed, throw error
 					stop("map.partitions passed as null, cannot execute!")
@@ -1183,14 +1203,17 @@ if(class(importOk)!="try-error"){
 				  keepGrid <- 2 + 1 + iPartLMoments
 				keepGrid = keepGrid %% nGridUniqueStats
 
-				keepIndicesGrid <- which((1:dim(grid.statsTable)[1] %% nGridUniqueStats) %in% keepGrid)
+				keepIndicesGrid <- which((1:grid.nbStats %% nGridUniqueStats) %in% keepGrid)
+				keepIndices[["grid"]] <- keepIndicesGrid
 				# make the names
 				shortsForLMom <- c("NCell+","sd(+perCell)",
 						   paste0(c("C"),1:max(nPartCoefs,1)),
 						   c("LV","LS","LK")[iPartLMoments])
+				namesGrid <- c()
 				for(iGrid in 1:numDiffGrids){
 				  namesGrid <- c(namesGrid,paste0("grid",iGrid,shortsForLMom))
 				}
+				namesStats[["grid"]] <- namesGrid[keepIndicesGrid]
 			}
 
 			if("circles" %in% typeStat){
@@ -1207,18 +1230,27 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by numDiffCircles):
-				## Variance of % positive (across initInfested)
 				## Mean of % positive (across initInfested) 
+				## Variance of % positive (across initInfested)
 				##	= 2 * numDiffCircles
 				###===================================
 				circle.nbStats <- 2*numDiffCircles
 				circle.statsTable <- mat.or.vec(circle.nbStats, Nrep)
+				namesCircles <- c()
+				for(iCircle in 1:numDiffCircles){
+				  namesCircles <- c(namesCircles,paste0("circle",paste0(iCircle,c("mean","sd"))))
+				}
+				namesStats[["circles"]] <- namesCircles
+				keepIndices[["circles"]] <- 1:circle.nbStats
 			}
 			
 			if("atRisk" %in% typeStat){
 				atRisk.nbCoefs<-atRisk.ncoefs
 				atRisk.nbStats<-length(atRisk.trs)+atRisk.ncoefs
 				atRisk.statsTable<-mat.or.vec(Nrep,atRisk.nbStats)
+				namesAtRisk <- paste0("atRisk",1:atRisk.nbStats)
+				namesStats[["atRisk"]] <- namesAtRisk
+				keepIndices[["atRisk"]] <- 1:atRisk.nbStats
 			}
 		}
 
@@ -1302,21 +1334,18 @@ if(class(importOk)!="try-error"){
 
 		####  make matrix out of semivar.statsTable
 		out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
-		rownames(out$semivar.statsTable) <- namesSemivar
-		out$semivar.statsTable <- out$semivar.statsTable[keepable, ]
+		out$semivar.statsTable <- out$semivar.statsTable[keepIndices[["semivariance"]], ]
 
 		####  make matrix out of grid.statsTable
 		out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
-		rownames(out$grid.statsTable) <- namesGrid
-		out$grid.statsTable <- out$grid.statsTable[keepIndicesGrid, ] 
+		out$grid.statsTable <- out$grid.statsTable[keepIndices[["grid"]], ] 
 
 		# make matrix out of circle.statsTable
 		out$circle.statsTable <- matrix(out$circle.statsTable, byrow=FALSE, ncol=Nrep)
 
 		# make matrix out of inf.statsTable
 		out$inf.statsTable <- matrix(out$inf.statsTable, byrow = FALSE, ncol = Nrep)
-		if(sum(maxInfest) == length(maxInfest)) # throw away macro/micro unit statistics
-			out$inf.statsTable <- out$inf.statsTable[-(2:3), ]
+		out$inf.statsTable <- out$inf.statsTable[keepIndices[["num_inf"]], ]
 
 		# make matrix out of atRisk.statsTable
 		out$atRisk.statsTable <- matrix(out$atRisk.statsTable, byrow = FALSE, ncol = Nrep)
@@ -1327,25 +1356,38 @@ if(class(importOk)!="try-error"){
 		if(getStats){ ## if want to get statistics, need to make the statsTable
 	
 			# put all the stats into one list for making statsTable
-			allStats <- list(out$semivar.statsTable, out$grid.statsTable, out$circle.statsTable, out$atRisk.statsTable, out$inf.statsTable)
-				browser()
+			allStats <- list(out$semivar.statsTable, 
+					 out$grid.statsTable, 
+					 out$circle.statsTable, 
+					 out$atRisk.statsTable, 
+					 out$inf.statsTable)
+			allStatsNames <- c()
+			for(statsWant in matchStats){
+			  nameStat <- implStats[statsWant]
+			  allStatsNames <- c(allStatsNames,namesStats[[nameStat]])
+			}
 			if(Nrep==1){
-				## if only one repetition, stats have to be handled as vectors
-				for(statsWant in matchStats)
-			 		statsTable <- c(statsTable, allStats[[statsWant]])
-
-				statsTable <- statsTable[-1]
+			  ## if only one repetition, stats have to be handled as vectors
+			  for(statsWant in matchStats){
+			    statsTable <- c(statsTable, allStats[[statsWant]])
+			  }
+			  names(statsTable) <- c("Trash",allStatsNames)
+			  statsTable <- statsTable[-1]
 			}else{
+			  statsTable <- matrix(0, 1, Nrep)
+			  for(statsWant in matchStats){
+			    statsTable <- rbind(statsTable, allStats[[statsWant]])
+			  }
+			  rownames(statsTable) <- c("Trash",allStatsNames)
+			  statsTable <- statsTable[-1, ]# TODO: statsTable should have repeats on lines
 
-				statsTable <- matrix(0, 1, Nrep)
-				for(statsWant in matchStats)
-					statsTable <- rbind(statsTable, allStats[[statsWant]])
-				
-				statsTable <- statsTable[-1, ]
-				
-				#figure out which stats are degenerate (important to do prestats removal!)
-				vars <- apply(statsTable, 1, var)
-				degenerateStats <- which(vars == 0)
+			  #figure out which stats are degenerate (important to do prestats removal!)
+			  if(is.vector(statsTable)){# TODO: degenerate management should be moved to synlik calculus
+			    vars <- var(statsTable)
+			  }else{
+			    vars <- apply(statsTable, 1, var) 
+			  }
+			  degenerateStats <- which(vars == 0) 
 			}
 		}
 

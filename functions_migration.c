@@ -798,7 +798,7 @@ int double_compare(const void *a, const void *b){
 //nmom is the size of xmom (number of moments wanted) 
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
-//have not implemented get_stats_grid for blocks
+//have not implemented get_stats_grid for blocks # TODO: still true?
 void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
@@ -848,12 +848,12 @@ void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gr
 	// 	printf("\n");
 	// }
 
-	//compute statistics
-	//the first stat inserted will be num positive cells
-	//the second stat inserted will be variance of %positive 
-	//the remaining stats will be regression coefficients and L-moments
-	//need to compute variance + store in gridstats
-	//the percent positive is the mean %positive over all the cells (this is scale invariant)
+	// compute statistics
+	// the first stat inserted will be num positive cells
+	// the second stat inserted will be variance of %positive 
+	// the remaining stats will be regression coefficients and L-moments
+	// need to compute variance + store in gridstats
+	// the percent positive is the mean %positive over all the cells (this is scale invariant)
 	count = 0;
 
 	// keeps track of number of positive cells in grid
@@ -1074,16 +1074,16 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 	
 	    	int infBlockCount = 0;
 		for(int spot = 0; spot < *L; spot++){
-			if(infestedInit[spot] == 1){ 
-	           	 // to count the infested blocks
-	            	 // find the maximum number of infested blocks
-				currentBlock = blockIndex[spot];
-				if(currentBlock > maxBlock)
-					maxBlock = currentBlock;
-				if(currentBlock < minBlock)
-					minBlock = currentBlock;
-			}
-	    	}
+		  if(infestedInit[spot] == 1){ 
+		    // to count the infested blocks
+		    // find the maximum number of infested blocks
+		    currentBlock = blockIndex[spot];
+		    if(currentBlock > maxBlock)
+		      maxBlock = currentBlock;
+		    if(currentBlock < minBlock)
+		      minBlock = currentBlock;
+		  }
+		}
 		
 		int length = (maxBlock - minBlock) + 1;
 		int infBlocks[length];
