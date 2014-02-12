@@ -177,11 +177,10 @@ expect_equal(b,1)
 b<-WhichInParamSets(c(5,5),a)
 expect_equal(b,25)
 
-
 ## calculate the summary for normal synthetic likelihood
 LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
 	statsFit<-GetSynLikStructure(ref_stats,colNums,typeSL=typeSL)[[typeSL]]
-	stats<-rbind(stats[,colNums],ref_stats[,colNums])
+	stats<-rbind(stats[,colNums,drop=F],ref_stats[,colNums,drop=F])
 	if(class(statsFit)!="try-error"){
 		if(typeSL == "mvn"){
 			lls<-LLsStatsMVN(stats,1:dim(stats)[2],statsFit)
@@ -262,6 +261,7 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 		if(trueInAll){
 			lls <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
 								    trueStats,colNums,type,mc.cores=nCores)))
+			# first call: LLsStatsInRefStats(otherStats[[1]],trueStats, colNums,type)
 			print(lls)
 			nRepTV <- dim(trueStats)[1]
 			sim_ll[[type]]$lls <- lls[,(1:nRepTV)]
@@ -291,7 +291,9 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 	}
 	return(sim_ll)
 }
-SynLikTrueInAll <- SynLikExistingStats
+SynLikTrueInAll <- function(...){
+	return(SynLikExistingStats(...,trueInAll=TRUE))
+}
 
 # compute the synthetic likelihood 
 # at all points of otherStats according to trueStats
@@ -398,7 +400,8 @@ partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL,
 		nObs<-dim(stats)[1]
 		nStats<-dim(stats)[2]
 		if(nObs<nStats){
-			warning("Need at least",nStats,"observations to compute the partial correlation\n")
+			mes <- paste("Need at least",nStats,"observations\nto compute the partial correlation")
+			PlotPlaceHolder(mes)
 			return(NULL)
 		}else{
 			vcov.obj <- robust.vcov(t(stats))

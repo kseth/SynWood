@@ -11,9 +11,9 @@ compilLoad<-function(sourcef,options=""){
   # remove compiled files to force compilation
   # try(file.remove(gsub(".[fc]",".o",sourcef)),silent=TRUE)
 
-  # smarter: touch the file
-  forceRecompile <- paste("touch",paste(sourcef,collapse=" "))
-  system(forceRecompile)
+  # # smarter: touch the file
+  # forceRecompile <- paste("touch",paste(sourcef,collapse=" "))
+  # system(forceRecompile)
 
   if(file.exists(sourcef[1])){
     exitCode<-system(paste("R CMD SHLIB",options,paste(sourcef,collapse=" ")))

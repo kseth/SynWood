@@ -393,7 +393,6 @@ at_risk3<-get_at_risk_indicator(out$pos,dists,trs)
 stat<-apply(at_risk3,2,sum)
 correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
 expect_equal(stat,correct)
-
 })
 
 ### test of percolation computations
