@@ -550,6 +550,17 @@ conc.circles <- function(X, Y, distClasses, initInfested){
 	} 
 	all.indexes <- t(all.indexes) # for consistency with former format
 
+	## check that the counts are reasonable
+	minNeigh <- min(apply(prev.counts,2,min))
+	if(minNeigh == 0)
+	  warning("conc.circles: You may want to change your distClasses as 
+		  at least one center as no neighbor in one class")
+
+	meanNeighGrow <- apply(prev.counts,2,mean)
+	if(is.unsorted(meanNeighGrow))
+	  warning("conc.circles: You may want to change your distClasses as 
+		  the number of neighbor is not monotonically increasing")
+
 	return(list(circleIndexes = all.indexes, counts = prev.counts))
 }
 
@@ -668,7 +679,7 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 # importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
 # if(class(importOk)=="try-error"){
 # commented out to force actualization in case of modifications
-	importOk <-compilLoad(c("functions_migration.c","samlmu.f"),"-lgsl -lgslcblas -lm")
+importOk <-compilLoad(c("functions_migration.c","samlmu.f"),"-lgsl -lgslcblas -lm")
 	
 # }
 # define migration functions and 
@@ -1230,8 +1241,8 @@ if(class(importOk)!="try-error"){
 				###===================================
 				## CURRENT STATS 
 				## (by numDiffCircles):
-				## Mean of % positive (across initInfested) 
-				## Variance of % positive (across initInfested)
+				## Mean of rate positive (across initInfested) 
+				## standard deviation of rate positive (across initInfested)
 				##	= 2 * numDiffCircles
 				###===================================
 				circle.nbStats <- 2*numDiffCircles

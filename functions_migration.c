@@ -1000,29 +1000,30 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 				numPP[center][wherePut] = numPP[center][wherePut]+1;
 		}
 
-	double count = 0;
-	double meanPP = 0;
-	double varPP = 0;
-	for(int circle = 0; circle<*numDiffCircles; circle++)
-	{	
-	
-		for(int center = 0; center<*numDiffCenters; center++)
-		{
-			count = circleCounts[(center* *numDiffCircles) + circle];
-			meanPP = meanPP + numPP[center][circle]/count;
-			varPP = varPP + (numPP[center][circle]/count) * (numPP[center][circle]/count);
-		}
+	for(int circle = 0; circle<*numDiffCircles; circle++){	
+	  double sumPP = 0;
+	  double sumSqPP = 0;
+	  int nCenters = 0;
+	  // TODO: should recode that in a two pass way (first compute mean, then variance)
+	  //       as this way of computing can be numerically catastrophic)
+	  //       even if should not be a problem here as meanPP is bounded 0-1
+	  for(int center = 0; center<*numDiffCenters; center++){
+	    int count = circleCounts[(center* *numDiffCircles) + circle];
+	    if(count > 0){ // ignore the center if no neighbors in this circle
+	      double PP = numPP[center][circle]/count;
+	      sumPP += PP;
+	      sumSqPP += PP * PP;
+	      nCenters +=1;
+	    }
+	  }
 
-		meanPP = meanPP / *numDiffCenters;
-		varPP = varPP/(*numDiffCenters - 1) - meanPP*meanPP;
-	
-		// store the mean and standard deviation of the percent positive
-		stats[circle*2] = meanPP;
-		stats[circle*2+1] = sqrt(varPP);
-		meanPP = 0;
-		varPP = 0;
+	  double meanPP = sumPP /nCenters; 
+	  double varPP = (double)nCenters/(double)(nCenters-1) * (sumSqPP/nCenters - meanPP*meanPP);
+
+	  // store the mean and standard deviation of the percent positive
+	  stats[circle*2] = meanPP;
+	  stats[circle*2+1] = sqrt(varPP);
 	}
-	
 } 
 
 void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* startInfested, int* cbin, int* cbinas, int* cbinsb, double* stats, int* nbins, int* blockIndex, int* haveBlocks, int* endIndex){  
