@@ -203,12 +203,19 @@ LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
 # paramSets a matrix with parameter values for otherStats columns are different
 #    parameters and lines are different parameter sets
 SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
-			    colNums=(1:dim(otherStats[[1]])[2]),
+			    cols=(1:dim(otherStats[[1]])[2]),
 			    trueVals=NULL,paramSets=NULL,
 			    typeSL="mvn",
 			    trueInAll=TRUE,
 			    summaryLLs=TRUE){
 	nVal <- length(otherStats)
+
+	## if cols characters, identify the corresponding column numbers
+	if(class(cols)=="character"){
+	  colNums <- which(colnames(otherStats[[1]]) %in% cols)
+	}else{
+	  colNums <- cols
+	}
 
 	## manage to always get something as a likelihood structure
 	cat("Computing Synthetic Likelihood structure at TV\n")
@@ -262,7 +269,6 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 			lls <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
 								    trueStats,colNums,type,mc.cores=nCores)))
 			# first call: LLsStatsInRefStats(otherStats[[1]],trueStats, colNums,type)
-			print(lls)
 			nRepTV <- dim(trueStats)[1]
 			sim_ll[[type]]$lls <- lls[,(1:nRepTV)]
 
