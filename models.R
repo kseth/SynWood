@@ -566,7 +566,9 @@ noKernelModelOriginal <- function(theta,Data,postDraw=FALSE){
 		typeStat=Data$useStats,
 		whichPairwise=Data$whichPairwise,
 		detectRate=ifelse("detectRate" %in% Data$parmNames, theta["detectRate"], Data$default["detectRate"]),
-		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]))
+		rateIntro=ifelse("rateIntro" %in% Data$parmNames, theta["rateIntro"], Data$default["rateIntro"]),
+		iPartLMoments=Data$iPartLMoments
+		)
 
 	end <- Sys.time()
 
