@@ -1406,102 +1406,103 @@ void noKernelMultiGilStat(
 	// printf("nMicro: %i",nMicro);
   	int indexInfestInit[nMicro];
 
-	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
-	  // printf("rep: %i\n",rep);
-		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
+	int rep = 0;
+	for(rep=0; rep< *Nrep; rep++){ // loop simul/stat
+	    R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
-		if(valEndIndex <0){ // draw init
-		  for(int h=0;h<*L;h++){
+	    if(valEndIndex <0){ // draw init
+		for(int h=0;h<*L;h++){
 		    infestedInit[h]=0;
-		  }
-		  for(int h=0;h<nMicro;h++){
+		}
+		for(int h=0;h<nMicro;h++){
 		    indexInfestInit[h]=0;	
 		    age[h]=0;
-		  }
-		  double rand = UNICONG;
-		  int h = (int)(rand* (*L));
-		  infestedInit[h]=1;
-		  indexInfestInit[0]=h;	
-		  *endIndex=0; 
-		}else{ // restore to init
-		  // initialisation simul
-		  for(int h=0;h<*L;h++){ 
+		}
+		double rand = UNICONG;
+		int h = (int)(rand* (*L));
+		infestedInit[h]=1;
+		indexInfestInit[0]=h;	
+		*endIndex=0; 
+	    }else{ // restore to init
+		// initialisation simul
+		for(int h=0;h<*L;h++){ 
 		    infestedInit[h]=*(infested+h);
-		  }
-		  for(int h=0;h<nMicro;h++){
+		}
+		for(int h=0;h<nMicro;h++){
 		    indexInfestInit[h]=*(indexInfest+h);	
 		    age[h]=*(age+h);
-		  }
-
-		  *endIndex=valEndIndex; 
 		}
 
-	 	if(*simul==1){ // run a normal simulation
-	 		
-	 		stratGillespie(infestedInit,maxInfest,endIndex,L,
-			    rateHopInMove,rateSkipInMove,rateJumpInMove,
-			    hopColIndex,hopRowPointer,
-			    skipColIndex,skipRowPointer,
-			    jumpColIndex,jumpRowPointer,endTime,
-			    microToMacro,&nMicro,
-			    indexInfestInit,age,rateMove, rateIntro, seed);
+		*endIndex=valEndIndex; 
+	    }
 
-			//printf("L: %i, endIndex: %i, dR: %.2f, s %i\n",
-			    // *L,*endIndex,*detectRate,*seed);
-			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
+	    if(*simul==1){ // run a normal simulation
 
-	 		for(int h=0;h<*L;h++){
-	 			infestedDens[h]+=infestedInit[h];
-	 		}		
-	 	}
+		stratGillespie(infestedInit,maxInfest,endIndex,L,
+			rateHopInMove,rateSkipInMove,rateJumpInMove,
+			hopColIndex,hopRowPointer,
+			skipColIndex,skipRowPointer,
+			jumpColIndex,jumpRowPointer,endTime,
+			microToMacro,&nMicro,
+			indexInfestInit,age,rateMove, rateIntro, seed);
 
-	 	if(*getStats==1){ // calculate the statistics
+		// printf("L: %i, endIndex: %i, dR: %.2f, s %u\n",
+		//	*L,*endIndex,*detectRate,*seed);
+		simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
-			if(*simul!=1){ // if no simulation, need to withhold data and calculated infestedDens here instead 
+		for(int h=0;h<*L;h++){
+		    infestedDens[h]+=infestedInit[h];
+		}		
+	    }
 
-				simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed);
+	    if(*getStats==1){ // calculate the statistics
 
-		 		for(int h=0;h<*L;h++){
-	 				infestedDens[h]+=infestedInit[h];
-	 			}
-			}
+		if(*simul!=1){ // if no simulation, need to withhold data and calculated infestedDens here instead # TODO: that's probably a bad idea
+			// to do that here
 
-			for(int stat=0;stat<*lengthStats; stat++){
+		    simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed);
 
-				// for every stat that we want, switch case
-				int npos[1];
-				npos[0] = *endIndex + 1;
+		    for(int h=0;h<*L;h++){
+			infestedDens[h]+=infestedInit[h];
+		    }
+		}
 
-				switch(matchStats[stat]){
-	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
-					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
-							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
-							if(dists == NULL){
-								printf("cannot (c)allocate memory");
-								return;
-							}		
-							makeDistMat(xs,L,ys,dists);
-							noDists = 0;
-						}
-						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break;
-					case 5: get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks); break;
-					default: printf("stat that isn't supported yet\n"); break;
+		for(int stat=0;stat<*lengthStats; stat++){
+
+		    // for every stat that we want, switch case
+		    int npos[1];
+		    npos[0] = *endIndex + 1;
+
+		    switch(matchStats[stat]){
+			case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
+			case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
+			case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
+			case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
+				    dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
+				    if(dists == NULL){
+					printf("cannot (c)allocate memory");
+					return;
+				    }		
+				    makeDistMat(xs,L,ys,dists);
+				    noDists = 0;
 				}
-			}
-	 	}
+				get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break;
+			case 5: get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks); break;
+			default: printf("stat that isn't supported yet\n"); break;
+		    }
+		}
+	    }
 
-	 	if(*simul==0){ // no simulations, just stats 
-	 		break; // to exit loop even if Nrep!=1
-	 	}
+	    if(*simul==0){ // no simulations, just stats 
+		break; // to exit loop even if Nrep!=1
+	    }
 
 	}
 	// just in order to see the last replicate
 	for(int h=0;h<*L;h++){
-	  infested[h]=infestedInit[h];
+	    infested[h]=infestedInit[h];
 	}
 
 	if(dists != NULL)
-		free(dists); //free malloc'ed dists
-}
+	    free(dists); //free malloc'ed dists
+	}
