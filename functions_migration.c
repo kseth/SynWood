@@ -1109,28 +1109,6 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 	}	
 }
 
-//=======================================
-// At risk stat
-// - according to dist give the number of points 
-//   within dist of infested
-//=======================================
-
-void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
-
-	// get matrix of indicator of at risk for each household
-	// and each threshold
-	int* at_risk_ind;
-	at_risk_ind = (int *) malloc(sizeof(int)* (*nTr * *L));
-	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
-
-	// transform matrix of indicator in raw stat
-	for ( int ih = 0; ih < *L; ih += 1 ) { 
-		for(int itr=0;itr< *nTr;itr++){
-			at_risk_stats[itr] += at_risk_ind[itr + ih * *nTr ];
-		}
-	}
-	free(at_risk_ind);
-}
 
 //=======================================
 // in at_risk (n*nTr) return for each tr and each node if at risk
@@ -1159,6 +1137,29 @@ void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, do
   // printf("summary in indicator\n");
   // for(int itr=0;itr< *nTr;itr++) printf("%d ",summary[itr]);
   // printf("\n");
+}
+
+//=======================================
+// At risk stat
+// - according to dist give the number of points 
+//   within dist of infested
+//=======================================
+
+void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
+
+	// get matrix of indicator of at risk for each household
+	// and each threshold
+	int* at_risk_ind;
+	at_risk_ind = (int *) malloc(sizeof(int)* (*nTr * *L));
+	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
+
+	// transform matrix of indicator in raw stat
+	for ( int ih = 0; ih < *L; ih += 1 ) { 
+		for(int itr=0;itr< *nTr;itr++){
+			at_risk_stats[itr] += at_risk_ind[itr + ih * *nTr ];
+		}
+	}
+	free(at_risk_ind);
 }
 
 // use at_risk_stat and polynomial fitting to return the at_risk stats
