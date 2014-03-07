@@ -673,13 +673,12 @@ gillespie <- function(probMat, # matrix with probability to end up in given hous
 ## all the main loop + statistical functions functions
 #==========================
 
-# import C functions if possible
-# importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
-# if(class(importOk)=="try-error"){
-# commented out to force actualization in case of modifications
+# compile C functions if possible
 importOk <-compilLoad(c("functions_migration.c","samlmu.f"),"-lgsl -lgslcblas -lm")
+if(class(importOk)=="try-error"){
+	importOk<-try(dyn.load("functions_migration.so"), silent=FALSE)
+}
 
-# }
 # define migration functions and 
 # change all entries in A bigger than maxtobesetnull to 0
 if(class(importOk)!="try-error"){
