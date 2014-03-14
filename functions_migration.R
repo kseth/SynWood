@@ -946,13 +946,13 @@ if(class(importOk)!="try-error"){
     #' @param simul should simulations be run (defaults to TRUE), pass FALSE if want only to calculate statistics on infestH
     #' @param maxInfest the maximum number of infestations for each of the households (defaults to 1 per household)
     #' @param getStats should statistics be obtained from the simulations (defaults to TRUE), pass FALSE if only want simulation output
-    #' @param dist_out a semivariance statistics object (defaults to NULL, see makeDistClassesWithStreets or makeDistClasses)
+    #' @param dist_out a pairwise statistics object (defaults to NULL, see makeDistClassesWithStreets or makeDistClasses)
     #' @param map.partitions a partition statistics object (defaults to NULL, see partitionMap)
     #' @param conc.circs a circles statistics object (defaults to NULL, see conc.circles)
     #' @param atRisk.trs thresholds for atRisk statistics (defaults to NULL, breaks between houses, should be between 0 and infinity)
     #' @param atRisk.ncoefs number of coefficients to be calculated (defaults to NULL)
-    #' @param typeStat which statistics to calculate (defaults to "semivariance" for backward compatibility), should be any or multiple of "semivariance", "grid", "circles", "atRisk", "num_inf" - appropriate distance objects should also be passed, see above
-    #' @param whichPairwise which pairwise (semivariance) to calculate (defaults to c("semivariance", "moran", "geary", "ripley")), should be any or multiple of these
+    #' @param typeStat which statistics to calculate (defaults to "pairwise" for backward compatibility), should be any or multiple of "pairwise", "grid", "circles", "atRisk", "num_inf" - appropriate distance objects should also be passed, see above
+    #' @param whichPairwise which pairwise to calculate (defaults to c("semivariance", "moran", "geary", "ripley")), should be any or multiple of these
     #' @param detectRate whether to withold data (defaults to 1, detectRate = 0.7, 30% of data randomly withheld when generating statistics + counts)
     #' @param rateIntro the rate of introductions (new infestations per unit time, same as endTime, defaults to 0)	
     #' @param nPartCoefs the number of partition regression coefficients to have per partition (defaults to 0, max 3?)
@@ -981,7 +981,7 @@ if(class(importOk)!="try-error"){
          getStats=TRUE, 
          dist_out = NULL, map.partitions = NULL, conc.circs = NULL, 
          atRisk.trs = NULL, atRisk.ncoefs = NULL,
-         typeStat = "semivariance",
+         typeStat = "pairwise",
          whichPairwise = c("semivariance", "moran", "geary", "ripley"),	
          detectRate = 1, rateIntro = 0,
          nPartCoefs = 0, iPartLMoments = c(1, 2, 3)){
@@ -1014,13 +1014,13 @@ if(class(importOk)!="try-error"){
 	}
 
 	# implemented stats
-	implStats <- c("semivariance", "grid", "circles", "atRisk", "num_inf")
+	implStats <- c("pairwise", "grid", "circles", "atRisk", "num_inf")
 
 	# initialize all the statistics to 0
 	matchStats <- 0
 
 	# if getStats and specific statistics are used, then change their value
-	# semivariance statistics
+	# pairwise statistics
 	nbins <- 0
 	dist_indices <- 0
 	cbin <- 0
@@ -1097,11 +1097,11 @@ if(class(importOk)!="try-error"){
 		namesStats[["num_inf"]] <- namesStats[["num_inf"]][keepIndicesInf]
 	    }	
 
-	    # if want to calculate semivariance stats
-	    if("semivariance" %in% typeStat){
+	    # if want to calculate pairwise stats
+	    if("pairwise" %in% typeStat){
 		if(is.null(dist_out)){
 
-		    stop("no semivariance dist_out object passed, cannot execute!")
+		    stop("no pairwise dist_out object passed, cannot execute!")
 		}
 
 		dist_indices <- dist_out$CClassIndex
