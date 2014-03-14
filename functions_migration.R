@@ -1148,12 +1148,12 @@ if(class(importOk)!="try-error"){
 		# corresponding lines
 		keepable <- unlist(lapply(length(cbin)*whichkeep, "+", 1:length(cbin)))
 
-		keepIndices[["semivariance"]] <- keepable
+		keepIndices[["pairwise"]] <- keepable
 		if(any(is.na(whichkeep))){
 		    error("some pairwise asked are not implemented")
 		    # whichkeep <- whichkeep[!is.na[whichkeep]]
 		}
-		namesStats[["semivariance"]] <- namesSemivar[keepable]
+		namesStats[["pairwise"]] <- namesSemivar[keepable]
 
 	    }
 
@@ -1343,7 +1343,7 @@ if(class(importOk)!="try-error"){
 	if(getStats){ ## if want to get statistics, need to make the statsTable
 	    ####  make matrix out of semivar.statsTable
 	    out$semivar.statsTable<-matrix(out$semivar.statsTable,byrow=FALSE,ncol=Nrep)
-	    out$semivar.statsTable <- out$semivar.statsTable[keepIndices[["semivariance"]], ]
+	    out$semivar.statsTable <- out$semivar.statsTable[keepIndices[["pairwise"]], ]
 
 	    ####  make matrix out of grid.statsTable
 	    out$grid.statsTable <- matrix(out$grid.statsTable,byrow=FALSE,ncol=Nrep)
