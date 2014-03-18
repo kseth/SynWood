@@ -1,8 +1,8 @@
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
 
 Monitored<-read.table("completethetasamples_all201000.txt",header=TRUE)
-names(Monitored)<-c("LL", "LP", "rateMove", "weightSkipInMove", "weightJumpInMove") 
-params <- c("rateMove", "weightSkipInMove", "weightJumpInMove")
+names(Monitored)<-c("LL", "LP", "rateMove", "weightJumpInMove") 
+params <- c("rateMove", "weightJumpInMove")
 traces(Monitored)
 
 dev.new()
