@@ -1376,14 +1376,7 @@ void noKernelMultiGilStat(
     	double* detectRate // % of end infested houses that are detected (1 to not remove any houses)
 	){
 
-	// if no blocks but still pass a rate skip
-	// passing rateskip = 0 will prevent gillespie from skipping
-	if(*skipColIndex == -1 && *skipRowPointer== -1 && *rateSkipInMove != 0){
-		printf("no skips given but rateSkipInMove!=0\n");
-		return;
-	}
-	
-	int valEndIndex = *endIndex;	
+		int valEndIndex = *endIndex;	
 	int infestedInit[*L];
 
 	//if atRisk stats are called
@@ -1438,6 +1431,12 @@ void noKernelMultiGilStat(
 	    }
 
 	    if(*simul==1){ // run a normal simulation
+		// if no blocks but still pass a rate skip
+		// passing rateskip = 0 will prevent gillespie from skipping
+		if(*skipColIndex == -1 && *skipRowPointer== -1 && *rateSkipInMove != 0){
+		        printf("no skips given but rateSkipInMove!=0\n");
+		        return;
+		}
 
 		stratGillespie(infestedInit,maxInfest,endIndex,L,
 			rateHopInMove,rateSkipInMove,rateJumpInMove,
