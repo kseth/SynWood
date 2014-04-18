@@ -315,6 +315,44 @@ SynLikAllInTrue <- function(...){
 	return(SynLikExistingStats(...,trueInAll=FALSE))
 }
 
+#=========================
+# Use only a subset of simulations (instead of all of them)
+#=========================
+# given a list  of type stats (as above)
+# return a subset of stats where each point has only numSims simulations 
+# example: stats50 <- subsetSims(stats, 50)
+# stats50 can be used like stats
+subsetSims <- function(stats, numSims){
+
+		if(numSims > dim(stats[[1]])[1])
+			stop("stats has less than number of simulations requested")
+
+			subset <- lapply(stats,
+		 			 function(x, numSims){
+		 				 return(x[1:numSims, ])
+		 			 },
+		 			 numSims)
+		return(subset)
+}
+
+#=======================
+# Compute the cutoff area (area within 95% crI) as number of simulations changes for different stats
+#=======================
+areasVsSimulations <- function(trueVals,paramSets,otherStats,cols,typeSL,trueInAll=FALSE, numSims){
+	cutoff_area <- rep(0, length(numSims))
+	count <- 1
+	for(nsim in numSims){
+		out <- SynLikExistingStats(trueVals=trueVals, paramSets=paramSets, otherStats=subsetSims(otherStats, nsim), cols=cols, typeSL=typeSL, trueInAll=trueInAll)[[typeSL]]$summary
+		
+		heatplotout <- twoDim_precI(xy=paramSets, y=out[, "mean"], main = paste(nsim, " "), xlab = "FM", ylab = "RJ")
+		cutoff_area[count] <- heatplotout$confAreas
+		count <- count+1
+	}
+	return(list(numSims=numSims, boundedAreas = cutoff_area))
+			
+}
+
+
 #========================
 # checking the normality/skew-normality
 #========================
@@ -516,6 +554,10 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, co
 
 	# print(volume_out)
 
+	area_out <- trapz3d(px1, px2, rep(1, length(px1)), tri) #find the areas of the triangles
+	indiv_tri_areas <- attr(area_out, "tri_volumes") # individual areas
+	attributes(area_out) <- NULL
+
 	zmat <- t(matrix(py, nrow=length(x2), byrow=TRUE))
 	if(!plotLog)
 		image(x=x1, y=x2, z=zmat, useRaster=TRUE, ...)
@@ -530,20 +572,22 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, co
 	whichInterval <- findInterval(cum_rev_tri_volumes, prI, rightmost.closed=TRUE)
 
 	cutoff_ll <- mat.or.vec(length(prI), 1)
-	
+	cutoff_area <- mat.or.vec(length(prI), 1)
+
 	for(i in 0:(length(prI)-1)){
 		mch <- max(which(whichInterval == i))
 		# print(mch)
 		cutoff_index <- match_tri_index[mch]
 		# print(median(py[tri[cutoff_index, ]]))
 		cutoff_ll[i+1] <- median(py[tri[cutoff_index, ]])
+		cutoff_area[i+1] <- sum(indiv_tri_areas[match_tri_index[which(whichInterval %in% 0:i)]])
 	}
 
 	contour(x=x1, y=x2, z=zmat, levels=cutoff_ll[!is.na(cutoff_ll)], labels=prI, add=TRUE, labcex=0.8)
 
 	names(cutoff_ll) <- prI
 
-	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat)
+	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat, confAreas = cutoff_area)
 	return(out)
 }
 
