@@ -285,7 +285,7 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 		}
 		# make summary statistics of the lls
 		if(summaryLLs){
-			namesStats <- c("mean","median","sd","loCrI","hiCrI","rse")
+			namesStats <- c("median","mean","sd","loCrI","hiCrI","rse")
 			cat("Computing summary stats of the likelihoods\n")
 			sim_ll[[type]]$summary <- SummaryStatsOfLLs(sim_ll[[type]]$lls,nCores)
 			colnames(sim_ll[[type]]$summary) <- namesStats
@@ -448,6 +448,19 @@ partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL,
 			PlotPlaceHolder(mes)
 			return(NULL)
 		}else{
+			# remove stats we cannot handla because of NA
+			simulWithPb<- which(sapply(stats,anyNA))
+			if(length(simulWithPb)>1){
+				# # would be to triage stats with all the repetitions
+				# warning("NA detected, will ignore the stats concerned")
+				# # which column do we find any NA in?
+				# areNAs <- sapply(stats[simulWithPb],is.na)
+				# areNAs2 <- apply(areNAs,1,any)
+				# areNAs3 <- matrix(areNAs2,ncol=65)
+				# statWithNA <- apply(areNAs3,2,any)
+				statWithNA <- apply(stats,2,anyNA)
+				stats <- stats[,!statWithNA]
+			}
 			vcov.obj <- robust.vcov(t(stats))
 		}
 	}
@@ -455,6 +468,13 @@ partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL,
 	er <- vcov.obj$E
 	out <- get.partial.cor(er)
 	
+	if(length(simulWithPb)>1){
+		base <- matrix(rep(NA,ntotstats*ntotstats),ncol=ntotstats)
+		outInt <- list(partCor=base,prec=base)
+		outInt$partCor[which(!statWithNA),which(!statWithNA)] <- out$partCor
+		outInt$prec[which(!statWithNA),which(!statWithNA)] <- out$prec
+		out<-outInt
+	}
 	image(abs(out$partCor), xlab= "partial correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
 	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
 
