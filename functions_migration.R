@@ -721,6 +721,13 @@ if(class(importOk)!="try-error"){
     #### statistics functions
     ####    with their tests
     # get the indexes of distance class for each pair
+    # returns 
+    # - in CClassIndex
+    # a symetric n^2 matrix with for each pair of points i,j
+    # the index of the distance class (0 to number of breaks-1) 
+    # or -1 if in the distance is in none of the distance classes
+    # - in dists 
+    # The matrix of distances
 
     makeDistClasses<-function(X,Y,breaks){
 	cbin<-rep(0,length(breaks)-1)
