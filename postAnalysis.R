@@ -142,12 +142,12 @@ mean_sd_each <- apply(sd_each, 2, mean)
 # find the mean of the zscores
 mean_zscore_each <- apply(zscore_each, 2, mean)
 
-cat("mean(sd by run)/sd: \n", mean_sd_each/sd_all, "\n mean(zscore by run): \n", mean_zscore_each, "\n zscore overall: \n", zscore_all, "\n")
+# cat("mean(sd by run)/sd: \n", mean_sd_each/sd_all, "\n mean(zscore by run): \n", mean_zscore_each, "\n zscore overall: \n", zscore_all, "\n")
 
 # determine the percentbad - percent that parameters are outside confidence interval
 percentgood <- counts/length(allLengths)
 percentbad <- 1-percentgood
-print(percentbad[1:2])
+# print(percentbad[1:2])
 
 # determine the percent that the median is off from the realmeans
 percentoff_rm <- abs((log(median_each[, 1]) - log(realMeans[1]))/log(realMeans[1]))
@@ -209,7 +209,7 @@ abline(h=1, col="green")
 # dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
 
 ##width of credible intervals
-print(mean(quantile_each[, 4]-quantile_each[,3]))
-print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
-print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
-print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))
+# print(mean(quantile_each[, 4]-quantile_each[,3]))
+# print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
+# print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
+# print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))

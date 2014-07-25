@@ -39,10 +39,12 @@ for(i1 in 1:length(x1))
 
 dev.new()
 start <- Sys.time()
-out <- twoDim_precI(x1, x2, z, prI=c(0.5, 0.75, 0.95, 0.99), col=colorRampPalette(c("red", "orange", "yellow", "green"))(length(x1)))
+out <- twoDim_precI(x1=x1, x2=x2, y=z, prI=c(0.5, 0.75, 0.95, 0.99), col=colorRampPalette(c("red", "orange", "yellow", "green"))(length(x1)))
 # the below polygons show the 1D positions of the 99, 95, and 50% conf. intervals
 # polygon(2.58/2*c(-2, -2, 2, 2), 2.58/2*c(-2, 2, 2, -2))
 # polygon(1.96/2*c(-2, -2, 2, 2), 1.96/2*c(-2, 2, 2, -2))
 # polygon(0.67/2*c(-2, -2, 2, 2), 0.67/2*c(-2, 2, 2, -2))
 end <- Sys.time()
 print(end - start)
+cutoff_area <- out$confAreas
+print(cutoff_area)

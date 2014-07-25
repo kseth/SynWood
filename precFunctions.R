@@ -285,7 +285,7 @@ SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
 		}
 		# make summary statistics of the lls
 		if(summaryLLs){
-			namesStats <- c("mean","median","sd","loCrI","hiCrI","rse")
+			namesStats <- c("median","mean","sd","loCrI","hiCrI","rse")
 			cat("Computing summary stats of the likelihoods\n")
 			sim_ll[[type]]$summary <- SummaryStatsOfLLs(sim_ll[[type]]$lls,nCores)
 			colnames(sim_ll[[type]]$summary) <- namesStats
@@ -314,6 +314,44 @@ SynLikTrueInAll <- function(...){
 SynLikAllInTrue <- function(...){
 	return(SynLikExistingStats(...,trueInAll=FALSE))
 }
+
+#=========================
+# Use only a subset of simulations (instead of all of them)
+#=========================
+# given a list  of type stats (as above)
+# return a subset of stats where each point has only numSims simulations 
+# example: stats50 <- subsetSims(stats, 50)
+# stats50 can be used like stats
+subsetSims <- function(stats, numSims){
+
+		if(numSims > dim(stats[[1]])[1])
+			stop("stats has less than number of simulations requested")
+
+			subset <- lapply(stats,
+		 			 function(x, numSims){
+		 				 return(x[1:numSims, ])
+		 			 },
+		 			 numSims)
+		return(subset)
+}
+
+#=======================
+# Compute the cutoff area (area within 95% crI) as number of simulations changes for different stats
+#=======================
+areasVsSimulations <- function(trueVals,paramSets,otherStats,cols,typeSL,trueInAll=FALSE, numSims){
+	cutoff_area <- rep(0, length(numSims))
+	count <- 1
+	for(nsim in numSims){
+		out <- SynLikExistingStats(trueVals=trueVals, paramSets=paramSets, otherStats=subsetSims(otherStats, nsim), cols=cols, typeSL=typeSL, trueInAll=trueInAll)[[typeSL]]$summary
+		
+		heatplotout <- twoDim_precI(xy=paramSets, y=out[, "mean"], main = paste(nsim, " "), xlab = "FM", ylab = "RJ")
+		cutoff_area[count] <- heatplotout$confAreas
+		count <- count+1
+	}
+	return(list(numSims=numSims, boundedAreas = cutoff_area))
+			
+}
+
 
 #========================
 # checking the normality/skew-normality
@@ -410,6 +448,19 @@ partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL,
 			PlotPlaceHolder(mes)
 			return(NULL)
 		}else{
+			# remove stats we cannot handla because of NA
+			simulWithPb<- which(sapply(stats,anyNA))
+			if(length(simulWithPb)>1){
+				# # would be to triage stats with all the repetitions
+				# warning("NA detected, will ignore the stats concerned")
+				# # which column do we find any NA in?
+				# areNAs <- sapply(stats[simulWithPb],is.na)
+				# areNAs2 <- apply(areNAs,1,any)
+				# areNAs3 <- matrix(areNAs2,ncol=65)
+				# statWithNA <- apply(areNAs3,2,any)
+				statWithNA <- apply(stats,2,anyNA)
+				stats <- stats[,!statWithNA]
+			}
 			vcov.obj <- robust.vcov(t(stats))
 		}
 	}
@@ -417,6 +468,13 @@ partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL,
 	er <- vcov.obj$E
 	out <- get.partial.cor(er)
 	
+	if(length(simulWithPb)>1){
+		base <- matrix(rep(NA,ntotstats*ntotstats),ncol=ntotstats)
+		outInt <- list(partCor=base,prec=base)
+		outInt$partCor[which(!statWithNA),which(!statWithNA)] <- out$partCor
+		outInt$prec[which(!statWithNA),which(!statWithNA)] <- out$prec
+		out<-outInt
+	}
 	image(abs(out$partCor), xlab= "partial correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
 	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
 
@@ -516,6 +574,10 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, co
 
 	# print(volume_out)
 
+	area_out <- trapz3d(px1, px2, rep(1, length(px1)), tri) #find the areas of the triangles
+	indiv_tri_areas <- attr(area_out, "tri_volumes") # individual areas
+	attributes(area_out) <- NULL
+
 	zmat <- t(matrix(py, nrow=length(x2), byrow=TRUE))
 	if(!plotLog)
 		image(x=x1, y=x2, z=zmat, useRaster=TRUE, ...)
@@ -530,20 +592,22 @@ twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, co
 	whichInterval <- findInterval(cum_rev_tri_volumes, prI, rightmost.closed=TRUE)
 
 	cutoff_ll <- mat.or.vec(length(prI), 1)
-	
+	cutoff_area <- mat.or.vec(length(prI), 1)
+
 	for(i in 0:(length(prI)-1)){
 		mch <- max(which(whichInterval == i))
 		# print(mch)
 		cutoff_index <- match_tri_index[mch]
 		# print(median(py[tri[cutoff_index, ]]))
 		cutoff_ll[i+1] <- median(py[tri[cutoff_index, ]])
+		cutoff_area[i+1] <- sum(indiv_tri_areas[match_tri_index[which(whichInterval %in% 0:i)]])
 	}
 
 	contour(x=x1, y=x2, z=zmat, levels=cutoff_ll[!is.na(cutoff_ll)], labels=prI, add=TRUE, labcex=0.8)
 
 	names(cutoff_ll) <- prI
 
-	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat)
+	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat, confAreas = cutoff_area)
 	return(out)
 }
 

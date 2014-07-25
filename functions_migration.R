@@ -418,7 +418,6 @@ partitionMap <- function(X, Y, partition.rows, partition.cols = partition.rows){
 importkmeans_Ok <- try(dyn.load("kmeans.so"), silent=TRUE)
 if(class(importkmeans_Ok)=="try-error"){
     importkmeans_Ok <-compilLoad("kmeans.c")
-
 }
 ## X the x coords of the points
 ## Y the y coords of the points
