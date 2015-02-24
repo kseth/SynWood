@@ -45,45 +45,238 @@ test_mat <- as.spam(test_mat)
 expect_equal(totalmat, test_mat)
 })
 
+test_that("MakeIndexFromNinfest ok",{
+	  set.seed(777)
+	  nInfs<-rpois(10,1)
+ind<-MakeIndexFromNinfest(nInfs)
+expect_equal(length(ind),sum(nInfs))
+tabInd <- table(ind)
+tabIndFrom_nInfs<-nInfs[as.numeric(names(tabInd))]
+attributes(tabInd)<-NULL
+
+expect_equal(tabIndFrom_nInfs,tabInd)
+
+nInfsBack <- MakeNinfestFromIndex(ind,length(nInfs))
+
+expect_equal(nInfsBack,nInfs)
+})
+
+
+#============================
+# Test that get_stats_grid works fine with integral input
+# Where the input is the number of positive per site (positive houses in block, positive bugs in house, etc.)
+#============================
+test_that("get_stats_grid returns reasonably for 'poisson' input", {
+
+num.rows <- 33
+num.cols <- 33
+maps <- makeGrid(num.rows, num.cols, 10)
+partitionSizes <- c(10, 20)
+map.partitions <- divideMap(maps, partitionSizes, typeDivide = "kmeans")
+
+numHouses <- num.rows*num.cols
+
+infested <- rpois(numHouses, lambda = 5)
+maxInfest <- rep(max(infested), numHouses)
+infested <- infested - 1
+infested[which(infested < 0)] <- 0
+
+out <- get_stats_grid(infested, maxInfest, map.partitions)
+expect_true(!any(is.na(out)))
+
+## case where input is binary, not poisson (check to see that it works!)
+infested2 <- as.integer(round(runif(numHouses, 0, 1)))
+maxInfest2 <- rep(1, numHouses)
+out2 <- get_stats_grid(infested2, maxInfest2, map.partitions)
+expect_true(!any(is.na(out2)))
+
+## test that only getting 2 partition Lmoments also works
+out3 <- get_stats_grid(infested, maxInfest, map.partitions, iPartLMoments = 1:2)
+expect_true(!any(is.na(out)))
+
+## case where input is binary, not poisson (check to see that it works!)
+## test that only getting 2 partition Lmoments also works
+infested2 <- as.integer(round(runif(numHouses, 0, 1)))
+maxInfest2 <- rep(1, numHouses)
+out4 <- get_stats_grid(infested2, maxInfest2, map.partitions, iPartLMoments = 1:2)
+expect_true(!any(is.na(out2)))
+
+})
+
 #============================
 # Test that noKernelMultiGilStat works as expected
 # For high + low rate move
 #============================
+test_that("noKernelMultiGilStat returns names correctly in statsTable",{
+source("baseModel.R")
+# for all names at once
+whichPairwise = c("semivariance", "moran", "geary", "ripley")	
+implStats <- c("semivariance", "grid", "circles",  "num_inf") # would need to either add "atRisk" or remove it from 
+lmomentsKept <- 1:3 # beginning at variance
+
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 10, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    iPartLMoments = lmomentsKept,
+			    rateIntro = 0)
+expect_equal(dim(out$statsTable),c(22,10))
+
+allNamesStats <- c()
+for(i in 1:length(whichPairwise)){
+  allNamesStats<-c(allNamesStats,paste0(whichPairwise[i],1:(length(genIntervals)-1)))
+}
+gridStatsNames <-c()
+shortsForLMom <- c("LV","LS","LK")
+for(iGrid in 1:length(map.partitions)){
+  gridStatsNames <- c(gridStatsNames,paste0("grid",iGrid,shortsForLMom))
+}
+allNamesStats <- c(allNamesStats,gridStatsNames)
+circleNames <- paste0(rep(1:length(circles$counts),each=2),rep(c("mean","sd"),length(circles$counts)))
+allNamesStats <- c(allNamesStats,paste0("circle",circleNames))
+allNamesStats <- c(allNamesStats,"nMacroPos")
+
+expect_equal(rownames(out$statsTable),allNamesStats)
+
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 1, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    iPartLMoments = lmomentsKept,
+			    rateIntro = 0)
+expect_equal(names(out$statsTable),allNamesStats)
+
+# for just two
+whichPairwise = c("moran")	
+implStats <- c("semivariance","num_inf") # would need to either add "atRisk" or remove it from 
+
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = startingInfested, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 10, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = dist_out, 
+			    typeStat = implStats, 
+			    whichPairwise = whichPairwise,
+			    map.partitions = map.partitions, 
+			    conc.circs = circles, 
+			    rateIntro = 0)
+
+expect_equal(rownames(out$statsTable),c("moran1","moran2","nMacroPos"))
+
+# for just one
+whichPairwise = c("moran")	
+implStats <- c("num_inf") # would need to either add "atRisk" or remove it from 
+
+for(nRep in c(1,10)){ 
+  out <- noKernelMultiGilStat(
+			      stratHopSkipJump = stratmat, 
+			      blockIndex = NULL, 
+			      infestH = startingInfested, 
+			      timeH=rep(-2), 
+			      endTime = 1000, 
+			      rateMove = rateMove, 
+			      rateHopInMove = 1-rateJumpInMove,
+			      rateSkipInMove = 0, 
+			      rateJumpInMove = rateJumpInMove, 
+			      Nrep = nRep, 
+			      coords = maps[, c("X", "Y")], 
+			      simul=TRUE, 
+			      getStats = TRUE, 
+			      seed = seed, dist_out = dist_out, 
+			      typeStat = implStats, 
+			      whichPairwise = whichPairwise,
+			      map.partitions = map.partitions, 
+			      conc.circs = circles, 
+			      rateIntro = 0)
+
+  expect_equal(length(out$statsTable),nRep)
+}
+})
 test_that("noKernelMultiGilStat num infs calculation",{
-num.rows <- 10 
-num.cols <- 10
-row.dist <- 1
-maps <- makeGrid(num.rows = num.rows, num.cols = num.cols, row.dist = row.dist)
+	  source("baseModel.R")
+out <- noKernelMultiGilStat(
+			    stratHopSkipJump = stratmat, 
+			    blockIndex = NULL, 
+			    infestH = 1, 
+			    timeH=rep(-2), 
+			    endTime = 1000, 
+			    rateMove = rateMove, 
+			    rateHopInMove = 1-rateJumpInMove,
+			    rateSkipInMove = 0, 
+			    rateJumpInMove = rateJumpInMove, 
+			    Nrep = 1, 
+			    coords = maps[, c("X", "Y")], 
+			    simul=TRUE, 
+			    getStats = TRUE, 
+			    seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
 
-limitHopSkip <- 2 
-lowerLimitSkip <- NULL 
-limitJump <-10 
-lowerLimitJump <- limitHopSkip 
-
-stratmat <- generate_stratified_mat(maps, limitHopSkip, limitJump, lowerLimitJump=lowerLimitJump, lowerLimitSkip=lowerLimitSkip)
-
-## very high movement should fill up the map so that all houses become filled
-rateMove <- 1
-rateJumpInMove <-0.5 
-seed <- 100000
-
-out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1000, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
 
 ## all houses should be infested
 expect_true(!(any(out$infestedDens == 0)))
-expect_equal(out$statsTable, length(maps$X))
+expect_equal(as.numeric(out$statsTable), length(maps$X))
 
 ## very low movement should fill up the map so that only the initial house is positive
 rateMove <- 0.0000000001
 
-out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1, rateMove = rateMove, weightSkipInMove = 0, weightJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
+out <- noKernelMultiGilStat(stratHopSkipJump = stratmat, blockIndex = NULL, infestH = 1, timeH=rep(-2), endTime = 1, rateMove = rateMove, rateHopInMove=1-rateJumpInMove,rateSkipInMove = 0, rateJumpInMove = rateJumpInMove, Nrep = 1, coords = maps[, c("X", "Y")], simul=TRUE, getStats = TRUE, seed = seed, dist_out = NULL, typeStat = c("num_inf"), map.partitions = NULL, conc.circs = NULL, rateIntro = 0)
 
 ## only house 1 is infested
-expect_equal(out$statsTable, 1)
+expect_equal(as.numeric(out$statsTable), 1)
 expect_equal(sum(out$infestedDens), 1)
 expect_equal(which(out$infestedDens==1), 1)
 })
 
+test_that("circles.conc returns something ok",{
+	  source("baseModel.R")
+expect_equal(dim(circles$circleIndexes),c(1,121))
+expect_equal(dim(circles$counts),c(1,2))
+
+## TODO: ideally should also check that the following is consistent 
+# with(maps,plot(X,Y,asp=1))
+# with(maps[startingInfested,],points(X,Y,pch=19))
+# with(maps[circles$circleIndexes==0,],points(X,Y,col="blue",pch=19))
+# with(maps[circles$circleIndexes==1,],points(X,Y,col="grey",pch=19))
+})
 
 ### make a basic simulation of dispersal
 ## parameters
@@ -123,7 +316,7 @@ expect_equal(distsNoRowNames,makeDistMat(xs,ys))
 # })
 
 ### test of at_risk
-# test_that("at_risk computation",{
+test_that("at_risk computation",{
 	  trs<-cumsum(1:10)
 
 set.seed(1234)
@@ -139,7 +332,7 @@ expect_equal(sum(out$zs),38)
 ## simple indicator
 at_risk<-get_at_risk_indicator(out$pos,dists,trs)
 stat<-apply(at_risk,2,sum)
-plot(stat)
+# plot(stat)
 correct<- c(38,180,382,722,1295,2067,2465,2500,2500,2500)
 expect_equal(stat,correct)
 ## simple stat
@@ -147,8 +340,8 @@ at_risk_stat <- get_at_risk_stat(out$pos,dists,trs)
 expect_equal(at_risk_stat,correct)
 
 ## overall with fit
-par(mfrow=c(1,2))
-plot(correct)
+# par(mfrow=c(1,2))
+# plot(correct)
 # C fit
 at_risk_fit<-get_stats_at_risk(1,out$pos,dists,trs,atRiskStats,ncoefsAtRisk)
 # compute polynom at points
@@ -165,22 +358,22 @@ get.predict.at_risk<-function(trs,at_risk_fit){
 coefsFit<-at_risk_fit[2,(length(trs)+1):(length(trs)+ncoefsAtRisk)]
 pred.at_risk<-get.predict.at_risk(trs,coefsFit)
 
-lines(pred.at_risk,col=4)
+# lines(pred.at_risk,col=4)
 # R fit
 Rfit<-lm(at_risk_stat ~ poly(trs, ncoefsAtRisk-1, raw=TRUE))
-lines(predict(Rfit))
+# lines(predict(Rfit))
 
 # check C vs R fit
-plot(Rfit$coefficients,coefsFit)
-abline(a=0,b=1)
+# plot(Rfit$coefficients,coefsFit)
+# abline(a=0,b=1)
 expect_equal(as.vector(Rfit$coefficients),coefsFit)
 
-# plot the spatial repartition
-par(mfcol=c(2,5))
-for(i in 1:length(trs)){
-	plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)
-	points(xs[out$pos],ys[out$pos],pch=3)
-}
+# # plot the spatial repartition
+# par(mfcol=c(2,5))
+# for(i in 1:length(trs)){
+# 	plot(xs,ys,col=at_risk[,i]+2,asp=1,pch=19,cex=0.2)
+# 	points(xs[out$pos],ys[out$pos],pch=3)
+# }
 
 # three centers
 set.seed(1234)
@@ -196,12 +389,11 @@ at_risk3<-get_at_risk_indicator(out$pos,dists,trs)
 # plot(xs,ys,col=at_risk3[,i]+2,asp=1,pch=19,cex=0.2)
 # points(xs[out$pos],ys[out$pos],pch=3)
 # }
-lines(apply(at_risk3,2,sum))
+# lines(apply(at_risk3,2,sum))
 stat<-apply(at_risk3,2,sum)
 correct<-c(30,132,325,707,1371,1993,2409,2500,2500,2500)
 expect_equal(stat,correct)
-
-# })
+})
 
 ### test of percolation computations
 test_that("percolation computations",{
@@ -299,4 +491,79 @@ expect_equal(percGroups,correct)
 	# plot_reel(maps$X,maps$Y,test,base=0,top=1)
 	# dump("maps",file="maps_basic_regression.R")
 # })
+
+# =============================
+# Test of the  DrawFromLinked in C
+# =============================
+
+test_that("DrawFromLinked in C ok with simple microInMacro",{
+	  set.seed(777)
+# source("SynWood/models.R",chdir=TRUE)
+X <- seq(0,100)
+Y <- seq(200,300)
+maps<-as.data.frame(cbind(X,Y))
+maps$microInMacro <- 1
+
+stratHopSkipJump <- generate_stratified_mat(coords=maps[, c("X", "Y")], limitHopSkip=10, limitJump=50, lowerLimitJump=10, blockIndex=NULL, lowerLimitSkip=5)
+
+dest <- -1
+macroOrigin <- 50
+
+nRep <- 10000
+dests<-rep(-1,nRep)
+
+# hops
+colInd <- stratHopSkipJump$hopMat@colindices
+rowPoint <- stratHopSkipJump$hopMat@rowpointers
+
+for(i in 1:nRep){
+  out<-.C("DrawFromLinked",
+	  rowPointer = as.integer(rowPoint-1),
+	  colPointer = as.integer(colInd-1),
+	  macroOrigin = as.integer(macroOrigin-1),
+	  dest = as.integer(dest),
+	  microInMacro = as.integer(maps$microInMacro)
+	  )
+  dests[i] <- out$dest+1
+}
+# everything present
+okSet <- colInd[rowPoint[macroOrigin]:(rowPoint[macroOrigin+1]-1)]
+expect_true(setequal(dests,okSet)) # may fail every nRep times...
+
+# everything present in right proportion
+okN<-maps$microInMacro[okSet]
+okProba<-okN/sum(okN)
+
+testN<- table(dests)
+testProba <- testN/sum(testN)
+expect_true(sum(abs(testProba-okProba))/length(okProba)<100/nRep)
+# plot(maps$X,maps$Y)
+# with(maps[macroOrigin,],points(X,Y,pch=19,col="blue"))
+# with(maps[dests,],points(X,Y,col="yellow"))
+
+# with wild microInMacro
+maps$microInMacro <- 1+rpois(dim(maps)[1],lambda=3)
+for(i in 1:nRep){
+  out<-.C("DrawFromLinked",
+	  rowPointer = as.integer(rowPoint-1),
+	  colPointer = as.integer(colInd-1),
+	  macroOrigin = as.integer(macroOrigin-1),
+	  dest = as.integer(dest),
+	  microInMacro = as.integer(maps$microInMacro)
+	  )
+  dests[i] <- out$dest+1
+}
+# everything present
+okSet <- colInd[rowPoint[macroOrigin]:(rowPoint[macroOrigin+1]-1)]
+expect_true(setequal(dests,okSet)) # may fail every nRep times...
+
+# everything present in right proportion
+okN<-maps$microInMacro[okSet]
+okProba<-okN/sum(okN)
+
+testN<- table(dests)
+testProba <- testN/sum(testN)
+expect_true(sum(abs(testProba-okProba))/length(okProba)<100/nRep)
+
+})
 

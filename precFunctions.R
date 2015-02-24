@@ -5,34 +5,16 @@ library(geometry)
 #========================
 # Helper functions
 #========================
-## helper annotation function
-annotateStatCor<-function(statcolsname, ntotstats, values=eval(parse(text=statcolsname)),y=1.07){
-	par(xpd=NA)
-	shift<- 1/(2*(ntotstats-1))
-	x<-min(values-1)/(ntotstats-1)-shift
-	lines(c(x,x),c(-shift,1+shift))	
-	lines(c(-shift,1+shift),c(x,x))	
-	# text(x,y,statcolsname,pos=4)
-}
-
-## annotates all the name_stats using the top helper function
-## name_stats, names of each of the stats
-## ntotstats, the total # of stats (not just length(name_stats) but the sum stats in each class)
-## ypos - yposition of annotation (recommended 1.07)
-annote.image.stats<-function(name_stats, ntotstats, ypos){
-	for(name in name_stats)
-		annotateStatCor(name, ntotstats, y=ypos[name])
-}
-
 ## takes a grid.from.sample object and makes it usable for crI purposes
 
 convertgridfromsample <- function(gridfromsample, setNA=0){
 
-	z <- gridfromsample$zs
 	xs <- gridfromsample$xs
-	x <- rep(xs, ncol(z)) 
 	ys <- gridfromsample$ys
-	y <- rep(ys, each=nrow(z))
+	z <- gridfromsample$zs
+	
+	x <- rep(xs, length(ys)) 
+	y <- rep(ys, each=length(xs))
 	z <- as.vector(z)
 
 	bad <- which(is.na(z))
@@ -86,6 +68,291 @@ normal_check<-function(entry){
 	return(pval)
 }
 
+#===================================
+# computes the synthetic likelihood at all points on the grid of parameter sets
+# Nota: use at all points the structure of the SL at the true value
+#===================================
+# function to get the synthetic likelihood structure from stats at true value 
+#! value: list by type of likelihood of lists by likelihood summary stats of matrix 
+#     of likelihoods by parameter sets
+GetSynLikStructure <- function(trueStats,colNums,typeSL="mvn"){
+	# compute the synthetic likelihood structure at the true value
+	statsFits <- list()
+	if(length(colNums) > 1){
+		if("smvn" %in% typeSL){
+			# cat("calculating skewnormal params\n")
+			statsFits[["smvn"]] <- try(msn.mle(y=trueStats[, colNums])$dp)
+		}
+
+		if("mvn" %in% typeSL){
+			# cat("calculating normal params\n")
+			statsFits[["mvn"]] <- try(robust.vcov(sY=t(trueStats[,colNums])))
+		}
+	}else{
+		if("smvn" %in% typeSL){
+			# cat("calculating skewnormal params\n")
+			param <- try(sn.mle(y=trueStats[, colNums], plot.it=FALSE)$cp)
+			param <- cp.to.dp(param)
+			statsFits[["smvn"]] <- param
+		}
+
+		if("mvn" %in% typeSL){
+			# cat("calculating normal params\n")
+			statsFits[["mvn"]] <- c(mean=mean(trueStats[,colNums]), sd=sd(trueStats[,colNums]))
+		}
+	}
+		return(statsFits)
+}
+
+# function summarizing a bunch of synthetic likelihoods
+VectSummaryStatsOfLLs<-function(lls){
+	med <- median(lls, na.rm=TRUE)
+	mea <- mean(lls, na.rm=TRUE)
+	std <- sd(lls, na.rm=TRUE)
+	qua <- quantile(lls, probs=c(0.025, 0.975), na.rm=TRUE)
+	rseDefined <- std == 0 ||  mea == 0
+	if(!is.na(rseDefined)){
+		if(rseDefined){ 
+			rse <- 0 
+		}else{ 
+			rse <- std/mea 
+		}
+	}else{
+		rse<-NA
+	}
+	sim_ll<-c(med,mea,std,qua,rse)
+	return(sim_ll)
+}
+# lls a matrix, stats in different columns lines are "repeats"
+SummaryStatsOfLLs<-function(lls,nCores){
+	liks <- exp(lls)
+	liksList <- split(liks,row(liks))
+	summary_lls<-mclapply(liksList,VectSummaryStatsOfLLs,mc.cores=nCores)
+	summary_lls<-t(simplify2array(summary_lls))
+	return(summary_lls)
+}
+## calculate the summary for skew normal synthetic likelihood
+LLsStatsSMVN <- function(stats,colNums,statsFit){
+	if(length(colNums) > 1){
+		lls <- dmsn(stats[, colNums], dp=statsFit,log=TRUE)
+	}else{
+		lls <- dsn(stats[, colNums], dp=statsFit,log=TRUE)
+	}	
+	return(lls)
+}
+
+## calculate the summary for normal synthetic likelihood
+LLsStatsMVN <- function(stats,colNums,statsFit){
+	if(length(colNums) > 1){
+		lls <- synLik(t(stats[,colNums]),er=statsFit,
+				  sY=NULL, trans=NULL)
+		lls <- as.numeric(lls) ## remove attributes
+	}else{
+		lls <- dnorm(as.vector(stats[, colNums]), 
+			     mean=statsFit["mean"], 
+			     sd=statsFit["sd"],log=TRUE)
+	}
+	return(lls)
+}
+### Isolate the parameter set in paramSets closer to given couple
+WhichInParamSets<-function(vect,paramSets){
+	if(length(vect)==1){
+		return(which.min(abs(paramSets-vect)))
+	}else{
+		expect_equal(length(vect),dim(paramSets)[2])	
+		diff <- 0*paramSets
+		for(i in 1:length(vect)){
+			diff[,i] <- abs(paramSets[,i]-vect[i])
+		}
+	}
+	overAllDist<-apply(diff,1,sum)
+	return(which.min(overAllDist))
+}
+# Tests
+a<- cbind(rep(1:5,5),rep(1:5,each=5))
+b<-WhichInParamSets(c(2,5),a)
+expect_equal(b,22)
+b<-WhichInParamSets(c(1,1),a)
+expect_equal(b,1)
+b<-WhichInParamSets(c(5,5),a)
+expect_equal(b,25)
+
+## calculate the summary for normal synthetic likelihood
+LLsStatsInRefStats <- function(ref_stats,stats,colNums,typeSL){
+	statsFit<-GetSynLikStructure(ref_stats,colNums,typeSL=typeSL)[[typeSL]]
+	stats<-rbind(stats[,colNums,drop=F],ref_stats[,colNums,drop=F])
+	if(class(statsFit)!="try-error"){
+		if(typeSL == "mvn"){
+			lls<-LLsStatsMVN(stats,1:dim(stats)[2],statsFit)
+		}else if(typeSL == "smvn"){
+			lls<-LLsStatsSMVN(stats,1:dim(stats)[2],statsFit)
+		}
+	}else{
+		lls<-rep(NA,dim(stats)[1])
+	}
+	return(lls)
+}
+# compute the synthetic likelihood 
+# at all simulations at trueStats according to otherStats
+# only use in otherStats and trueStats the columns colNums (choice of stats)
+# typeSL allow to choose the type:
+#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
+# if trueStats is not given, can specify a parameter set the 
+#    that can serve as reference if giving: trueVals and paramSets
+# trueVals is a vector of parameters to be used as trueValue
+# paramSets a matrix with parameter values for otherStats columns are different
+#    parameters and lines are different parameter sets
+SynLikExistingStats <- function(trueStats=NULL, otherStats=NULL,
+			    cols=(1:dim(otherStats[[1]])[2]),
+			    trueVals=NULL,paramSets=NULL,
+			    typeSL="mvn",
+			    trueInAll=TRUE,
+			    summaryLLs=TRUE){
+	nVal <- length(otherStats)
+
+	## if cols characters, identify the corresponding column numbers
+	if(class(cols)=="character"){
+	  colNums <- which(colnames(otherStats[[1]]) %in% cols)
+	}else{
+	  colNums <- cols
+	}
+
+	## manage to always get something as a likelihood structure
+	cat("Computing Synthetic Likelihood structure at TV\n")
+	if(!is.null(trueStats)){
+		statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
+	}else{
+		expect_equal(nVal,dim(paramSets)[1])
+		ok <- FALSE
+		keepId<- 1:nVal
+		while(!ok | length(keepId)<nVal/10){
+			## identify the stats to use as comming from true value
+			idTVInKeepId <- WhichInParamSets(trueVals,paramSets[keepId,])
+			idTV <- keepId[idTVInKeepId]
+			cat("Using (",paramSets[idTV,],") as a proxy for (",trueVals,")\n")
+			trueStats <- otherStats[[idTV]]
+
+			statsFits<-GetSynLikStructure(trueStats,colNums,typeSL=typeSL)
+			ok<-TRUE
+			for(type in typeSL){
+				if(class(statsFits[[type]])=="try-error"){
+					ok <- FALSE
+					keepId <- keepId[-idTVInKeepId]
+				}else{
+
+					if(type == "mvn"){
+						LLsFn <- LLsStatsMVN
+					}else if(type == "smvn"){
+						LLsFn <- LLsStatsSMVN
+					}
+
+					# get the likelihood of the statistic
+					lls <- LLsFn(trueStats, colNums, statsFits[[type]])
+
+					# old code lls <- synLik(t(trueStats[,colNums]),er=statsFits[["mvn"]],sY=NULL,trans=NULL)
+					# check that the fit is not whatever
+					maxProba<-exp(max(lls))
+					if(!is.finite(maxProba) || maxProba ==0 ){
+						ok <- FALSE
+						keepId <- keepId[-idTVInKeepId]
+					}
+				}
+			}
+		}
+	}
+	
+	sim_ll<-list()
+	for(type in typeSL){
+		cat("Computing",type,"Synthetic Likelihood for each point\n")
+		sim_ll[[type]]<-list()
+		if(trueInAll){
+			lls <- t(simplify2array(mclapply(otherStats,LLsStatsInRefStats,
+								    trueStats,colNums,type,mc.cores=nCores)))
+			# first call: LLsStatsInRefStats(otherStats[[1]],trueStats, colNums,type)
+			nRepTV <- dim(trueStats)[1]
+			sim_ll[[type]]$lls <- lls[,(1:nRepTV)]
+
+			nRepOther <- dim(otherStats[[1]])[1]
+			sim_ll[[type]]$loc <- lls[,nRepTV+(1:nRepOther)]
+		}else{
+			if(type == "mvn"){
+				LLsFn <- LLsStatsMVN
+			}else if(type == "smvn"){
+				LLsFn <- LLsStatsSMVN
+			}
+			sim_ll[[type]]$lls <- t(simplify2array(mclapply(otherStats,LLsFn,
+								    colNums,statsFits[[type]],mc.cores=nCores)))
+		}
+		# make summary statistics of the lls
+		if(summaryLLs){
+			namesStats <- c("median","mean","sd","loCrI","hiCrI","rse")
+			cat("Computing summary stats of the likelihoods\n")
+			sim_ll[[type]]$summary <- SummaryStatsOfLLs(sim_ll[[type]]$lls,nCores)
+			colnames(sim_ll[[type]]$summary) <- namesStats
+			if(!is.null(sim_ll[[type]]$loc)){
+				sim_ll[[type]]$summaryLoc <- SummaryStatsOfLLs(sim_ll[[type]]$loc,nCores)
+				colnames(sim_ll[[type]]$summaryLoc) <- namesStats
+			}
+		}
+	}
+	return(sim_ll)
+}
+SynLikTrueInAll <- function(...){
+	return(SynLikExistingStats(...,trueInAll=TRUE))
+}
+
+# compute the synthetic likelihood 
+# at all points of otherStats according to trueStats
+# only use in otherStats and trueStats the columns colNums (choice of stats)
+# typeSL allow to choose the type:
+#    ("mvn": multivariate normal; "smvn": skew multivariate normale)
+# if trueStats is not given, can specify a parameter set the 
+#    that can serve as reference if giving: trueVals and paramSets
+# trueVals is a vector of parameters to be used as trueValue
+# paramSets a matrix with parameter values for otherStats columns are different
+#    parameters and lines are different parameter sets
+SynLikAllInTrue <- function(...){
+	return(SynLikExistingStats(...,trueInAll=FALSE))
+}
+
+#=========================
+# Use only a subset of simulations (instead of all of them)
+#=========================
+# given a list  of type stats (as above)
+# return a subset of stats where each point has only numSims simulations 
+# example: stats50 <- subsetSims(stats, 50)
+# stats50 can be used like stats
+subsetSims <- function(stats, numSims){
+
+		if(numSims > dim(stats[[1]])[1])
+			stop("stats has less than number of simulations requested")
+
+			subset <- lapply(stats,
+		 			 function(x, numSims){
+		 				 return(x[1:numSims, ])
+		 			 },
+		 			 numSims)
+		return(subset)
+}
+
+#=======================
+# Compute the cutoff area (area within 95% crI) as number of simulations changes for different stats
+#=======================
+areasVsSimulations <- function(trueVals,paramSets,otherStats,cols,typeSL,trueInAll=FALSE, numSims){
+	cutoff_area <- rep(0, length(numSims))
+	count <- 1
+	for(nsim in numSims){
+		out <- SynLikExistingStats(trueVals=trueVals, paramSets=paramSets, otherStats=subsetSims(otherStats, nsim), cols=cols, typeSL=typeSL, trueInAll=trueInAll)[[typeSL]]$summary
+		
+		heatplotout <- twoDim_precI(xy=paramSets, y=out[, "mean"], main = paste(nsim, " "), xlab = "FM", ylab = "RJ")
+		cutoff_area[count] <- heatplotout$confAreas
+		count <- count+1
+	}
+	return(list(numSims=numSims, boundedAreas = cutoff_area))
+			
+}
+
+
 #========================
 # checking the normality/skew-normality
 #========================
@@ -119,15 +386,35 @@ stats.norm.check <- function(stats, whichstats, plot=T, alpha=0.05){
 #========================
 # checking the covariance/correlation structure
 #========================
+## helper annotation function
+annotateStatCor<-function(statcolsname, ntotstats, values=eval(parse(text=statcolsname)),y=1.07){
+	par(xpd=NA)
+	shift<- 1/(2*(ntotstats-1))
+	x<-min(values-1)/(ntotstats-1)-shift
+	lines(c(x,x),c(-shift,1+shift))	
+	lines(c(-shift,1+shift),c(x,x))	
+	text(x,y,statcolsname,pos=4,offset=0)
+}
+
+## annotates all the name_stats using the top helper function
+## name_stats, names of each of the stats
+## ntotstats, the total # of stats (not just length(name_stats) but the sum stats in each class)
+## ypos - yposition of annotation (recommended 1.07)
+annote.image.stats<-function(name_stats,values=NULL, ntotstats, ypos=1.07){
+	for(i in 1:length(name_stats)){
+		annotateStatCor(name_stats[i], ntotstats,values=values[i], y=max(ypos[i],ypos[1],na.rm=TRUE))
+	}
+}
+
 ## checks the correlation of the stats against themselves
 ## example given below
-correlation.check <- function(stats, name_stats, ypos, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
+correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL, ypos=1.07, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
 	ntotstats<-dim(stats)[2]
 	correlation<-cor(stats)
 
 	image(abs(correlation), xlab= "correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
-	annote.image.stats(name_stats, ntotstats, ypos)
-	return(correlation)
+	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
+	return(invisible(correlation))
 }
 # example:
 # name_stats <- c("grid_var_stats", "circ_stats", "semivar_newnew_stats", "semivar_oldnew_stats", "moran_stats", "geary_stats", "ripley_stats", "num_inf_stats")
@@ -150,20 +437,49 @@ get.partial.cor <- function(er){
 
 # partial correlation on real value simulations
 # example given below
-partial.correlation.check <- function(stats, name_stats, ypos, vcov.obj=NULL, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
+partial.correlation.check <- function(stats, name_stats=NULL,firstColstats=NULL, ypos=1.07, vcov.obj=NULL, colorsCor=colorRampPalette(c("green","orange","red"))(25), ...){
 	ntotstats<-dim(stats)[2]
 
-	if(is.null(vcov.obj))
-		vcov.obj <- robust.vcov(t(stats))
+	if(is.null(vcov.obj)){
+		nObs<-dim(stats)[1]
+		nStats<-dim(stats)[2]
+		if(nObs<nStats){
+			mes <- paste("Need at least",nStats,"observations\nto compute the partial correlation")
+			PlotPlaceHolder(mes)
+			return(NULL)
+		}else{
+			# remove stats we cannot handla because of NA
+			simulWithPb<- which(sapply(stats,anyNA))
+			if(length(simulWithPb)>1){
+				# # would be to triage stats with all the repetitions
+				# warning("NA detected, will ignore the stats concerned")
+				# # which column do we find any NA in?
+				# areNAs <- sapply(stats[simulWithPb],is.na)
+				# areNAs2 <- apply(areNAs,1,any)
+				# areNAs3 <- matrix(areNAs2,ncol=65)
+				# statWithNA <- apply(areNAs3,2,any)
+				statWithNA <- apply(stats,2,anyNA)
+				stats <- stats[,!statWithNA]
+			}
+			vcov.obj <- robust.vcov(t(stats))
+		}
+	}
 
 	er <- vcov.obj$E
 	out <- get.partial.cor(er)
 	
+	if(length(simulWithPb)>1){
+		base <- matrix(rep(NA,ntotstats*ntotstats),ncol=ntotstats)
+		outInt <- list(partCor=base,prec=base)
+		outInt$partCor[which(!statWithNA),which(!statWithNA)] <- out$partCor
+		outInt$prec[which(!statWithNA),which(!statWithNA)] <- out$prec
+		out<-outInt
+	}
 	image(abs(out$partCor), xlab= "partial correlation", col=colorsCor, xaxt="n", yaxt="n", useRaster=TRUE, ...)
-	annote.image.stats(name_stats, ntotstats, ypos)
+	annote.image.stats(name_stats, ntotstats, values=firstColstats,ypos=ypos)
 
 	ret <- list(partCor=out$partCor, vcov.obj=vcov.obj)
-	return(ret)
+	return(invisible(ret))
 }	
 # example:
 # name_stats <- c("grid_var_stats", "circ_stats", "semivar_newnew_stats", "semivar_oldnew_stats", "moran_stats", "geary_stats", "ripley_stats", "num_inf_stats")
@@ -214,83 +530,39 @@ trapz3d <- function(x, y, z, tri=NULL){
 	return(volume)						  
 }
 
-
-## x is the parameter values
-## y is the density at the parameter values
-## steps is the number of steps at which to bin the area
-## prI is the quantiles of precision wanted
-## ... passed to the smooth.spline function
-oneDim_precI <- function(x, y, steps=length(x)/2, prI=c(0.5, 0.75, 0.95), plotPoints = FALSE, xlim, ylim, ...){
-
-	pred_smooth <- smooth.spline(x, y, ...)
-	px <- seq(min(x), max(x), length.out=steps+1)
-        py <- predict(pred_smooth, px)$y
-
-	py[which(py < 0)] <- 0 #set things with negative density to zero density	
-
-	xpairs <- matrix(c(px[1:(length(px)-1)], px[2:length(px)]), ncol = 2)
-	ypairs <- matrix(c(py[1:(length(py)-1)], py[2:length(py)]), ncol = 2)
-
-	trap_widths <- apply(xpairs, 1, function(xpair){return(abs(xpair[2]-xpair[1]))})
-	trap_heights <- apply(ypairs, 1, mean)
-	trap_areas <- trap_widths * trap_heights
-
-	print(sum(trap_areas))
-	py <- py / sum(trap_areas) #normalize py
-	trap_heights <- trap_heights / sum(trap_areas) #normalize trap_heights
-	ypairs <- ypairs/sum(trap_areas) # normalize the py pair values
-	trap_areas <- trap_areas / sum(trap_areas) # normalize trap_areas
-
-	if(missing(xlim) && missing(ylim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density")
-	else if(missing(xlim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", ylim=ylim)
-	else if(missing(ylim))
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim)
-	else
-		plot(px, py, col = "grey", type = "l", xlab = "parameter", ylab = "density", xlim=xlim, ylim=ylim)
-	
-	if(plotPoints)
-		points(x, y, pch = ".")
-
-	#order the trap areas in reverse order
-	rev_trap_areas <- rev(sort(trap_areas))
-	rev_trap_index <- rev(order(trap_areas))
-	cum_rev_trap_areas <- cumsum(rev_trap_areas)
-
-	whichInterval <- findInterval(cum_rev_trap_areas, prI, rightmost.closed=TRUE)
-
-	cutoff_ll <- mat.or.vec(length(prI), 1)
-	
-	for(i in 0:(length(prI)-1)){
-		cutoff_ll[i+1] <- which.min((trap_heights[rev_trap_index])[whichInterval == i])
-		cutoff_ll[i+1] <- min(ypairs[rev_trap_index, ][whichInterval==i, ][cutoff_ll[i+1], ])
-		abline(h=cutoff_ll[i+1], lty = 2)
-		text(min(px), cutoff_ll[i+1], label = prI[i+1])
-	}
-
-	names(cutoff_ll) <- prI
-
-	out <- list(cutoff_ll=cutoff_ll, px=px, py=py, x=x, y=y)
-	return(out)
-}
-
 ## where x1, x2 are the input variables or planar coordinates (params)
 ## and y is the output variable (ll) or height coordinate
-## x1, x2 should be strictly increasing
+## xy should contain on each line parameters sets corresponding to the entries of y
+## x1, x2 should be strictly increasing (if xy not defined)
 ## y should be a matrix of lls for dim(x1, x2) - or all combinations of x1 and x2
 ## prI gives the intervals to be found
 ## ... are parameters passed to the image display 
 ## if x1, x2, y are scatterplot data
 ## 	use grid.from.sample(x1, x2, y, steps=100, tr=1, kern=gaussianKernel, xlim=c(min(x1), max(x1)), ylim=c(min(x2), max(x2)))
 ##	and pass the out$xs, out$ys, out$zs
-twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
+twoDim_precI <- function(xy=NULL,x1=NULL, x2=NULL, y, prI=c(0.95), plotLog=F, col=NULL,...){
+	if(is.null(xy)){
+		grid_smooth <- list(xs=x1, ys=x2, zs=y)
+		pred_smooth <- convertgridfromsample(grid_smooth)
+		px1 <- pred_smooth$x
+		px2 <- pred_smooth$y
+		py <- pred_smooth$z
+	}else{
+		px1 <- xy[,1]
+		px2 <- xy[,2]
+		x1 <- sort(unique(px1))
+		x2 <- sort(unique(px2))
+		py <- as.vector(y)
+		py[which(is.na(py))] <- 0
+	}
+	if(is.null(col)){
+		col <- colorRampPalette(c("red", "orange", 
+					  "yellow", 
+					  "green"))(length(x1))
+	}
 
-	grid_smooth <- list(xs=x1, ys=x2, zs=y)
-	pred_smooth <- convertgridfromsample(grid_smooth)
-	px1 <- pred_smooth$x
-	px2 <- pred_smooth$y
-	py <- pred_smooth$z
+
+	# TODO: can handle any xy and not just on a grid
 
 	tri <- delaunayn(data.frame(px1=px1, px2=px2)) #triangulate the grid
 	volume_out <- trapz3d(px1, px2, py, tri) #find the volume	
@@ -300,7 +572,11 @@ twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
 	indiv_tri_vols <- indiv_tri_vols/volume_out #normalize tri volumes
 	py <- py/volume_out #normalize lls
 
-	print(volume_out)
+	# print(volume_out)
+
+	area_out <- trapz3d(px1, px2, rep(1, length(px1)), tri) #find the areas of the triangles
+	indiv_tri_areas <- attr(area_out, "tri_volumes") # individual areas
+	attributes(area_out) <- NULL
 
 	zmat <- t(matrix(py, nrow=length(x2), byrow=TRUE))
 	if(!plotLog)
@@ -316,22 +592,23 @@ twoDim_precI <- function(x1, x2, y, prI=c(0.5, 0.75, 0.95), plotLog=F, ...){
 	whichInterval <- findInterval(cum_rev_tri_volumes, prI, rightmost.closed=TRUE)
 
 	cutoff_ll <- mat.or.vec(length(prI), 1)
-	
+	cutoff_area <- mat.or.vec(length(prI), 1)
+
 	for(i in 0:(length(prI)-1)){
 		mch <- max(which(whichInterval == i))
-		print(mch)
+		# print(mch)
 		cutoff_index <- match_tri_index[mch]
-		print(median(py[tri[cutoff_index, ]]))
+		# print(median(py[tri[cutoff_index, ]]))
 		cutoff_ll[i+1] <- median(py[tri[cutoff_index, ]])
+		cutoff_area[i+1] <- sum(indiv_tri_areas[match_tri_index[which(whichInterval %in% 0:i)]])
 	}
 
 	contour(x=x1, y=x2, z=zmat, levels=cutoff_ll[!is.na(cutoff_ll)], labels=prI, add=TRUE, labcex=0.8)
 
 	names(cutoff_ll) <- prI
 
-	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat)
+	out <- list(cutoff_ll=cutoff_ll, gx=x1, gy=x2, gz=zmat, confAreas = cutoff_area)
 	return(out)
-
 }
 
 #========================
@@ -451,7 +728,6 @@ volume_crI <- function(x1, x2, y, alpha=0.05, sigfig=5, tri=NULL){
 	return(list(ll=mid[length(mid)-1]))
 }
 
-<<<<<<< HEAD
 #=========================
 # Fit and get coverage
 #=========================

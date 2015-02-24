@@ -1,19 +1,17 @@
+# CBC
+# execute a synthesis of the thetasamples_allXXX.txt files in a folder
 library("ADGofTest") ## anderson-darling test for uniformity
 source("spatcontrol/spatcontrol.R", chdir = TRUE)
-
-nameSimul <- "Partitions_Lmoments_normal"
-daisyChainSeeds <- 201:217*1000 
-
 #=======================
 # Read in all the MCMC traces (w/ the adaptation of the variance and the burn-in removed)
 # Store the lengths of each of the MCMCs so they can be accessed independently
 #=======================
-outfiles <- paste0("completethetasamples_all", daisyChainSeeds, ".txt")
+outfiles <- list.files(".",pattern="^thetasamples_all.*.txt$")
 allRuns <- read.table(file = outfiles[1], header = TRUE)
 allLengths <- dim(allRuns)[1]
 
-for(nums in 2:length(outfiles)){
-	allRuns <- rbind(allRuns, read.table(file = outfiles[nums], header = TRUE))
+for(num in 1:length(outfiles)){
+	allRuns <- rbind(allRuns, read.table(file = outfiles[num], header = TRUE))
 	allLengths <- c(allLengths, dim(allRuns)[1])
 }
 
@@ -40,7 +38,7 @@ for(param in names(realMeans)){
 		get.estimate(allRuns[[param]],true.val=realMeans[param], name=param, xlim = lims[, param])
 }
 
-dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_comb_post.pdf"))
 graphics.off()
 
 ## determine mean(sd(eachRun))/sd(allRuns)
@@ -144,12 +142,12 @@ mean_sd_each <- apply(sd_each, 2, mean)
 # find the mean of the zscores
 mean_zscore_each <- apply(zscore_each, 2, mean)
 
-cat("mean(sd by run)/sd: \n", mean_sd_each/sd_all, "\n mean(zscore by run): \n", mean_zscore_each, "\n zscore overall: \n", zscore_all, "\n")
+# cat("mean(sd by run)/sd: \n", mean_sd_each/sd_all, "\n mean(zscore by run): \n", mean_zscore_each, "\n zscore overall: \n", zscore_all, "\n")
 
 # determine the percentbad - percent that parameters are outside confidence interval
 percentgood <- counts/length(allLengths)
 percentbad <- 1-percentgood
-print(percentbad[1:2])
+# print(percentbad[1:2])
 
 # determine the percent that the median is off from the realmeans
 percentoff_rm <- abs((log(median_each[, 1]) - log(realMeans[1]))/log(realMeans[1]))
@@ -169,7 +167,10 @@ plot(1:length(allLengths), median_each[, 2], xlab = "MCMC Chain Index", ylab = "
 abline(h = realMeans["rateJump"], col = "green")
 arrows(1:length(allLengths), quantile_each[, 3], 1:length(allLengths), quantile_each[, 4], code = 3, angle=90, length=0.01)
 
-dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_caterpillar.pdf"))
+
+names(quantile_each) <- c("param1_minCI","param1_maxCI","param2_minCI","param2_maxCI")
+save(quantile_each,file="quantilesEach.Rda")
 
 #convert q_dist to Cook's p
 #transform cook's q to a chisq then to a p value:
@@ -205,10 +206,10 @@ abline(h=1, col="green")
 ## plot(wjDens, xlim = c(0.001, 0.999), main = "rate jump", xlab = "quantile", ylab = "density")
 ## abline(h = 1, col = "green")
 
-dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
+# dev.copy2pdf(file = paste0(nameSimul, "_cookstest.pdf"))
 
 ##width of credible intervals
-print(mean(quantile_each[, 4]-quantile_each[,3]))
-print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
-print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
-print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))
+# print(mean(quantile_each[, 4]-quantile_each[,3]))
+# print(sd(quantile_each[, 4]-quantile_each[,3])/sqrt(dim(quantile_each)[1]))
+# print(mean(log(quantile_each[, 2])-log(quantile_each[, 1])))
+# print(sd(log(quantile_each[, 2])-log(quantile_each[, 1]))/sqrt(dim(quantile_each)[1]))

@@ -8,7 +8,7 @@
  *        Version:  1.0
  *        Created:  09/28/2012
  *       Revision:  none
- *       Compiler:  R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c
+ *       Compiler:  R CMD SHLIB -lgsl -lgslcblas -lm functions_migration.c samlmu.f 
  *       Nota: need gsl (ubuntu package libgsl0-dev)
  *
  * =====================================================================================
@@ -144,7 +144,7 @@ void makeDistMat(double *xc // x of objects
 // initial determination of the distances 
 // and class indices for each pair
 void makeDistClasses(double *xc // x of objects
-		,int *L		// length of xc/yc
+		,int *L		// length of xc and yc
 		,double *yc	// y of objects
 		,int *cbin	// number of pairs per class
 		,int *indices	// indice of class for each pair ij
@@ -164,6 +164,7 @@ void makeDistClasses(double *xc // x of objects
 			*(dists + i* *L+j) = distance;
 			*(dists + j* *L+i) = distance;
 			*(indices + i* *L+j) = index;
+			*(indices + j* *L+i) = index;
 			
 			if(index != -1)
 				cbin[index]++;
@@ -211,7 +212,7 @@ void makeDistClassesWithStreets(double *xc // x of objects
 	}
 }
 
-// return prob_mat based on euclideant distances given in dist_mat
+// return prob_mat based on euclidean distances given in dist_mat
 // cumul == 1, make cumulative probability matrix
 // useDelta == 1, use the delta variable
 // blockIndex - an array with block number for each house
@@ -595,8 +596,54 @@ void gillespie(int *infested, int *endIndex, int *L, double *probMat, double *en
 	*seed=(int)jcong;
 	// printf("final seed:%i",*seed);
 }
+// if pointers is a rowpointer in spam
+void DrawFromLinked(int*rowPointer,int *colInd,int *macroOrigin,int *dest,int* microInMacro){ 
+  double rand = UNICONG;
+  int nMacro = rowPointer[*macroOrigin+1] - rowPointer[*macroOrigin];
 
-void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, int* hopColIndex, int* hopRowPointer, int* skipColIndex, int* skipRowPointer, int* jumpColIndex, int* jumpRowPointer, double* endTime, int* indexInfest, double* age, double* movePerTunit, double* introPerTunit, int* seed){
+  if(nMacro > 0){ // if can infest, move
+    // need to get the number of micro to draw from and the number of pos
+    double cumulMicroPerMacro[nMacro];
+    int nMicro  = 0;
+    for( int iLocMacro=0; iLocMacro<nMacro;iLocMacro++){
+      int rowP = rowPointer[*macroOrigin]+iLocMacro;
+      int iMacro = colInd[rowP];
+      int nLocMicro = microInMacro[iMacro];
+      nMicro += nLocMicro;
+      cumulMicroPerMacro[iLocMacro] = (double) nMicro;
+    }
+    // printf("nMicro: %i ",nMicro);
+    
+    // draw uniformly in the number of micro to draw from
+    double iMicro = (rand*nMicro);
+    // printf("iMicro: %.1f ",iMicro);
+       
+    // get back to the Macro selected among the neighbors
+    int iLocMacro = fulldichot(cumulMicroPerMacro,iMicro,0,nMacro);
+    // printf("iLocMacro: %i",iLocMacro);
+    
+    // get back to the Macro selected among all
+    int rowP = rowPointer[*macroOrigin]+iLocMacro;
+    *dest = colInd[rowP];
+    // printf("rP: %i d: %i\n",rowP,*dest);
+  // }else{ //else, stay
+  //   *dest = *macroOrigin;	
+  }
+}
+
+void stratGillespie(int* infested,int * maxInfest, int* endIndex, int* L, 
+    double* rateHopInMove, double* rateSkipInMove, double* rateJumpInMove, 
+    int* hopColIndex, int* hopRowPointer,    // hopable macrounits
+    int* skipColIndex, int* skipRowPointer,  // skipable macrounits
+    int* jumpColIndex, int* jumpRowPointer,  // jumpable macrounits
+    double* endTime,  // ending time for the simulation
+    int *microToMacro,  // ith element contains the index of the macro unit containing the ith microunit
+    int *nMicro,  // number of micro units (sum of all in maxInfest)
+    int* indexInfest, // index of the households with an event (output)
+    double* age, // times of the events (output)
+    double* movePerTunit, // number of migrations per infested unit and per time unit
+    double* introPerTunit,  // number of new invasions from outside the map per time unit
+    int* seed){ // seed for random number generator
 	
 	jcong = (unsigned long)*seed;
 	// printf("seed: %li \n",jcong);
@@ -612,11 +659,13 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 	double currentTime = 0;
 	
 	//variables used in loop
-	int index, house, dest, numHouses;
+	int index=-1, house=-1, dest=-1, numHouses=-1;
+	double ratioInf=0;
 
 	//the gillespie loop
 	// printf("entering gillespie loop (endtime: %.4f)",*endTime);
-	while(currentTime + nextEvent < *endTime && *endIndex+1 < *L){
+	// printf("endIndex:%i\n",*endIndex);
+	while(currentTime + nextEvent < *endTime && *endIndex+1 < *nMicro){
 		// printf("time %f Ninf %i ", currentTime, *endIndex+1);
 		// fflush(stdout);
 		
@@ -625,76 +674,64 @@ void stratGillespie(int* infested,int* endIndex, int* L, double* rateHopInMove, 
 		//pick whether new move or new introduction
 		rand = UNICONG;
 		if(rand < percentIntro){ // new introduction
+		  index = -1; // the infesting location index
+		  house = -1; // the infesting location
+		  rand = UNICONG;
+		  dest = microToMacro[(int)(rand* *nMicro)]; //pick microdestination then covert to macro
+		}else{ // new move
+		  //pick whether next move is hop/skip/jump
+		  dest = -1; //the move location
 
-			rand = UNICONG;
-			dest = (int)(rand* *L);	//the introduction location
+		  //pick a location to be infesting house
+		  rand = UNICONG;
+		  index = (int)(rand* (*endIndex+1));  // in all micro
+		  house = *(indexInfest + index);  
+		  // indexInfest is macro but one per micro
+
+		  rand = UNICONG; // draw for move type
+		  // TODO (Corentin): unify the three following 
+		  // to handle an arbitrary number of levels
+		  if(rand < *rateHopInMove){
+		    // next move is hop
+		    DrawFromLinked(hopRowPointer,hopColIndex,
+			&house,&dest,maxInfest);
+		    // printf("hop %i->%i",house,dest);
+		  }else if(*rateHopInMove < rand && 
+		      rand < (*rateHopInMove + *rateSkipInMove)){
+		    // next move is skip
+		    DrawFromLinked(skipRowPointer,skipColIndex,
+			&house,&dest,maxInfest);
+		    // printf("skip %i->%i",house,dest);
+		  }else{
+		    // next move is jump
+		    DrawFromLinked(jumpRowPointer,jumpColIndex,
+			&house,&dest,maxInfest);
+		    // printf("jump %i->%i",house,dest);
+		  }
+
+		  // printf("new infested: %i\n", dest);
+		  // fflush(stdout);
 		}
-		else{ // new move
 
-			//pick a location to be infesting house
-			rand = UNICONG;
-			index = (int)(rand* (*endIndex+1));
-			house = *(indexInfest + index);
-
-			// printf("infesting: %i; ", house);
-			
-	
-			//pick whether next move is hop/skip/jump
-			
-			dest = -1; //the move location
-			rand = UNICONG;
-			
-			if(rand < *rateHopInMove){
-				// next move is hop
-				// pick new house to become infested
-				// printf("hop ");
-				rand = UNICONG;
-				numHouses = hopRowPointer[house+1] - hopRowPointer[house];
-
-				if(numHouses > 0) // if can infest, move
-					dest = hopColIndex[hopRowPointer[house] + (int)(rand*numHouses)];
-				else //else, stay
-					dest = house;	
-			}
-			else if(*rateHopInMove < rand && rand < (*rateHopInMove + *rateSkipInMove)){
-				// next move is skip
-				rand = UNICONG;
-				numHouses = skipRowPointer[house+1] - skipRowPointer[house];
-
-				if(numHouses > 0)
-					dest = skipColIndex[skipRowPointer[house] + (int)(rand*numHouses)];
-				else
-					dest = house;		
-			}
-			else{
-				// next move is jump
-				rand = UNICONG;
-				numHouses = jumpRowPointer[house+1] - jumpRowPointer[house];
-
-				if(numHouses > 0)
-					dest = jumpColIndex[jumpRowPointer[house] + (int)(rand*numHouses)];
-			 	else
-					dest = house;	
-			}
-	
-	
-			// printf("new infested: %i\n", dest);
-			// fflush(stdout);
-		}			
-
-		if((*(infested+dest)) != 1){ // if the destination is not already infested
-			*endIndex+=1;
-			*(infested+dest) = 1;
-			*(indexInfest + *endIndex) = dest;
-			*(age + *endIndex) = currentTime;
+		// need a draw to know if falls in infested micro
+		if(dest>-1){
+		  ratioInf = (double)*(infested+dest)/(double)*(maxInfest+dest);
+		  rand = UNICONG;
+		  if(rand > ratioInf){
+		    *endIndex+=1;
+		    *(infested+dest) += 1;
+		    *(indexInfest + *endIndex) = dest;
+		    *(age + *endIndex) = currentTime;
+		  }else{
+		    // printf("eI: %i",*endIndex);
+		  }
 		}
-	
+
 		//calculate time to next event again
 		rand = UNICONG;
 		nextEvent = log(1-rand)/(-*movePerTunit * (*endIndex+1) - *introPerTunit);
 		percentIntro = *movePerTunit * (*endIndex+1) + *introPerTunit;
 		percentIntro = *introPerTunit/percentIntro;
-
 	}
 
 	*seed=(int)jcong;
@@ -761,8 +798,8 @@ int double_compare(const void *a, const void *b){
 //nmom is the size of xmom (number of moments wanted) 
 extern void samlmu_(double* x, int* n, double* xmom, int* nmom);
 
-//have not implemented get_stats_grid for blocks
-void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
+//have not implemented get_stats_grid for blocks # TODO: still true?
+void get_stats_grid(int* rep, int* L, int* infestedInit, int* maxInfest, int* gridnbStats, int* numDiffGrids, int* gridIndexes, int* gridNumCells, int* gridCountCells, int* numCoeffs, int* numLmoments, double* gridstats){
 
 	double* stats = gridstats + (*rep * *gridnbStats);
 	int count = 0;
@@ -774,39 +811,49 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//init storage array
 	int* gridEmptyCells = (int*) calloc(count, sizeof(int));
-	if(gridEmptyCells == NULL){
+	int* gridMaxInfestCells = (int*) calloc(count, sizeof(int));
+
+	if(gridEmptyCells == NULL || gridMaxInfestCells == NULL){
 		printf("allocation error in get_stats_grid; possibly out of memory\n");
+		if(gridEmptyCells!=NULL)
+			free(gridEmptyCells);
+		if(gridMaxInfestCells!=NULL)
+			free(gridMaxInfestCells);
 		return;
 	}
 
-	int currentIndexStartingPoint = 0;
-	int currentCellStartingPoint = 0;
+	int currentCellStartingPoint = 0;	
 	int infestedCell = 0;
-	//traverse through all the different grid systems
-	for(int grid=0; grid<*numDiffGrids; grid++){
-		currentIndexStartingPoint = *L * grid;
 
-		//for each grid system		
-		//traverse through all infested houses and populate
-		//note that endIndex delineates the last spot that is occupied 
-		for(int house=0; house<=*endIndex; house++){
-			infestedCell = gridIndexes[currentIndexStartingPoint + endInfest[house]];
-			gridEmptyCells[currentCellStartingPoint + infestedCell]++;
-
-			//printf("%03d %03d ", infestedCell, gridEmptyCells[currentCellStartingPoint + infestedCell]);
+	//// The things I had implemented to debug:
+	// for(int iMacro=0; iMacro<*L; iMacro++){
+	//	infestedCell = gridIndexes[currentIndexStartingPoint + iMacro];
+	//		gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[iMacro]; //the number of positive is now the number of positive subunits at the current Macro unit}
+	for(int house=0; house<*L; house++){
+		currentCellStartingPoint = 0;
+		for(int grid=0; grid<*numDiffGrids; grid++){	
+			infestedCell = gridIndexes[*L * grid + house];
+			gridEmptyCells[currentCellStartingPoint + infestedCell]+=infestedInit[house];
+			gridMaxInfestCells[currentCellStartingPoint + infestedCell]+=maxInfest[house];
+			currentCellStartingPoint += gridNumCells[grid];	
 		}
-
-		//printf("\n");
-		currentCellStartingPoint += *(gridNumCells+grid);
 	}
 
-	//compute statistics
-	//the first stat inserted will be num positive cells
-	//the second stat inserted will be variance of %positive 
-	//the remaining stats will be regression coefficients and L-moments
-	//need to compute variance + store in gridstats
-	//the percent positive is the mean %positive over all the cells (this is scale invariant)
-	double meanPP = ((double)(*endIndex + 1)) / ((double)*L);
+	// int count2 = 0;
+	// for(int grid=0; grid<*numDiffGrids; grid++){
+	// 	for(int cell=0; cell<gridNumCells[grid]; cell++){
+	// 		printf("%03d %03d %03d %03d\n", grid, cell, gridEmptyCells[count2], gridMaxInfestCells[count2]); 
+	// 		count2++;
+	// 	}
+	// 	printf("\n");
+	// }
+
+	// compute statistics
+	// the first stat inserted will be num positive cells
+	// the second stat inserted will be variance of %positive 
+	// the remaining stats will be regression coefficients and L-moments
+	// need to compute variance + store in gridstats
+	// the percent positive is the mean %positive over all the cells (this is scale invariant)
 	count = 0;
 
 	// keeps track of number of positive cells in grid
@@ -814,6 +861,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 	//keeps track of the variance of the percent positive
 	double varPP = 0;
+	double meanPP = 0;
 
 	//number of cells in grid, number of houses per cell	
 	int numCells = 0;
@@ -851,13 +899,21 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 		if(dx == NULL || dy == NULL || quant_coeff == NULL || lmoms == NULL){
 			printf("allocation error in get_stats_grid; possibly out of memory\n");
+			if(dx!=NULL)
+				free(dx);
+			if(dy!=NULL)
+				free(dy);
+			if(quant_coeff!=NULL)
+				free(quant_coeff);
+			if(lmoms!=NULL)
+				free(lmoms);
 			return;
 		}
 
 		for(int cell=0; cell<numCells; cell++){
 			//machinery for quantile regression and L-moments
 			numPositive = gridEmptyCells[count];
-			numTotal = gridCountCells[count];
+			numTotal = gridMaxInfestCells[count];
 			cellPP = numPositive/numTotal;
 			dx[cell] = ((double)(cell+1))/((double)(numCells+1));
 			dy[cell] = cellPP;
@@ -867,13 +923,14 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 				positivecount++;
 			
 			varPP += cellPP*cellPP;
+			meanPP += cellPP;
 			count++;
 		}
 
 		//divide variance by number of cells and then subtract (mean percent positive)^2
-		varPP = varPP/(numCells-1) - meanPP*meanPP;
+		varPP = (varPP - meanPP*meanPP/numCells)/(numCells - 1);
 		
-		//printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
+		// printf("grid:%d meanPP: %f varPP: %f\n", gridNumCells[grid], meanPP, varPP);
 
 		//calculate the quantile regression coefficients
 		//sort so that we have a "quantile like distribution"
@@ -905,6 +962,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 
 		positivecount = 0;
 		varPP = 0;
+		meanPP = 0;
 		free(dx);
 		free(dy);
 		free(quant_coeff);
@@ -912,6 +970,7 @@ void get_stats_grid(int* rep, int* L, int* endInfest, int* endIndex, int* gridnb
 	}
 
 	free(gridEmptyCells);
+	free(gridMaxInfestCells);
 }
 
 void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circlenbStats, int* numDiffCircles, int* numDiffCenters, int* circleIndexes, int* circleCounts, double* circlestats){
@@ -941,29 +1000,30 @@ void get_stats_circle(int* rep, int* L, int* endInfest, int* endIndex, int* circ
 				numPP[center][wherePut] = numPP[center][wherePut]+1;
 		}
 
-	double count = 0;
-	double meanPP = 0;
-	double varPP = 0;
-	for(int circle = 0; circle<*numDiffCircles; circle++)
-	{	
-	
-		for(int center = 0; center<*numDiffCenters; center++)
-		{
-			count = circleCounts[(center* *numDiffCircles) + circle];
-			meanPP = meanPP + numPP[center][circle]/count;
-			varPP = varPP + (numPP[center][circle]/count) * (numPP[center][circle]/count);
-		}
+	for(int circle = 0; circle<*numDiffCircles; circle++){	
+	  double sumPP = 0;
+	  double sumSqPP = 0;
+	  int nCenters = 0;
+	  // TODO: should recode that in a two pass way (first compute mean, then variance)
+	  //       as this way of computing can be numerically catastrophic)
+	  //       even if should not be a problem here as meanPP is bounded 0-1
+	  for(int center = 0; center<*numDiffCenters; center++){
+	    int count = circleCounts[(center* *numDiffCircles) + circle];
+	    if(count > 0){ // ignore the center if no neighbors in this circle
+	      double PP = numPP[center][circle]/count;
+	      sumPP += PP;
+	      sumSqPP += PP * PP;
+	      nCenters +=1;
+	    }
+	  }
 
-		meanPP = meanPP / *numDiffCenters;
-		varPP = varPP/(*numDiffCenters - 1) - meanPP*meanPP;
-	
-		// store the mean and standard deviation of the percent positive
-		stats[circle*2] = meanPP;
-		stats[circle*2+1] = sqrt(varPP);
-		meanPP = 0;
-		varPP = 0;
+	  double meanPP = sumPP /nCenters; 
+	  double varPP = (double)nCenters/(double)(nCenters-1) * (sumSqPP/nCenters - meanPP*meanPP);
+
+	  // store the mean and standard deviation of the percent positive
+	  stats[circle*2] = meanPP;
+	  stats[circle*2+1] = sqrt(varPP);
 	}
-	
 } 
 
 void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* infestedInit, int* startInfested, int* cbin, int* cbinas, int* cbinsb, double* stats, int* nbins, int* blockIndex, int* haveBlocks, int* endIndex){  
@@ -987,11 +1047,23 @@ void get_stats_semivar(int *rep, int *nbStats, int* L, int* dist_index, int* inf
 	//	}
 }
 
+// Get stats linked to the number of infested households
 void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int* infestedInit, int* endIndex, int* blockIndex, int* haveBlocks){
 
 	//store the stats in the right place
 	double* stats = infstats + (*rep * *infnbstats);	
-	*(stats + 0) = *endIndex + 1;
+
+	// total number of macroUnits that have at least one microUnit positive
+	int totalMacroUnits = 0;
+	for(int spot = 0; spot < *L; spot++)
+		totalMacroUnits += (infestedInit[spot] > 0);
+	*(stats + 0) = totalMacroUnits;
+
+	// total number of microUnits that are positve
+	*(stats + 1) = *endIndex + 1;
+
+	// total number of microUnits positive / total number of macroUnits positive
+	*(stats + 2) = *(stats + 1) / *(stats + 0);
 
 	if(*haveBlocks == 1){	
 		//now calculate 2 more stats:
@@ -1003,16 +1075,16 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 	
 	    	int infBlockCount = 0;
 		for(int spot = 0; spot < *L; spot++){
-			if(infestedInit[spot] == 1){ 
-	           	 // to count the infested blocks
-	            	 // find the maximum number of infested blocks
-				currentBlock = blockIndex[spot];
-				if(currentBlock > maxBlock)
-					maxBlock = currentBlock;
-				if(currentBlock < minBlock)
-					minBlock = currentBlock;
-			}
-	    	}
+		  if(infestedInit[spot] == 1){ 
+		    // to count the infested blocks
+		    // find the maximum number of infested blocks
+		    currentBlock = blockIndex[spot];
+		    if(currentBlock > maxBlock)
+		      maxBlock = currentBlock;
+		    if(currentBlock < minBlock)
+		      minBlock = currentBlock;
+		  }
+		}
 		
 		int length = (maxBlock - minBlock) + 1;
 		int infBlocks[length];
@@ -1032,33 +1104,11 @@ void get_stats_num_inf(int *rep, int *infnbstats, double* infstats, int* L, int*
 				infBlockCount++;
 		
 		// save the corresponding stats
-		*(stats + 1) = (double)infBlockCount;
-		*(stats + 2) = ((double)(*endIndex + 1))/((double)infBlockCount);
+		*(stats + 4) = (double)infBlockCount;
+		*(stats + 5) = ((double)(*endIndex + 1))/((double)infBlockCount);
 	}	
 }
 
-//=======================================
-// At risk stat
-// - according to dist give the number of points 
-//   within dist of infested
-//=======================================
-
-void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
-
-	// get matrix of indicator of at risk for each household
-	// and each threshold
-	int* at_risk_ind;
-	at_risk_ind = (int *) malloc(sizeof(int)* (*nTr * *L));
-	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
-
-	// transform matrix of indicator in raw stat
-	for ( int ih = 0; ih < *L; ih += 1 ) { 
-		for(int itr=0;itr< *nTr;itr++){
-			at_risk_stats[itr] += at_risk_ind[itr + ih * *nTr ];
-		}
-	}
-	free(at_risk_ind);
-}
 
 //=======================================
 // in at_risk (n*nTr) return for each tr and each node if at risk
@@ -1087,6 +1137,29 @@ void get_at_risk_indicator(int *at_risk,int *n,int *posnodes, int *nPosnodes, do
   // printf("summary in indicator\n");
   // for(int itr=0;itr< *nTr;itr++) printf("%d ",summary[itr]);
   // printf("\n");
+}
+
+//=======================================
+// At risk stat
+// - according to dist give the number of points 
+//   within dist of infested
+//=======================================
+
+void get_at_risk_stat(double* at_risk_stats,int *L,int *posnodes, int *nPosnodes, double*dists,double *trs,int *nTr){
+
+	// get matrix of indicator of at risk for each household
+	// and each threshold
+	int* at_risk_ind;
+	at_risk_ind = (int *) malloc(sizeof(int)* (*nTr * *L));
+	get_at_risk_indicator(at_risk_ind,L,posnodes,nPosnodes,dists,trs,nTr);
+
+	// transform matrix of indicator in raw stat
+	for ( int ih = 0; ih < *L; ih += 1 ) { 
+		for(int itr=0;itr< *nTr;itr++){
+			at_risk_stats[itr] += at_risk_ind[itr + ih * *nTr ];
+		}
+	}
+	free(at_risk_ind);
 }
 
 // use at_risk_stat and polynomial fitting to return the at_risk stats
@@ -1174,6 +1247,7 @@ void percolation_circle(int *Nodes,int *n,double*dists,double *tr){
 	// affiche_tableau(Percolateur,h,l);
 }
 
+// Simulation of the observation process
 void simulObserved(int* L, int* infestedInit, int* endIndex, int* indexInfestInit, double* detectRate, int* seed){
 
 	if(*detectRate<1){ //if we have some error
@@ -1267,9 +1341,7 @@ void multiGilStat(double* probMat, int* useProbMat, double* distMat, double* hal
 	 	if(*simul==0){ // no simulations, just stats 
 	 		break; // to exit loop even if Nrep!=1
 	 	}
-
 	}
-	
 }
 
 void noKernelMultiGilStat(
@@ -1280,6 +1352,7 @@ void noKernelMultiGilStat(
 	int* blockIndex, //blocks if landscape is structured by block 
 	int *simul, //if 1, simulate, if 0, don't
 	int *infested, //houses starting infested
+	int *maxInfest, // max number of infested per unit ("house")
 	double *infestedDens, //ending infestation density (over N runs)
 	int *endIndex, //number infested - 1
 	int *L, //number houses in landscape
@@ -1303,88 +1376,133 @@ void noKernelMultiGilStat(
     	double* detectRate // % of end infested houses that are detected (1 to not remove any houses)
 	){
 
-	// if no blocks but still pass a rate skip
-	// passing rateskip = 0 will prevent gillespie from skipping
-	if(*skipColIndex == 0 && *skipRowPointer==0 && *rateSkipInMove != 0){
-		printf("no skips given but rateSkipInMove!=0\n");
-		return;
-	}
-	
-	int valEndIndex = *endIndex;	
+		int valEndIndex = *endIndex;	
 	int infestedInit[*L];
-  	int indexInfestInit[*L];
 
 	//if atRisk stats are called
 	int noDists = 1; //haven't made distance matrix yet
 	double* dists = NULL; //distance matrix
+	// printf("valEndIndex: %i\n",valEndIndex);
 
-	for(int rep=0; rep< *Nrep; rep++){ // loop simul/stat
-		R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
+	// prep accounting for multiple micro=unit per location
+	int nMicro =0; // total number of micro units
+	for(int i=0; i< *L; i++){
+	  nMicro += maxInfest[i];
+	}
+	int microToMacro[nMicro]; // item = micro, each with location id
+	int k = 0;
+	for(int i=0; i< *L; i++){
+	  for(int j=0; j< maxInfest[i];j++){
+	    microToMacro[k] = i;
+	    k++;
+	  }
+	}
+	// printf("nMicro: %i",nMicro);
+  	int indexInfestInit[nMicro];
 
-	 	// initialisation simul
-	 	for(int h=0;h<*L;h++){
-	 		infestedInit[h]=*(infested+h);
-	 		indexInfestInit[h]=*(indexInfest+h);	
-	 	}
-	 	
-	 	*endIndex=valEndIndex; 
+	int rep = 0;
+	for(rep=0; rep< *Nrep; rep++){ // loop simul/stat
+	    R_CheckUserInterrupt(); // allow killing from R with Ctrl+c
 
-	 	if(*simul==1){ // run a normal simulation
-	 		
-	 		stratGillespie(infestedInit,endIndex,L,rateHopInMove,rateSkipInMove,rateJumpInMove,hopColIndex,hopRowPointer,skipColIndex,skipRowPointer,jumpColIndex,jumpRowPointer,endTime,indexInfestInit,age,rateMove, rateIntro, seed);
+	    if(valEndIndex <0){ // draw init
+		for(int h=0;h<*L;h++){
+		    infestedInit[h]=0;
+		}
+		for(int h=0;h<nMicro;h++){
+		    indexInfestInit[h]=0;	
+		    age[h]=0;
+		}
+		double rand = UNICONG;
+		int h = (int)(rand* (*L));
+		infestedInit[h]=1;
+		indexInfestInit[0]=h;	
+		*endIndex=0; 
+	    }else{ // restore to init
+		// initialisation simul
+		for(int h=0;h<*L;h++){ 
+		    infestedInit[h]=*(infested+h);
+		}
+		for(int h=0;h<nMicro;h++){
+		    indexInfestInit[h]=*(indexInfest+h);	
+		    age[h]=*(age+h);
+		}
 
-			simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
+		*endIndex=valEndIndex; 
+	    }
 
-	 		for(int h=0;h<*L;h++){
-	 			infestedDens[h]+=infestedInit[h];
-	 		}
-	 		
-	 	}
+	    if(*simul==1){ // run a normal simulation
+		// if no blocks but still pass a rate skip
+		// passing rateskip = 0 will prevent gillespie from skipping
+		if(*skipColIndex == -1 && *skipRowPointer== -1 && *rateSkipInMove != 0){
+		        printf("no skips given but rateSkipInMove!=0\n");
+		        return;
+		}
 
-	 	if(*getStats==1){ // calculate the statistics
+		stratGillespie(infestedInit,maxInfest,endIndex,L,
+			rateHopInMove,rateSkipInMove,rateJumpInMove,
+			hopColIndex,hopRowPointer,
+			skipColIndex,skipRowPointer,
+			jumpColIndex,jumpRowPointer,endTime,
+			microToMacro,&nMicro,
+			indexInfestInit,age,rateMove, rateIntro, seed);
 
-			if(*simul!=1){ // if no simulation, need to withhold data and calculated infestedDens here instead 
+		// printf("L: %i, endIndex: %i, dR: %.2f, s %u\n",
+		//	*L,*endIndex,*detectRate,*seed);
+		simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed); // withhold data after simulation 
 
-				simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed);
+		for(int h=0;h<*L;h++){
+		    infestedDens[h]+=infestedInit[h];
+		}		
+	    }
 
-		 		for(int h=0;h<*L;h++){
-	 				infestedDens[h]+=infestedInit[h];
-	 			}
-			}
+	    if(*getStats==1){ // calculate the statistics
 
-			for(int stat=0;stat<*lengthStats; stat++){
+		if(*simul!=1){ // if no simulation, need to withhold data and calculated infestedDens here instead # TODO: that's probably a bad idea
+			// to do that here
 
-				// for every stat that we want, switch case
-				int npos[1];
-				npos[0] = *endIndex + 1;
+		    simulObserved(L, infestedInit, endIndex, indexInfestInit, detectRate, seed);
 
-				switch(matchStats[stat]){
-	 				case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
-					case 2: get_stats_grid(&rep, L, indexInfestInit, endIndex, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
-					case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
-					case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
-							dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
-							if(dists == NULL){
-								printf("cannot (c)allocate memory");
-								return;
-							}		
-							makeDistMat(xs,L,ys,dists);
-							noDists = 0;
-						}
-						get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break;
-					case 5: get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks); break;
-					default: printf("stat that isn't supported yet\n"); break;
+		    for(int h=0;h<*L;h++){
+			infestedDens[h]+=infestedInit[h];
+		    }
+		}
+
+		for(int stat=0;stat<*lengthStats; stat++){
+
+		    // for every stat that we want, switch case
+		    int npos[1];
+		    npos[0] = *endIndex + 1;
+
+		    switch(matchStats[stat]){
+			case 1:	get_stats_semivar(&rep, semivarnbStats, L, indices, infestedInit, infested, cbin, cbinas, cbinsb, semivarstats, nbins, blockIndex, haveBlocks, endIndex); break;
+			case 2: get_stats_grid(&rep, L, infestedInit, maxInfest, gridnbStats, numDiffGrids, gridIndexes, gridNumCells, gridCountCells, numCoeffs, numLmoments, gridstats); break;
+			case 3: get_stats_circle(&rep, L, indexInfestInit, endIndex, circlenbStats, numDiffCircles, numDiffCenters, circleIndexes, circleCounts, circlestats); break; 
+			case 4: if(noDists == 1){ //need to make dist matrix for atRisk stats
+				    dists = (double *) calloc(*L * *L, sizeof(double));  //calloc, or 0 allocate, dist mat
+				    if(dists == NULL){
+					printf("cannot (c)allocate memory");
+					return;
+				    }		
+				    makeDistMat(xs,L,ys,dists);
+				    noDists = 0;
 				}
-			}
-	 	}
+				get_stats_at_risk(&rep, L, indexInfestInit, npos, dists, atRisk_trs, atRisk_ntrs,at_riskStats, ncoefsAtRisk); break;
+			case 5: get_stats_num_inf(&rep, infnbStats, infstats, L, infestedInit, endIndex, blockIndex, haveBlocks); break;
+			default: printf("stat that isn't supported yet\n"); break;
+		    }
+		}
+	    }
 
-	 	if(*simul==0){ // no simulations, just stats 
-	 		break; // to exit loop even if Nrep!=1
-	 	}
+	    if(*simul==0){ // no simulations, just stats 
+		break; // to exit loop even if Nrep!=1
+	    }
 
 	}
-
+	// just in order to see the last replicate
+	for(int h=0;h<*L;h++){
+	    infested[h]=infestedInit[h];
+	}
 
 	if(dists != NULL)
-		free(dists); //free malloc'ed dists
-}
+	    free(dists); //free malloc'ed dists
+	}
